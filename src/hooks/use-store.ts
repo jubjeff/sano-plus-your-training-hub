@@ -1,13 +1,33 @@
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useRef } from "react";
 import { store } from "@/lib/store";
+import { Student, Workout } from "@/types";
 
-export function useStore() {
-  const subscribe = useCallback((cb: () => void) => store.subscribe(cb), []);
-  const getSnapshot = useCallback(() => ({
+interface StoreSnapshot {
+  students: Student[];
+  workouts: Workout[];
+}
+
+let cachedSnapshot: StoreSnapshot = {
+  students: store.getStudents(),
+  workouts: store.getWorkouts(),
+};
+
+store.subscribe(() => {
+  cachedSnapshot = {
     students: store.getStudents(),
     workouts: store.getWorkouts(),
-  }), []);
+  };
+});
 
+function subscribe(cb: () => void) {
+  return store.subscribe(cb);
+}
+
+function getSnapshot() {
+  return cachedSnapshot;
+}
+
+export function useStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot);
 
   return {
