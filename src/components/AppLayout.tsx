@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Users, Dumbbell, DollarSign, Menu, X, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
-import logo from "@/assets/logo.png";
+
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
