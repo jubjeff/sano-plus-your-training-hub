@@ -19,12 +19,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Dumbbell className="h-9 w-9 text-primary" />
-            <span className="font-display text-3xl font-bold tracking-tight">
-              Sano<span className="text-primary">Plus</span>
-            </span>
-          </div>
+          <img src={logo} alt="Sano+" className="h-12 mb-2" />
           <p className="text-sm text-muted-foreground">Gerencie seus alunos e treinos</p>
         </div>
 
