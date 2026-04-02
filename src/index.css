@@ -44,9 +44,9 @@
     --sidebar-ring: 150 12% 55%;
     --sidebar-muted: 215 14% 46%;
 
-    --success: 152 60% 42%;
+    --success: 150 40% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 80% 50%;
     --warning-foreground: 0 0% 100%;
   }
 
