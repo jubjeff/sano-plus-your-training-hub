@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Users, Dumbbell, DollarSign, Menu, X, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
-import logo from "@/assets/logo.png";
+
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="flex h-16 items-center justify-center px-6 border-b border-sidebar-border">
-          <img src={logo} alt="Sano+" className="h-8" />
+          <span className="text-xl font-bold font-display text-sidebar-primary">Sano<span className="text-sidebar-foreground">+</span></span>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
