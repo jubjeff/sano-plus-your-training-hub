@@ -19,7 +19,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <img src={logo} alt="Sano+" className="h-12 mb-2" />
+          <span className="text-3xl font-bold font-display text-primary">Sano<span className="text-foreground">+</span></span>
           <p className="text-sm text-muted-foreground">Gerencie seus alunos e treinos</p>
         </div>
 
