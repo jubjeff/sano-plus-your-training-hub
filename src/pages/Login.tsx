@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -16,11 +15,13 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold font-display text-primary">Sano<span className="text-foreground">+</span></span>
-          <p className="text-sm text-muted-foreground">Gerencie seus alunos e treinos</p>
+          <span className="text-4xl font-bold font-display text-foreground tracking-tight">
+            Sano<span className="text-primary">+</span>
+          </span>
+          <p className="text-sm text-muted-foreground mt-2">Gerencie seus alunos e treinos</p>
         </div>
 
         <div className="rounded-xl bg-card p-6 shadow-lg border">

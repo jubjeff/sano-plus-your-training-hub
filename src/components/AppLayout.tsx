@@ -3,11 +3,10 @@ import { NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Users, Dumbbell, DollarSign, Menu, X, Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 
-
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/alunos", label: "Alunos", icon: Users },
-  { to: "/biblioteca", label: "Biblioteca de Treinos", icon: Dumbbell },
+  { to: "/biblioteca", label: "Planos de Treino", icon: Dumbbell },
 ];
 
 const futureItems = [
@@ -32,8 +31,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-center px-6 border-b border-sidebar-border">
-          <span className="text-xl font-bold font-display text-sidebar-primary">Sano<span className="text-sidebar-foreground">+</span></span>
+        <div className="flex h-16 items-center px-6 border-b border-sidebar-border">
+          <span className="text-xl font-bold font-display text-sidebar-accent-foreground tracking-tight">
+            Sano<span className="text-sidebar-primary">+</span>
+          </span>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
@@ -98,7 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold">
               P
             </div>
             <span className="hidden text-sm font-medium sm:block">Professor</span>
