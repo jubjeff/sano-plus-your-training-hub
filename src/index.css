@@ -4,93 +4,94 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 220 20% 14%;
+    /* Light mode - clean sage palette */
+    --background: 150 8% 96%;
+    --foreground: 192 20% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 14%;
+    --card-foreground: 192 20% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
+    --popover-foreground: 192 20% 16%;
 
-    --primary: 150 12% 55%;
-    --primary-foreground: 200 25% 12%;
+    --primary: 120 8% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 95%;
-    --secondary-foreground: 220 20% 14%;
+    --secondary: 150 6% 92%;
+    --secondary-foreground: 192 20% 16%;
 
-    --muted: 210 15% 93%;
-    --muted-foreground: 215 14% 46%;
+    --muted: 150 6% 90%;
+    --muted-foreground: 120 5% 42%;
 
-    --accent: 25 95% 55%;
+    --accent: 120 8% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 150 12% 55%;
+    --border: 150 6% 86%;
+    --input: 150 6% 86%;
+    --ring: 120 8% 50%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 200 25% 15%;
-    --sidebar-foreground: 150 12% 65%;
-    --sidebar-primary: 150 12% 65%;
-    --sidebar-primary-foreground: 200 25% 12%;
-    --sidebar-accent: 200 22% 20%;
-    --sidebar-accent-foreground: 150 12% 80%;
-    --sidebar-border: 200 20% 22%;
-    --sidebar-ring: 150 12% 55%;
-    --sidebar-muted: 215 14% 46%;
+    --sidebar-background: 192 20% 16%;
+    --sidebar-foreground: 120 5% 70%;
+    --sidebar-primary: 120 8% 69%;
+    --sidebar-primary-foreground: 192 20% 12%;
+    --sidebar-accent: 192 16% 22%;
+    --sidebar-accent-foreground: 120 5% 88%;
+    --sidebar-border: 192 14% 24%;
+    --sidebar-ring: 120 8% 50%;
+    --sidebar-muted: 120 5% 42%;
 
-    --success: 150 40% 42%;
-    --success-foreground: 0 0% 100%;
+    --success: 120 8% 69%;
+    --success-foreground: 192 20% 12%;
     --warning: 38 80% 50%;
     --warning-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 222 25% 8%;
-    --foreground: 210 20% 92%;
+    --background: 192 20% 16%;
+    --foreground: 120 5% 88%;
 
-    --card: 222 22% 12%;
-    --card-foreground: 210 20% 92%;
+    --card: 192 18% 20%;
+    --card-foreground: 120 5% 88%;
 
-    --popover: 222 22% 12%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 192 18% 20%;
+    --popover-foreground: 120 5% 88%;
 
-    --primary: 150 15% 55%;
-    --primary-foreground: 200 25% 10%;
+    --primary: 120 8% 55%;
+    --primary-foreground: 192 20% 10%;
 
-    --secondary: 220 18% 18%;
-    --secondary-foreground: 210 20% 92%;
+    --secondary: 192 14% 24%;
+    --secondary-foreground: 120 5% 88%;
 
-    --muted: 220 16% 16%;
-    --muted-foreground: 215 14% 55%;
+    --muted: 192 16% 22%;
+    --muted-foreground: 120 5% 50%;
 
-    --accent: 25 90% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 120 8% 55%;
+    --accent-foreground: 192 20% 10%;
 
     --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 16% 20%;
-    --input: 220 16% 20%;
-    --ring: 150 15% 55%;
+    --border: 192 14% 26%;
+    --input: 192 14% 26%;
+    --ring: 120 8% 55%;
 
-    --sidebar-background: 200 28% 10%;
-    --sidebar-foreground: 150 12% 60%;
-    --sidebar-primary: 150 15% 60%;
-    --sidebar-primary-foreground: 200 25% 10%;
-    --sidebar-accent: 200 25% 16%;
-    --sidebar-accent-foreground: 150 12% 80%;
-    --sidebar-border: 200 22% 14%;
-    --sidebar-ring: 150 15% 55%;
-    --sidebar-muted: 215 14% 46%;
+    --sidebar-background: 192 22% 13%;
+    --sidebar-foreground: 120 5% 60%;
+    --sidebar-primary: 120 8% 69%;
+    --sidebar-primary-foreground: 192 20% 10%;
+    --sidebar-accent: 192 18% 18%;
+    --sidebar-accent-foreground: 120 5% 88%;
+    --sidebar-border: 192 16% 18%;
+    --sidebar-ring: 120 8% 55%;
+    --sidebar-muted: 120 5% 42%;
 
-    --success: 152 55% 38%;
-    --success-foreground: 0 0% 100%;
+    --success: 120 8% 69%;
+    --success-foreground: 192 20% 10%;
     --warning: 38 85% 45%;
     --warning-foreground: 0 0% 100%;
   }
@@ -103,5 +104,6 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
   }
 }

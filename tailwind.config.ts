@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['"Plus Jakarta Sans"', '"Inter"', 'system-ui', 'sans-serif'],
+        sans: ['"Satoshi"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Satoshi"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
