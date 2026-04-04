@@ -6,6 +6,19 @@ export interface Exercise {
   load: string;
   rest: string;
   notes: string;
+  source?: "manual" | "exercisedb";
+  externalId?: string;
+  instructions?: string;
+  summary?: string;
+  muscles?: string[];
+  equipment?: string[];
+  category?: string | null;
+  bodyPart?: string | null;
+  target?: string | null;
+  secondaryMuscles?: string[];
+  imageUrl?: string | null;
+  mediaUrls?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkoutBlock {

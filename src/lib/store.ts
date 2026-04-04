@@ -5,15 +5,17 @@ function generateId() {
 }
 
 const today = new Date();
-const daysAgo = (n: number) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+
+const daysAgo = (days: number) => {
+  const date = new Date(today);
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split("T")[0];
 };
-const daysFromNow = (n: number) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().split("T")[0];
+
+const daysFromNow = (days: number) => {
+  const date = new Date(today);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
 };
 
 const initialStudents: Student[] = [
@@ -23,7 +25,7 @@ const initialStudents: Student[] = [
     phone: "(11) 98765-4321",
     email: "lucas@email.com",
     objective: "Hipertrofia",
-    notes: "Lesão no ombro esquerdo, evitar supino reto pesado.",
+    notes: "Lesão no ombro esquerdo. Evitar supino reto pesado nas próximas semanas.",
     active: true,
     startDate: daysAgo(90),
     workoutUpdatedAt: daysAgo(25),
@@ -35,7 +37,7 @@ const initialStudents: Student[] = [
         exercises: [
           { id: "e1", name: "Supino inclinado com halteres", sets: 4, reps: "10-12", load: "24kg", rest: "90s", notes: "" },
           { id: "e2", name: "Crucifixo na máquina", sets: 3, reps: "12-15", load: "40kg", rest: "60s", notes: "" },
-          { id: "e3", name: "Tríceps pulley corda", sets: 3, reps: "12", load: "25kg", rest: "60s", notes: "" },
+          { id: "e3", name: "Tríceps pulley com corda", sets: 3, reps: "12", load: "25kg", rest: "60s", notes: "" },
           { id: "e4", name: "Tríceps francês", sets: 3, reps: "10", load: "12kg", rest: "60s", notes: "" },
         ],
       },
@@ -45,7 +47,7 @@ const initialStudents: Student[] = [
         exercises: [
           { id: "e5", name: "Puxada frontal", sets: 4, reps: "10-12", load: "55kg", rest: "90s", notes: "" },
           { id: "e6", name: "Remada curvada", sets: 4, reps: "10", load: "40kg", rest: "90s", notes: "" },
-          { id: "e7", name: "Rosca direta barra", sets: 3, reps: "12", load: "20kg", rest: "60s", notes: "" },
+          { id: "e7", name: "Rosca direta com barra", sets: 3, reps: "12", load: "20kg", rest: "60s", notes: "" },
         ],
       },
     ],
@@ -56,7 +58,7 @@ const initialStudents: Student[] = [
     phone: "(11) 91234-5678",
     email: "ana@email.com",
     objective: "Emagrecimento",
-    notes: "",
+    notes: "Priorizar progressão gradual e aderência semanal.",
     active: true,
     startDate: daysAgo(30),
     workoutUpdatedAt: daysAgo(28),
@@ -79,7 +81,7 @@ const initialStudents: Student[] = [
     phone: "(21) 99876-5432",
     email: "pedro@email.com",
     objective: "Ganho de força",
-    notes: "Treina 5x por semana",
+    notes: "Treina 5x por semana e responde bem a progressões lineares.",
     active: true,
     startDate: daysAgo(180),
     workoutUpdatedAt: daysAgo(10),
@@ -92,7 +94,7 @@ const initialStudents: Student[] = [
     phone: "(31) 98765-1234",
     email: "mariana@email.com",
     objective: "Condicionamento físico",
-    notes: "Voltando após 6 meses parada",
+    notes: "Retomada após 6 meses parada. Monitorar volume na adaptação.",
     active: true,
     startDate: daysAgo(14),
     workoutUpdatedAt: daysAgo(14),
@@ -116,7 +118,7 @@ const initialStudents: Student[] = [
     phone: "(11) 96543-2109",
     email: "juliana@email.com",
     objective: "Emagrecimento",
-    notes: "Parou por motivos pessoais",
+    notes: "Pausou por motivos pessoais.",
     active: false,
     startDate: daysAgo(200),
     workout: [],
@@ -128,29 +130,29 @@ const initialWorkouts: Workout[] = [
     id: "w1",
     name: "Treino Hipertrofia Iniciante",
     objective: "Hipertrofia",
-    notes: "Treino para iniciantes com foco em hipertrofia muscular.",
+    notes: "Treino base para alunos iniciantes com foco em hipertrofia muscular.",
     createdAt: daysAgo(60),
     blocks: [
       {
         id: "wb1",
         name: "Treino A - Superior",
         exercises: [
-          { id: "we1", name: "Supino reto com barra", sets: 4, reps: "8-10", load: "—", rest: "90s", notes: "" },
-          { id: "we2", name: "Puxada frontal", sets: 4, reps: "10-12", load: "—", rest: "90s", notes: "" },
-          { id: "we3", name: "Desenvolvimento com halteres", sets: 3, reps: "10", load: "—", rest: "60s", notes: "" },
-          { id: "we4", name: "Rosca direta", sets: 3, reps: "12", load: "—", rest: "60s", notes: "" },
-          { id: "we5", name: "Tríceps pulley", sets: 3, reps: "12", load: "—", rest: "60s", notes: "" },
+          { id: "we1", name: "Supino reto com barra", sets: 4, reps: "8-10", load: "-", rest: "90s", notes: "" },
+          { id: "we2", name: "Puxada frontal", sets: 4, reps: "10-12", load: "-", rest: "90s", notes: "" },
+          { id: "we3", name: "Desenvolvimento com halteres", sets: 3, reps: "10", load: "-", rest: "60s", notes: "" },
+          { id: "we4", name: "Rosca direta", sets: 3, reps: "12", load: "-", rest: "60s", notes: "" },
+          { id: "we5", name: "Tríceps pulley", sets: 3, reps: "12", load: "-", rest: "60s", notes: "" },
         ],
       },
       {
         id: "wb2",
         name: "Treino B - Inferior",
         exercises: [
-          { id: "we6", name: "Agachamento livre", sets: 4, reps: "8-10", load: "—", rest: "120s", notes: "" },
-          { id: "we7", name: "Leg press 45°", sets: 4, reps: "10-12", load: "—", rest: "90s", notes: "" },
-          { id: "we8", name: "Cadeira extensora", sets: 3, reps: "12-15", load: "—", rest: "60s", notes: "" },
-          { id: "we9", name: "Mesa flexora", sets: 3, reps: "12", load: "—", rest: "60s", notes: "" },
-          { id: "we10", name: "Panturrilha em pé", sets: 4, reps: "15", load: "—", rest: "45s", notes: "" },
+          { id: "we6", name: "Agachamento livre", sets: 4, reps: "8-10", load: "-", rest: "120s", notes: "" },
+          { id: "we7", name: "Leg press 45°", sets: 4, reps: "10-12", load: "-", rest: "90s", notes: "" },
+          { id: "we8", name: "Cadeira extensora", sets: 3, reps: "12-15", load: "-", rest: "60s", notes: "" },
+          { id: "we9", name: "Mesa flexora", sets: 3, reps: "12", load: "-", rest: "60s", notes: "" },
+          { id: "we10", name: "Panturrilha em pé", sets: 4, reps: "15", load: "-", rest: "45s", notes: "" },
         ],
       },
     ],
@@ -159,12 +161,12 @@ const initialWorkouts: Workout[] = [
     id: "w2",
     name: "Treino Emagrecimento Full Body",
     objective: "Emagrecimento",
-    notes: "Circuito para queima calórica.",
+    notes: "Circuito com foco em gasto calórico e eficiência operacional.",
     createdAt: daysAgo(45),
     blocks: [
       {
         id: "wb3",
-        name: "Circuito Único",
+        name: "Circuito único",
         exercises: [
           { id: "we11", name: "Burpee", sets: 3, reps: "15", load: "-", rest: "30s", notes: "" },
           { id: "we12", name: "Agachamento com salto", sets: 3, reps: "15", load: "-", rest: "30s", notes: "" },
@@ -177,7 +179,6 @@ const initialWorkouts: Workout[] = [
   },
 ];
 
-// Simple reactive store using listeners
 type Listener = () => void;
 
 class Store {
@@ -191,13 +192,16 @@ class Store {
   }
 
   private notify() {
-    this.listeners.forEach((l) => l());
+    this.listeners.forEach((listener) => listener());
   }
 
-  // Students
-  getStudents() { return this.students; }
+  getStudents() {
+    return this.students;
+  }
 
-  getStudent(id: string) { return this.students.find((s) => s.id === id); }
+  getStudent(id: string) {
+    return this.students.find((student) => student.id === id);
+  }
 
   addStudent(data: Omit<Student, "id" | "workout">) {
     const student: Student = { ...data, id: generateId(), workout: [] };
@@ -207,33 +211,38 @@ class Store {
   }
 
   updateStudent(id: string, data: Partial<Student>) {
-    this.students = this.students.map((s) => (s.id === id ? { ...s, ...data } : s));
+    this.students = this.students.map((student) => (student.id === id ? { ...student, ...data } : student));
     this.notify();
   }
 
   deleteStudent(id: string) {
-    this.students = this.students.filter((s) => s.id !== id);
+    this.students = this.students.filter((student) => student.id !== id);
     this.notify();
   }
 
   importWorkoutToStudent(studentId: string, workoutId: string) {
-    const workout = this.workouts.find((w) => w.id === workoutId);
+    const workout = this.workouts.find((item) => item.id === workoutId);
     if (!workout) return;
-    const newBlocks = workout.blocks.map((b) => ({
-      ...b,
+
+    const newBlocks = workout.blocks.map((block) => ({
+      ...block,
       id: generateId(),
-      exercises: b.exercises.map((e) => ({ ...e, id: generateId() })),
+      exercises: block.exercises.map((exercise) => ({ ...exercise, id: generateId() })),
     }));
+
     this.updateStudent(studentId, {
       workout: newBlocks,
       workoutUpdatedAt: new Date().toISOString().split("T")[0],
     });
   }
 
-  // Workouts library
-  getWorkouts() { return this.workouts; }
+  getWorkouts() {
+    return this.workouts;
+  }
 
-  getWorkout(id: string) { return this.workouts.find((w) => w.id === id); }
+  getWorkout(id: string) {
+    return this.workouts.find((workout) => workout.id === id);
+  }
 
   addWorkout(data: Omit<Workout, "id" | "createdAt">) {
     const workout: Workout = { ...data, id: generateId(), createdAt: new Date().toISOString().split("T")[0] };
@@ -243,32 +252,34 @@ class Store {
   }
 
   updateWorkout(id: string, data: Partial<Workout>) {
-    this.workouts = this.workouts.map((w) => (w.id === id ? { ...w, ...data } : w));
+    this.workouts = this.workouts.map((workout) => (workout.id === id ? { ...workout, ...data } : workout));
     this.notify();
   }
 
   deleteWorkout(id: string) {
-    this.workouts = this.workouts.filter((w) => w.id !== id);
+    this.workouts = this.workouts.filter((workout) => workout.id !== id);
     this.notify();
   }
 
   duplicateWorkout(id: string) {
-    const workout = this.workouts.find((w) => w.id === id);
+    const workout = this.workouts.find((item) => item.id === id);
     if (!workout) return;
-    const dup: Workout = {
+
+    const duplicate: Workout = {
       ...workout,
       id: generateId(),
       name: `${workout.name} (cópia)`,
       createdAt: new Date().toISOString().split("T")[0],
-      blocks: workout.blocks.map((b) => ({
-        ...b,
+      blocks: workout.blocks.map((block) => ({
+        ...block,
         id: generateId(),
-        exercises: b.exercises.map((e) => ({ ...e, id: generateId() })),
+        exercises: block.exercises.map((exercise) => ({ ...exercise, id: generateId() })),
       })),
     };
-    this.workouts = [dup, ...this.workouts];
+
+    this.workouts = [duplicate, ...this.workouts];
     this.notify();
-    return dup;
+    return duplicate;
   }
 }
 

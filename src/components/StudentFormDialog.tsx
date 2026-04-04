@@ -38,26 +38,29 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
         startDate: student.startDate,
         active: student.active,
       });
-    } else {
-      setForm({
-        name: "",
-        phone: "",
-        email: "",
-        objective: "",
-        notes: "",
-        startDate: new Date().toISOString().split("T")[0],
-        active: true,
-      });
+      return;
     }
+
+    setForm({
+      name: "",
+      phone: "",
+      email: "",
+      objective: "",
+      notes: "",
+      startDate: new Date().toISOString().split("T")[0],
+      active: true,
+    });
   }, [student, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditing) {
+
+    if (isEditing && student) {
       updateStudent(student.id, form);
     } else {
       addStudent(form);
     }
+
     onOpenChange(false);
   };
 
@@ -65,14 +68,14 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">{isEditing ? "Editar Aluno" : "Novo Aluno"}</DialogTitle>
+          <DialogTitle className="font-display">{isEditing ? "Editar aluno" : "Novo aluno"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Nome completo</Label>
             <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Telefone</Label>
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -84,7 +87,11 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
           </div>
           <div className="space-y-2">
             <Label>Objetivo</Label>
-            <Input value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} placeholder="Ex: Hipertrofia, Emagrecimento..." />
+            <Input
+              value={form.objective}
+              onChange={(e) => setForm({ ...form, objective: e.target.value })}
+              placeholder="Ex: Hipertrofia, emagrecimento..."
+            />
           </div>
           <div className="space-y-2">
             <Label>Observações</Label>

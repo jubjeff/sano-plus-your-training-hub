@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useRef } from "react";
+import { useSyncExternalStore } from "react";
 import { store } from "@/lib/store";
 import { Student, Workout } from "@/types";
 

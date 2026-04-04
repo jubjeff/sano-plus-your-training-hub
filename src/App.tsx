@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Students from "@/pages/Students";
 import StudentProfile from "@/pages/StudentProfile";
 import WorkoutLibrary from "@/pages/WorkoutLibrary";
+import WorkoutEditor from "@/pages/WorkoutEditor";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,10 @@ const App = () => (
           <Route
             path="/biblioteca"
             element={<AppLayout><WorkoutLibrary /></AppLayout>}
+          />
+          <Route
+            path="/biblioteca/:id/editar"
+            element={<AppLayout><WorkoutEditor /></AppLayout>}
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
