@@ -32,7 +32,7 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      const currentUser = await login(parsed.data);
+      const currentUser = await login(parsed.data as { email: string; password: string });
       const params = new URLSearchParams(location.search);
       const redirectTo =
         sanitizeInternalRedirectPath(params.get("redirect"), "") ||

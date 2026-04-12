@@ -846,20 +846,17 @@ export const authService = {
             }
 
             if (currentUser.linkedStudentId) {
-              await supabase.rpc("touch_student_last_login", {
-                p_student_id: currentUser.linkedStudentId,
-              }).catch(() => undefined);
+              try { await supabase.rpc("touch_student_last_login", { p_student_id: currentUser.linkedStudentId }); } catch {}
             }
           }
 
           if (currentUser) return currentUser;
 
-          const { data: profileRows } = await supabase
-            .from("profiles")
-            .select("user_id")
-            .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
-            .limit(1)
-            .catch(() => ({ data: null }));
+          let profileRows: any[] | null = null;
+          try {
+            const res = await supabase.from("profiles").select("user_id").eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "").limit(1);
+            profileRows = res.data;
+          } catch {}
 
           if (profileRows && profileRows.length > 0) {
             await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
@@ -964,9 +961,7 @@ export const authService = {
         p_student_id: currentUser.linkedStudentId,
       }).throwOnError();
 
-      await supabase.rpc("touch_student_last_login", {
-        p_student_id: currentUser.linkedStudentId,
-      }).catch(() => undefined);
+      try { await supabase.rpc("touch_student_last_login", { p_student_id: currentUser.linkedStudentId }); } catch {}
 
       return resolveSupabaseAppUser();
     }
