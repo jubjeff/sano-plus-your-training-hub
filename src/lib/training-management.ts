@@ -66,7 +66,7 @@ export function normalizeProgressMode(
   progressMode: TrainingProgressMode | null | undefined,
 ): TrainingProgressMode {
   const allowed = getAllowedProgressModes(structureType);
-  return allowed.includes(progressMode as (typeof allowed)[number]) ? (progressMode as TrainingProgressMode) : allowed[0];
+  return (allowed as readonly string[]).includes(progressMode as string) ? (progressMode as TrainingProgressMode) : allowed[0] as TrainingProgressMode;
 }
 
 export function normalizeWorkoutBlocks(
