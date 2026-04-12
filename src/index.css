@@ -97,12 +97,18 @@
 }
 
 @layer base {
+  html {
+    min-height: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
   * {
     @apply border-border;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased overflow-x-hidden;
     font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
     background-image:
       radial-gradient(circle at top left, hsl(var(--primary) / 0.16), transparent 28%),
@@ -113,6 +119,7 @@
 
   #root {
     min-height: 100vh;
+    overflow-x: clip;
   }
 }
 
@@ -122,10 +129,30 @@
   }
 
   .metric-card {
-    @apply rounded-[28px] border border-border/60 bg-card/80 p-5 shadow-[0_20px_65px_-40px_rgba(15,23,42,0.8)] backdrop-blur;
+    @apply rounded-[24px] border border-border/60 bg-card/80 p-4 shadow-[0_20px_65px_-40px_rgba(15,23,42,0.8)] backdrop-blur sm:rounded-[28px] sm:p-5;
   }
 
   .section-shell {
-    @apply rounded-[30px] border border-border/60 bg-card/70 shadow-[0_28px_80px_-50px_rgba(15,23,42,0.85)] backdrop-blur;
+    @apply rounded-[24px] border border-border/60 bg-card/70 shadow-[0_28px_80px_-50px_rgba(15,23,42,0.85)] backdrop-blur sm:rounded-[30px];
+  }
+
+  .page-shell {
+    @apply animate-fade-in space-y-5 sm:space-y-6;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-end lg:justify-between;
+  }
+
+  .page-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .dialog-form-grid {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2;
+  }
+
+  .dialog-scroll-panel {
+    @apply min-h-0 overflow-y-auto;
   }
 }

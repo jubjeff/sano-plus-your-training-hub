@@ -1,24 +1,42 @@
+import { useMemo, useState } from "react";
 import { useStore } from "@/hooks/use-store";
-import { Users, UserCheck, UserX, RefreshCw, Clock, ArrowRight, Dumbbell } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
+import { buildCoachRanking, getEngagementLabel, getEngagementTone } from "@/lib/training-management";
+import { getFinancialStatusLabel, getStudentFinancialStatus } from "@/lib/student-dashboard";
+import { ArrowRight, BellRing, Clock, Dumbbell, RefreshCw, UserCheck, UserX, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const { students, workouts } = useStore();
+  const { students, workouts, checkIns, alerts, markCoachAlertRead } = useStore();
   const navigate = useNavigate();
+  const [rankingFilter, setRankingFilter] = useState<"top" | "risk" | "blocked" | "goal">("top");
 
   const totalStudents = students.length;
-  const activeStudents = students.filter((student) => student.active).length;
-  const inactiveStudents = students.filter((student) => !student.active).length;
+  const activeStudents = students.filter((student) => student.studentStatus === "active").length;
+  const inactiveStudents = students.filter((student) => student.studentStatus !== "active").length;
 
   const needsWorkoutChange = students
-    .filter((student) => student.active && student.nextWorkoutChange)
+    .filter((student) => student.studentStatus === "active" && student.nextWorkoutChange)
     .sort((a, b) => (a.nextWorkoutChange || "").localeCompare(b.nextWorkoutChange || ""))
     .slice(0, 5);
 
   const recentStudents = [...students]
     .sort((a, b) => b.startDate.localeCompare(a.startDate))
     .slice(0, 5);
+
+  const ranking = useMemo(() => buildCoachRanking(students, checkIns), [checkIns, students]);
+  const filteredRanking = useMemo(() => {
+    switch (rankingFilter) {
+      case "risk":
+        return ranking.filter((entry) => entry.stats.engagementStatus !== "active");
+      case "blocked":
+        return ranking.filter((entry) => entry.financialBlocked);
+      case "goal":
+        return ranking.filter((entry) => entry.stats.weeklyGoalAchieved);
+      default:
+        return ranking;
+    }
+  }, [ranking, rankingFilter]);
 
   const stats = [
     { label: "Total de alunos", value: totalStudents, icon: Users, tone: "text-primary" },
@@ -28,17 +46,17 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell">
       <section className="section-shell overflow-hidden">
-        <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
           <div className="space-y-4">
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
               Dashboard
             </span>
             <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight">Visão geral da sua operação</h1>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">Visao geral da sua operacao</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Priorize alunos que precisam de atenção, acompanhe a cadência de troca de treinos e mantenha o fluxo diário do Sano+ sob controle.
+                Priorize alunos que precisam de atencao, acompanhe a cadencia de troca de treinos e mantenha o fluxo diario do Sano+ sob controle.
               </p>
             </div>
           </div>
@@ -46,7 +64,7 @@ export default function Dashboard() {
           <div className="rounded-[28px] border border-border/60 bg-background/70 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Foco de hoje</p>
             <p className="mt-3 text-3xl font-semibold text-foreground">{needsWorkoutChange.length}</p>
-            <p className="mt-1 text-sm text-muted-foreground">alunos com revisão próxima de treino</p>
+            <p className="mt-1 text-sm text-muted-foreground">alunos com revisao proxima de treino</p>
             <button
               onClick={() => navigate("/alunos")}
               className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
@@ -73,7 +91,6 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="section-shell p-6 lg:p-7">
           <div className="mb-5 flex items-center gap-2">
@@ -93,11 +110,11 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">
-                      {getInitials(student.name)}
+                      {getInitials(student.fullName)}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">{student.name}</p>
-                      <p className="text-xs text-muted-foreground">{student.objective}</p>
+                      <p className="text-sm font-semibold">{student.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{student.goal}</p>
                     </div>
                   </div>
                   <span className="rounded-full border border-border/60 bg-card px-3 py-1 text-xs font-semibold text-foreground">
@@ -123,18 +140,103 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">
-                    {getInitials(student.name)}
+                    {getInitials(student.fullName)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{student.name}</p>
+                    <p className="text-sm font-semibold">{student.fullName}</p>
                     <p className="text-xs text-muted-foreground">Entrou em {formatDate(student.startDate)}</p>
                   </div>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${student.active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                  {student.active ? "Ativo" : "Inativo"}
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${student.studentStatus === "active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                  {student.studentStatus === "active" ? "Ativo" : "Inativo"}
                 </span>
               </button>
             ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="section-shell p-6 lg:p-7">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5 text-primary" />
+              <div>
+                <h2 className="font-display text-xl font-semibold">Ranking de adesao</h2>
+                <p className="text-sm text-muted-foreground">Leia rapidamente quem esta performando bem e quem precisa de atencao.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "top" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("top")}>Mais engajados</button>
+              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "risk" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("risk")}>Em risco</button>
+              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "blocked" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("blocked")}>Bloqueados</button>
+              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "goal" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("goal")}>Meta concluida</button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {filteredRanking.slice(0, 6).map(({ student, stats, financialBlocked }) => (
+              <button
+                key={student.id}
+                onClick={() => navigate(`/alunos/${student.id}`)}
+                className="flex w-full items-center justify-between gap-4 rounded-[22px] border border-border/60 bg-background/70 px-4 py-4 text-left transition-all hover:border-primary/30 hover:bg-muted/60"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">
+                    {getInitials(student.fullName)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{student.fullName}</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getEngagementTone(stats.engagementStatus)}`}>{getEngagementLabel(stats.engagementStatus)}</span>
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">Semana {stats.weeklyCheckIns}/{stats.weeklyGoal}</span>
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">Streak {stats.currentStreak}</span>
+                      {financialBlocked ? <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-[11px] text-destructive">Bloqueado</span> : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right text-sm">
+                  <p className="font-semibold">{stats.attendanceRate}%</p>
+                  <p className="text-xs text-muted-foreground">{stats.daysWithoutCheckIn} dia{stats.daysWithoutCheckIn === 1 ? "" : "s"} sem check-in</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{getFinancialStatusLabel(getStudentFinancialStatus(student))}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="section-shell p-6 lg:p-7">
+          <div className="mb-5 flex items-center gap-2">
+            <BellRing className="h-5 w-5 text-warning" />
+            <div>
+              <h2 className="font-display text-xl font-semibold">Alertas de acompanhamento</h2>
+              <p className="text-sm text-muted-foreground">Alertas automaticos sobre desengajamento, meta e bloqueio financeiro.</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {alerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum alerta ativo no momento.</p>
+            ) : (
+              alerts.slice(0, 6).map((alert) => {
+                const student = students.find((item) => item.id === alert.studentId);
+                return (
+                  <div key={alert.id} className={`rounded-[22px] border px-4 py-4 ${alert.isRead ? "border-border/60 bg-background/60" : "border-warning/20 bg-warning/10"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{alert.title}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{alert.description}</p>
+                        {student ? <button onClick={() => navigate(`/alunos/${student.id}`)} className="mt-3 text-xs font-semibold text-primary">Abrir perfil do aluno</button> : null}
+                      </div>
+                      {!alert.isRead ? (
+                        <button onClick={() => markCoachAlertRead(alert.id)} className="text-xs font-semibold text-primary">
+                          Marcar como lido
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
       </div>

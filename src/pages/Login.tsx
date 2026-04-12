@@ -1,75 +1,114 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Moon, Sun } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import AuthShell from "@/components/AuthShell";
+import PasswordField from "@/components/PasswordField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useTheme } from "@/hooks/use-theme";
+import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthServiceError } from "@/lib/auth-service";
+import { loginSchema, mapZodErrors } from "@/lib/auth-validators";
+import { sanitizeInternalRedirectPath } from "@/lib/supabase/auth-redirects";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
-  const [showPassword, setShowPassword] = useState(false);
+  const location = useLocation();
+  const { login } = useAuth();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate("/dashboard");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const parsed = loginSchema.safeParse(form);
+    if (!parsed.success) {
+      setErrors(mapZodErrors(parsed.error));
+      return;
+    }
+
+    setErrors({});
+    setIsSubmitting(true);
+
+    try {
+      const currentUser = await login(parsed.data);
+      const params = new URLSearchParams(location.search);
+      const redirectTo =
+        sanitizeInternalRedirectPath(params.get("redirect"), "") ||
+        (currentUser?.role === "student"
+          ? currentUser.mustChangePassword
+            ? "/primeiro-acesso"
+            : "/aluno/dashboard"
+          : currentUser?.teacherHasActiveAccess === false
+          ? "/perfil"
+          : "/dashboard");
+      toast.success("Acesso liberado com sucesso.");
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      if (error instanceof AuthServiceError) {
+        setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
+      } else {
+        setErrors({ form: "Nao foi possivel entrar agora. Tente novamente." });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-4">
-      <button
-        onClick={toggleTheme}
-        aria-label={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
-        className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-[20px] border border-border/60 bg-card/70 text-muted-foreground transition-colors hover:text-foreground sm:right-6 sm:top-6"
-      >
-        {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-      </button>
-
-      <div className="w-full max-w-sm animate-fade-in">
-        <div className="mb-8 flex flex-col items-center">
-          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Sano+ workspace
-          </span>
-          <span className="mt-4 font-display text-4xl font-bold tracking-tight text-foreground">
-            Sano<span className="text-primary">+</span>
-          </span>
-          <p className="mt-2 text-sm text-muted-foreground">Gerencie seus alunos e treinos com uma experiência premium</p>
+    <AuthShell
+      title="Acesse sua conta"
+      subtitle="Entre com seguranca para acompanhar alunos, treinos e a operacao diaria do Sano+."
+      footer={
+        <span>
+          Novo por aqui?{" "}
+          <Link to="/criar-conta" className="font-medium text-primary transition-colors hover:text-primary/80">
+            Criar conta
+          </Link>
+        </span>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={form.email}
+            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+            placeholder="seu@email.com"
+            className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+          />
+          {errors.email ? <p className="text-xs font-medium text-destructive">{errors.email}</p> : null}
         </div>
 
-        <div className="section-shell p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="seu@email.com" defaultValue="professor@sanoplus.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  defaultValue="123456"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" className="w-full">
-              Entrar
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            MVP de demonstração. Clique em Entrar para acessar.
-          </p>
+        <div className="space-y-2">
+          <Label htmlFor="password">Senha</Label>
+          <PasswordField
+            id="password"
+            autoComplete="current-password"
+            value={form.password}
+            onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+            placeholder="Digite sua senha"
+            error={errors.password}
+          />
+          {errors.password ? <p className="text-xs font-medium text-destructive">{errors.password}</p> : null}
         </div>
-      </div>
-    </div>
+
+        <div className="flex items-center justify-end">
+          <Link to="/esqueci-senha" className="text-sm font-medium text-primary transition-colors hover:text-primary/80">
+            Esqueci minha senha
+          </Link>
+        </div>
+
+        {errors.form ? <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{errors.form}</p> : null}
+
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Entrando..." : "Entrar"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

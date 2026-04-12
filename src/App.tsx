@@ -1,52 +1,79 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AppLayout from "@/components/AppLayout";
+import FirstAccessRoute from "@/components/FirstAccessRoute";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import PublicOnlyRoute from "@/components/PublicOnlyRoute";
+import RoleRoute from "@/components/RoleRoute";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import AppLayout from "@/components/AppLayout";
-import Login from "@/pages/Login";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Dashboard from "@/pages/Dashboard";
-import Students from "@/pages/Students";
-import StudentProfile from "@/pages/StudentProfile";
-import WorkoutLibrary from "@/pages/WorkoutLibrary";
-import WorkoutEditor from "@/pages/WorkoutEditor";
+import AuthCallback from "@/pages/AuthCallback";
+import FirstAccessPassword from "@/pages/FirstAccessPassword";
+import ForgotPassword from "@/pages/ForgotPassword";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
-
-const queryClient = new QueryClient();
+import Profile from "@/pages/Profile";
+import Register from "@/pages/Register";
+import ResetPassword from "@/pages/ResetPassword";
+import StudentPortal from "@/pages/StudentPortal";
+import StudentProfile from "@/pages/StudentProfile";
+import Students from "@/pages/Students";
+import WorkoutEditor from "@/pages/WorkoutEditor";
+import WorkoutLibrary from "@/pages/WorkoutLibrary";
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+  <TooltipProvider>
+    <Toaster />
+    <Sonner />
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+          <Route path="/criar-conta" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          <Route path="/esqueci-senha" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+          <Route path="/forgot-password" element={<Navigate to="/esqueci-senha" replace />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
+          <Route path="/reset-password" element={<Navigate to="/redefinir-senha" replace />} />
+          <Route path="/update-password" element={<Navigate to="/redefinir-senha" replace />} />
+          <Route path="/primeiro-acesso" element={<ProtectedRoute><FirstAccessRoute><FirstAccessPassword /></FirstAccessRoute></ProtectedRoute>} />
           <Route
             path="/dashboard"
-            element={<AppLayout><Dashboard /></AppLayout>}
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><Dashboard /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route
+            path="/perfil"
+            element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/aluno/dashboard"
+            element={<ProtectedRoute><RoleRoute role="student"><AppLayout><StudentPortal /></AppLayout></RoleRoute></ProtectedRoute>}
+          />
+          <Route path="/area-do-aluno" element={<Navigate to="/aluno/dashboard" replace />} />
+          <Route
             path="/alunos"
-            element={<AppLayout><Students /></AppLayout>}
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><Students /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route
             path="/alunos/:id"
-            element={<AppLayout><StudentProfile /></AppLayout>}
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><StudentProfile /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route
             path="/biblioteca"
-            element={<AppLayout><WorkoutLibrary /></AppLayout>}
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><WorkoutLibrary /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route
             path="/biblioteca/:id/editar"
-            element={<AppLayout><WorkoutEditor /></AppLayout>}
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><WorkoutEditor /></AppLayout></RoleRoute></ProtectedRoute>}
           />
+          <Route path="/home" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+    </AuthProvider>
+  </TooltipProvider>
 );
 
 export default App;
