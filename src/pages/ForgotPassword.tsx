@@ -31,7 +31,7 @@ export default function ForgotPassword() {
     setIsSubmitting(true);
 
     try {
-      const result = await requestPasswordReset(parsed.data);
+      const result = await requestPasswordReset(parsed.data as { email: string });
       setIssuedToken(result.token);
       setSubmittedEmail(parsed.data.email);
       toast.success("Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.");
