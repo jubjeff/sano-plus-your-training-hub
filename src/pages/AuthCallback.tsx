@@ -7,6 +7,7 @@ import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
 import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 
 const RECOVERY_PENDING_STORAGE_KEY = "sano-recovery-pending";
+const RECOVERY_STARTED_AT_STORAGE_KEY = "sano-recovery-started-at";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -53,8 +54,10 @@ export default function AuthCallback() {
 
         if (isRecoveryFlow) {
           window.sessionStorage.setItem(RECOVERY_PENDING_STORAGE_KEY, "true");
+          window.sessionStorage.setItem(RECOVERY_STARTED_AT_STORAGE_KEY, new Date().toISOString());
         } else {
           window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
+          window.sessionStorage.removeItem(RECOVERY_STARTED_AT_STORAGE_KEY);
           await refreshUser();
         }
 

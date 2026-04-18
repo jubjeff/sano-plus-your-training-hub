@@ -13,6 +13,8 @@ import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supa
 import { mapZodErrors, resetPasswordSchema } from "@/lib/auth-validators";
 
 const RECOVERY_PENDING_STORAGE_KEY = "sano-recovery-pending";
+const RECOVERY_STARTED_AT_STORAGE_KEY = "sano-recovery-started-at";
+const RECOVERY_LINK_WINDOW_MS = 5 * 60 * 1000;
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -20,7 +22,6 @@ export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
   const tokenHash = useMemo(() => searchParams.get("token_hash")?.trim() ?? "", [searchParams]);
-  const recoveryType = useMemo(() => searchParams.get("type")?.trim() ?? "", [searchParams]);
   const recoveryHashError = useMemo(() => {
     if (typeof window === "undefined") {
       return null;
@@ -48,11 +49,20 @@ export default function ResetPassword() {
     recoveryHashError ?? (hasSupabaseRuntimeConfig() || token || tokenHash ? null : "O link de redefinicao esta incompleto ou invalido."),
   );
 
+  const clearRecoveryState = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
+    window.sessionStorage.removeItem(RECOVERY_STARTED_AT_STORAGE_KEY);
+  };
+
   useEffect(() => {
     let active = true;
 
     const validateRecoverySession = async () => {
-      if (!hasSupabaseRuntimeConfig() || token || tokenHash || recoveryHashError) {
+      if (!hasSupabaseRuntimeConfig() || token || recoveryHashError) {
         return;
       }
 
@@ -62,8 +72,41 @@ export default function ResetPassword() {
       try {
         const supabase = getSupabaseClient();
         const recoveryPending = window.sessionStorage.getItem(RECOVERY_PENDING_STORAGE_KEY) === "true";
+        const recoveryStartedAt = window.sessionStorage.getItem(RECOVERY_STARTED_AT_STORAGE_KEY);
+        const recoveryAge = recoveryStartedAt ? Date.now() - new Date(recoveryStartedAt).getTime() : 0;
 
-        for (let attempt = 0; attempt < (recoveryPending ? 5 : 1); attempt += 1) {
+        if (recoveryStartedAt && (Number.isNaN(recoveryAge) || recoveryAge > RECOVERY_LINK_WINDOW_MS)) {
+          await supabase.auth.signOut();
+          clearRecoveryState();
+          if (active) {
+            setTokenError("O link de redefinicao expirou. Solicite um novo link e tente novamente.");
+          }
+          return;
+        }
+
+        if (tokenHash) {
+          const {
+            data: { session: currentSession },
+          } = await supabase.auth.getSession();
+
+          if (!currentSession) {
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: "recovery",
+            });
+
+            if (verifyError) {
+              throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao expirou ou ja foi utilizado.");
+            }
+          }
+
+          window.sessionStorage.setItem(RECOVERY_PENDING_STORAGE_KEY, "true");
+          if (!recoveryStartedAt) {
+            window.sessionStorage.setItem(RECOVERY_STARTED_AT_STORAGE_KEY, new Date().toISOString());
+          }
+        }
+
+        for (let attempt = 0; attempt < (recoveryPending || tokenHash ? 5 : 1); attempt += 1) {
           const { data, error } = await supabase.auth.getSession();
 
           if (error) {
@@ -83,11 +126,13 @@ export default function ResetPassword() {
         }
 
         if (active) {
+          clearRecoveryState();
           setTokenError("O link de redefinicao expirou ou nao foi validado corretamente.");
         }
       } catch (error) {
         if (active) {
           const message = error instanceof Error ? error.message : "Nao foi possivel validar o link de redefinicao.";
+          clearRecoveryState();
           setTokenError(message);
         }
       } finally {
@@ -123,20 +168,20 @@ export default function ResetPassword() {
     setIsSubmitting(true);
 
     try {
-      if (hasSupabaseRuntimeConfig() && tokenHash) {
+      if (hasSupabaseRuntimeConfig()) {
         const supabase = getSupabaseClient();
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: recoveryType === "recovery" ? "recovery" : "recovery",
-        });
+        const recoveryStartedAt = window.sessionStorage.getItem(RECOVERY_STARTED_AT_STORAGE_KEY);
+        const recoveryAge = recoveryStartedAt ? Date.now() - new Date(recoveryStartedAt).getTime() : Number.POSITIVE_INFINITY;
 
-        if (verifyError) {
+        if (Number.isNaN(recoveryAge) || recoveryAge > RECOVERY_LINK_WINDOW_MS) {
+          await supabase.auth.signOut();
+          clearRecoveryState();
           throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao expirou ou ja foi utilizado.");
         }
       }
 
       await resetPassword({ token, password: parsed.data.password });
-      window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
+      clearRecoveryState();
       toast.success("Senha redefinida com sucesso. Entre com sua nova senha para continuar.");
       navigate("/?reset=success", { replace: true });
     } catch (error) {
@@ -154,6 +199,21 @@ export default function ResetPassword() {
     }
   };
 
+  const handleRequestNewLink = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    clearRecoveryState();
+
+    if (hasSupabaseRuntimeConfig()) {
+      try {
+        await getSupabaseClient().auth.signOut();
+      } catch {
+        // noop
+      }
+    }
+
+    navigate("/esqueci-senha");
+  };
+
   return (
     <AuthShell
       title="Defina uma nova senha"
@@ -161,7 +221,7 @@ export default function ResetPassword() {
       footer={
         <span>
           Precisa de um novo link?{" "}
-          <Link to="/esqueci-senha" className="font-medium text-primary transition-colors hover:text-primary/80">
+          <Link to="/esqueci-senha" onClick={handleRequestNewLink} className="font-medium text-primary transition-colors hover:text-primary/80">
             Solicitar novamente
           </Link>
         </span>
