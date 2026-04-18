@@ -56,9 +56,7 @@ async function requestPasswordReset(serviceRoleClient: ReturnType<typeof createS
   const { data, error } = await serviceRoleClient.auth.admin.generateLink({
     type: "recovery",
     email: input.email,
-    options: {
-      redirectTo: input.redirectTo,
-    },
+    redirectTo: input.redirectTo,
   });
 
   if (error) {
