@@ -24,6 +24,7 @@ import type { DatabaseUserProfile } from "@/types/profile";
 const AUTH_DB_STORAGE_KEY = "sano-plus-auth-db";
 const AUTH_SESSION_STORAGE_KEY = "sano-plus-auth-session";
 const SUPABASE_PROFILE_AVATAR_BUCKET = "profile-avatars";
+const LOCAL_AUTH_FALLBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 type StoredAuthUser = AuthUser & {
   password: string;
@@ -86,6 +87,30 @@ type SupabaseStudentAccessRow = {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function canUseLocalAuthFallback() {
+  if (hasSupabaseRuntimeConfig()) {
+    return false;
+  }
+
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return LOCAL_AUTH_FALLBACK_HOSTS.has(window.location.hostname);
+}
+
+function assertPublishedAuthIsConfigured() {
+  if (hasSupabaseRuntimeConfig() || canUseLocalAuthFallback()) {
+    return;
+  }
+
+  throw new AuthServiceError(
+    "auth_not_configured",
+    "form",
+    "A autenticacao deste ambiente publicado nao foi configurada corretamente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na hospedagem antes de testar cadastro, login ou recuperacao de senha.",
+  );
 }
 
 function generateId(prefix = "id") {
@@ -830,10 +855,24 @@ export class AuthServiceError extends Error {
   }
 }
 
+function isEmailRateLimitError(error: { message?: string | null; code?: string | null; status?: number | null }) {
+  const message = String(error.message ?? "").toLowerCase();
+  const code = String(error.code ?? "").toLowerCase();
+  return code.includes("rate_limit") || message.includes("rate limit") || Number(error.status ?? 0) === 429;
+}
+
 export const authService = {
   async getAuthSnapshot() {
     if (hasSupabaseRuntimeConfig()) {
       return getSupabaseResolvedAuthState();
+    }
+
+    if (!canUseLocalAuthFallback()) {
+      return {
+        session: null,
+        user: null,
+        profile: null,
+      };
     }
 
     return getLocalResolvedAuthState();
@@ -855,7 +894,7 @@ export const authService = {
   },
 
   async register(input: RegisterInput): Promise<AuthUser | null> {
-    if (!hasSupabaseRuntimeConfig()) {
+    if (canUseLocalAuthFallback()) {
       const db = loadDatabase();
       const email = normalizeEmail(input.email);
 
@@ -869,6 +908,8 @@ export const authService = {
       updateLocalSessionForUser(user.id);
       return stripSensitiveFields(user);
     }
+
+    assertPublishedAuthIsConfigured();
 
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
@@ -889,6 +930,14 @@ export const authService = {
 
     if (error) {
       const normalizedMessage = error.message.toLowerCase();
+
+      if (isEmailRateLimitError(error)) {
+        throw new AuthServiceError(
+          "email_rate_limited",
+          "form",
+          "Voce atingiu o limite temporario de envio de e-mails. Aguarde alguns minutos antes de tentar novamente.",
+        );
+      }
 
       if (normalizedMessage.includes("already registered") || normalizedMessage.includes("already been registered") || normalizedMessage.includes("already exists")) {
         throw new AuthServiceError("email_in_use", "email", "Ja existe uma conta com este e-mail.");
@@ -950,6 +999,10 @@ export const authService = {
       return currentUser;
     }
 
+    if (!canUseLocalAuthFallback()) {
+      assertPublishedAuthIsConfigured();
+    }
+
     const db = loadDatabase();
     const email = normalizeEmail(input.email);
     const user = db.users.find((entry) => normalizeEmail(entry.email) === email);
@@ -995,6 +1048,14 @@ export const authService = {
       });
 
       if (error) {
+        if (isEmailRateLimitError(error)) {
+          throw new AuthServiceError(
+            "password_reset_rate_limited",
+            "form",
+            "Voce atingiu o limite temporario de envio de e-mails. Aguarde alguns minutos antes de solicitar outro link.",
+          );
+        }
+
         throw new AuthServiceError("password_reset_request_failed", "form", error.message);
       }
 
@@ -1002,6 +1063,10 @@ export const authService = {
         token: "",
         message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
       };
+    }
+
+    if (!canUseLocalAuthFallback()) {
+      assertPublishedAuthIsConfigured();
     }
 
     const db = loadDatabase();
@@ -1047,6 +1112,10 @@ export const authService = {
 
       await supabase.auth.signOut();
       return null;
+    }
+
+    if (!canUseLocalAuthFallback()) {
+      assertPublishedAuthIsConfigured();
     }
 
     const db = loadDatabase();
