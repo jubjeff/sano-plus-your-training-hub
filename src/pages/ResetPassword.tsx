@@ -19,6 +19,8 @@ export default function ResetPassword() {
   const { resetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
+  const tokenHash = useMemo(() => searchParams.get("token_hash")?.trim() ?? "", [searchParams]);
+  const recoveryType = useMemo(() => searchParams.get("type")?.trim() ?? "", [searchParams]);
   const recoveryHashError = useMemo(() => {
     if (typeof window === "undefined") {
       return null;
@@ -41,16 +43,16 @@ export default function ResetPassword() {
   const [form, setForm] = useState({ password: "", confirmPassword: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(hasSupabaseRuntimeConfig() && !token);
+  const [isCheckingSession, setIsCheckingSession] = useState(hasSupabaseRuntimeConfig() && !token && !tokenHash);
   const [tokenError, setTokenError] = useState<string | null>(
-    recoveryHashError ?? (hasSupabaseRuntimeConfig() || token ? null : "O link de redefinicao esta incompleto ou invalido."),
+    recoveryHashError ?? (hasSupabaseRuntimeConfig() || token || tokenHash ? null : "O link de redefinicao esta incompleto ou invalido."),
   );
 
   useEffect(() => {
     let active = true;
 
     const validateRecoverySession = async () => {
-      if (!hasSupabaseRuntimeConfig() || token || recoveryHashError) {
+      if (!hasSupabaseRuntimeConfig() || token || tokenHash || recoveryHashError) {
         return;
       }
 
@@ -100,12 +102,12 @@ export default function ResetPassword() {
     return () => {
       active = false;
     };
-  }, [token, recoveryHashError]);
+  }, [token, tokenHash, recoveryHashError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!token && !hasSupabaseRuntimeConfig()) {
+    if (!token && !tokenHash && !hasSupabaseRuntimeConfig()) {
       setTokenError("O link de redefinicao esta incompleto ou invalido.");
       return;
     }
@@ -121,6 +123,18 @@ export default function ResetPassword() {
     setIsSubmitting(true);
 
     try {
+      if (hasSupabaseRuntimeConfig() && tokenHash) {
+        const supabase = getSupabaseClient();
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: recoveryType === "recovery" ? "recovery" : "recovery",
+        });
+
+        if (verifyError) {
+          throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao expirou ou ja foi utilizado.");
+        }
+      }
+
       await resetPassword({ token, password: parsed.data.password });
       window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
       toast.success("Senha redefinida com sucesso. Entre com sua nova senha para continuar.");

@@ -76,14 +76,19 @@ async function requestPasswordReset(serviceRoleClient: ReturnType<typeof createS
     throw new EdgeHttpError("password_reset_generate_failed", error.message, error.status ?? 400);
   }
 
-  const actionLink = data.properties?.action_link;
-  if (!actionLink) {
-    throw new EdgeHttpError("password_reset_link_missing", "Nao foi possivel gerar o link de redefinicao.", 500);
+  const tokenHash = data.properties?.hashed_token;
+  if (!tokenHash) {
+    throw new EdgeHttpError("password_reset_link_missing", "Nao foi possivel gerar o token de redefinicao.", 500);
   }
+
+  const resetUrl = new URL(input.redirectTo);
+  resetUrl.searchParams.set("token_hash", tokenHash);
+  resetUrl.searchParams.set("type", "recovery");
+  resetUrl.searchParams.set("email", input.email);
 
   const emailDelivery = await sendPasswordResetEmail({
     email: input.email,
-    resetLink: actionLink,
+    resetLink: resetUrl.toString(),
   });
 
   return {
