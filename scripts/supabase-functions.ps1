@@ -15,7 +15,8 @@ $knownFunctions = @(
   "teacher-admin-actions",
   "automation-dispatch",
   "integration-webhook",
-  "secure-ops"
+  "secure-ops",
+  "auth-public-actions"
 )
 
 function Get-SupabaseCliCommand {
