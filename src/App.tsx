@@ -20,6 +20,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import StudentPortal from "@/pages/StudentPortal";
 import StudentProfile from "@/pages/StudentProfile";
 import Students from "@/pages/Students";
+import VerifyEmail from "@/pages/VerifyEmail";
 import WorkoutEditor from "@/pages/WorkoutEditor";
 import WorkoutLibrary from "@/pages/WorkoutLibrary";
 
@@ -32,6 +33,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
           <Route path="/criar-conta" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+          <Route path="/verifique-email" element={<PublicOnlyRoute><VerifyEmail /></PublicOnlyRoute>} />
           <Route path="/esqueci-senha" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
           <Route path="/forgot-password" element={<Navigate to="/esqueci-senha" replace />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

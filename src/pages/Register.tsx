@@ -126,7 +126,7 @@ export default function Register() {
 
       if (!currentUser) {
         toast.success("Conta criada. Confirme seu e-mail para concluir o acesso e ativar seu plano.");
-        navigate(`/?registered=${encodeURIComponent(parsed.data.email)}`, { replace: true });
+        navigate(`/verifique-email?email=${encodeURIComponent(parsed.data.email)}`, { replace: true });
         return;
       }
 
