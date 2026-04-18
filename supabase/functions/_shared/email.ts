@@ -101,3 +101,32 @@ export async function sendStudentTemporaryAccessEmail(params: {
       `</div>`,
   });
 }
+
+export async function sendPasswordResetEmail(params: {
+  email: string;
+  resetLink: string;
+}) {
+  const safeEmail = escapeHtml(params.email);
+  const safeResetLink = escapeHtml(params.resetLink);
+
+  return sendWithResend({
+    to: params.email,
+    subject: "Redefina sua senha do Sano+",
+    text:
+      `Recebemos um pedido para redefinir a senha da sua conta Sano+.\n\n` +
+      `Para continuar, abra o link abaixo:\n${params.resetLink}\n\n` +
+      `Se voce nao solicitou esta alteracao, ignore esta mensagem.\n`,
+    html:
+      `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">` +
+      `<h2 style="margin-bottom:16px">Redefina sua senha do Sano+</h2>` +
+      `<p>Recebemos um pedido para redefinir a senha da conta <strong>${safeEmail}</strong>.</p>` +
+      `<p>Use o botao abaixo para criar uma nova senha com seguranca.</p>` +
+      `<p style="margin:24px 0">` +
+      `<a href="${safeResetLink}" style="display:inline-block;padding:12px 18px;border-radius:12px;background:#10b981;color:#ffffff;text-decoration:none;font-weight:700">Redefinir senha</a>` +
+      `</p>` +
+      `<p style="font-size:14px;color:#475569">Se o botao nao abrir, copie e cole este link no navegador:</p>` +
+      `<p style="font-size:14px;word-break:break-all;color:#0f172a">${safeResetLink}</p>` +
+      `<p style="font-size:14px;color:#475569">Se voce nao solicitou esta alteracao, ignore esta mensagem.</p>` +
+      `</div>`,
+  });
+}

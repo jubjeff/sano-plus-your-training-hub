@@ -1,4 +1,4 @@
-import { buildAuthCallbackUrl } from "@/lib/auth-redirects";
+import { buildAppUrl, buildAuthCallbackUrl } from "@/lib/auth-redirects";
 import { normalizeEmail, normalizePhone, updateProfileSchema, validateStrongPassword } from "@/lib/auth-validators";
 import { createProfilePreviewUrl, loadPersistedProfileImage, loadPersistedProfileImageBlob, persistProfileImageFile } from "@/lib/profile-media";
 import { store } from "@/lib/store";
@@ -1042,26 +1042,37 @@ export const authService = {
 
   async requestPasswordReset(input: ForgotPasswordInput) {
     if (hasSupabaseRuntimeConfig()) {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(input.email), {
-        redirectTo: buildAuthCallbackUrl("/redefinir-senha"),
+      const response = await invokeSupabaseEdgeFunction<{
+        ok: true;
+        requestId: string;
+        data: {
+          result: {
+            exists: boolean;
+            email: string;
+            emailDelivery: {
+              status: "sent" | "skipped";
+              provider: "resend" | "none";
+              message: string;
+            };
+          };
+        };
+      }>(EDGE_FUNCTION_NAMES.authPublicActions, {
+        body: {
+          action: "request_password_reset",
+          payload: {
+            email: normalizeEmail(input.email),
+            redirectTo: buildAppUrl("/redefinir-senha"),
+          },
+        },
       });
 
-      if (error) {
-        if (isEmailRateLimitError(error)) {
-          throw new AuthServiceError(
-            "password_reset_rate_limited",
-            "form",
-            "Voce atingiu o limite temporario de envio de e-mails. Aguarde alguns minutos antes de solicitar outro link.",
-          );
-        }
-
-        throw new AuthServiceError("password_reset_request_failed", "form", error.message);
-      }
+      const result = response.data.result;
 
       return {
         token: "",
-        message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
+        message: result.exists
+          ? "O e-mail de redefinicao foi enviado com sucesso."
+          : "Nenhuma conta foi encontrada com este e-mail.",
       };
     }
 

@@ -30,9 +30,14 @@ export default function ForgotPassword() {
     setIsSubmitting(true);
 
     try {
-      await requestPasswordReset(parsed.data as { email: string });
-      setSubmittedEmail(parsed.data.email);
-      toast.success("Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.");
+      const result = await requestPasswordReset(parsed.data as { email: string });
+      if (result.message.toLowerCase().includes("nenhuma conta")) {
+        setSubmittedEmail(null);
+        toast.error(result.message);
+      } else {
+        setSubmittedEmail(parsed.data.email);
+        toast.success(result.message);
+      }
     } catch (error) {
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
@@ -86,7 +91,7 @@ export default function ForgotPassword() {
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">
-                Se existir uma conta com o e-mail <span className="font-semibold">{submittedEmail}</span>, o link de redefinicao foi enviado.
+                O link de redefinicao foi enviado para <span className="font-semibold">{submittedEmail}</span>.
               </p>
               <p className="text-sm text-muted-foreground">
                 Verifique sua caixa de entrada e tambem a pasta de spam. O link abrira a tela correta para definir uma nova senha.

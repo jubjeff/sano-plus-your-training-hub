@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.secure-ops]
 verify_jwt = false
+
+[functions.auth-public-actions]
+verify_jwt = false

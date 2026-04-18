@@ -13,6 +13,11 @@ export function buildAuthCallbackUrl(nextPath = "/") {
   return `${getAppOrigin()}/auth/callback?next=${encodeURIComponent(next)}`;
 }
 
+export function buildAppUrl(path = "/") {
+  const next = sanitizeInternalRedirectPath(path, "/");
+  return `${getAppOrigin()}${next}`;
+}
+
 export function sanitizeInternalRedirectPath(input: string | null | undefined, fallback = "/") {
   if (!input) return fallback;
 

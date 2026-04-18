@@ -3,6 +3,7 @@ export const EDGE_FUNCTION_NAMES = {
   automationDispatch: "automation-dispatch",
   integrationWebhook: "integration-webhook",
   secureOps: "secure-ops",
+  authPublicActions: "auth-public-actions",
 } as const;
 
 export type EdgeFunctionName = (typeof EDGE_FUNCTION_NAMES)[keyof typeof EDGE_FUNCTION_NAMES];
@@ -60,6 +61,16 @@ export const EDGE_FUNCTION_CATALOG: EdgeFunctionCatalogItem[] = [
       "Provisionamento de contas",
       "Mutacoes administrativas sensiveis",
       "Integracoes servidor-servidor com segredos",
+    ],
+  },
+  {
+    name: EDGE_FUNCTION_NAMES.authPublicActions,
+    category: "integration",
+    exposure: "public-webhook",
+    summary: "Acoes publicas e seguras de autenticacao que nao dependem de sessao autenticada.",
+    recommendedUses: [
+      "Solicitar redefinicao de senha com regras centralizadas",
+      "Respostas publicas consistentes para fluxos de auth",
     ],
   },
 ];
