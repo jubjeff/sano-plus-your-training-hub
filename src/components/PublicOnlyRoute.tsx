@@ -2,6 +2,20 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuthorization } from "@/auth/use-authorization";
 import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
 
+function isRecoveryNavigation(location: ReturnType<typeof useLocation>) {
+  const hash = location.hash.toLowerCase();
+  const search = new URLSearchParams(location.search);
+  const authType = search.get("type")?.toLowerCase() ?? "";
+
+  return (
+    authType === "recovery" ||
+    hash.includes("type=recovery") ||
+    hash.includes("access_token=") ||
+    hash.includes("refresh_token=") ||
+    search.has("code")
+  );
+}
+
 export default function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isAuthenticated, isLoading, getAuthorizedHomePath } = useAuthorization();
@@ -14,6 +28,12 @@ export default function PublicOnlyRoute({ children }: { children: React.ReactNod
         </div>
       </div>
     );
+  }
+
+  if (isRecoveryNavigation(location)) {
+    const params = new URLSearchParams(location.search);
+    params.set("next", "/redefinir-senha");
+    return <Navigate to={`/auth/callback?${params.toString()}${location.hash}`} replace />;
   }
 
   if (isAuthenticated) {
