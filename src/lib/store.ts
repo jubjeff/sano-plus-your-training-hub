@@ -22,6 +22,15 @@ type PersistedState = {
   alerts: CoachAlert[];
 };
 
+type PersistedStudentLike = Partial<Student> & {
+  name?: string;
+  objective?: string;
+  avatarUrl?: string | null;
+  active?: boolean;
+};
+
+type PersistedCheckInLike = Partial<StudentCheckIn>;
+
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
 }
@@ -249,7 +258,7 @@ function canUseBrowserStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function normalizeStudent(student: any): Student {
+function normalizeStudent(student: PersistedStudentLike): Student {
   const startDate = student.startDate ?? todayIso();
   const workoutPlan = createDefaultWorkoutPlan(
     {
@@ -278,6 +287,7 @@ function normalizeStudent(student: any): Student {
     id: student.id,
     coachId: student.coachId ?? "seed-coach",
     userId: student.userId ?? null,
+    mustChangePassword: student.mustChangePassword ?? (student.accessStatus !== "active"),
     fullName: student.fullName ?? student.name ?? "",
     email: normalizeEmail(student.email ?? ""),
     phone: student.phone ?? "",
@@ -310,7 +320,7 @@ function normalizeStudent(student: any): Student {
   };
 }
 
-function normalizeCheckIn(checkIn: any): StudentCheckIn {
+function normalizeCheckIn(checkIn: PersistedCheckInLike): StudentCheckIn {
   return {
     id: checkIn.id,
     studentId: checkIn.studentId,
@@ -508,6 +518,7 @@ class Store {
       id: generateId(),
       coachId: data.coachId,
       userId: null,
+      mustChangePassword: true,
       fullName: data.fullName,
       email: normalizedEmail,
       phone: data.phone,
@@ -622,6 +633,7 @@ class Store {
         ? {
             ...student,
             userId,
+            mustChangePassword: true,
             accessStatus: "temporary_password_pending",
             studentStatus: "active",
             temporaryPasswordGeneratedAt: generatedAt,
@@ -639,6 +651,7 @@ class Store {
         ? {
             ...student,
             accessStatus: "active",
+            mustChangePassword: false,
             firstAccessCompletedAt: completedAt,
             updatedAt: completedAt,
           }
@@ -653,6 +666,7 @@ class Store {
         ? {
             ...student,
             accessStatus: "temporary_password_pending",
+            mustChangePassword: true,
             temporaryPasswordGeneratedAt: generatedAt,
             firstAccessCompletedAt: null,
             updatedAt: generatedAt,

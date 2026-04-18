@@ -1,24 +1,31 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth";
-import type { AuthRole } from "@/types/auth";
+import { useAuthorization } from "@/auth/use-authorization";
+import type { AuthRole } from "@/auth/types";
 
 export default function RoleRoute({ role, children }: { role: AuthRole; children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isProfileLoading, isAuthenticated, requiresFirstAccess, canAccessRole, getAuthorizedHomePath } = useAuthorization();
 
-  if (isLoading) {
-    return null;
+  if (isLoading || isProfileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="section-shell w-full max-w-sm p-6 text-center">
+          <p className="text-sm font-medium text-foreground">Preparando seu acesso...</p>
+          <p className="mt-2 text-sm text-muted-foreground">Validando sessao e perfil para liberar esta area.</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!user) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/" replace />;
   }
 
-  if (user.role === "student" && user.mustChangePassword) {
+  if (requiresFirstAccess) {
     return <Navigate to="/primeiro-acesso" replace />;
   }
 
-  if (user.role !== role) {
-    return <Navigate to={user.role === "student" ? "/aluno/dashboard" : "/dashboard"} replace />;
+  if (!canAccessRole(role)) {
+    return <Navigate to={getAuthorizedHomePath()} replace />;
   }
 
   return <>{children}</>;

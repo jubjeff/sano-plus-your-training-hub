@@ -1,11 +1,11 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthorization } from "@/auth/use-authorization";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { user, isAuthenticated, isLoading, isProfileLoading, session, requiresCoachProfileAccess, requiresFirstAccess } = useAuthorization();
 
-  if (isLoading) {
+  if (isLoading || (Boolean(session) && (isProfileLoading || !user))) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="section-shell w-full max-w-sm p-6 text-center">
@@ -21,11 +21,11 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return <Navigate to={`/?redirect=${encodeURIComponent(redirectTo)}`} replace />;
   }
 
-  if (user?.role === "coach" && user.teacherHasActiveAccess === false && location.pathname !== "/perfil") {
+  if (requiresCoachProfileAccess && location.pathname !== "/perfil") {
     return <Navigate to="/perfil" replace />;
   }
 
-  if (user?.role === "student" && user.mustChangePassword && location.pathname !== "/primeiro-acesso") {
+  if (requiresFirstAccess && location.pathname !== "/primeiro-acesso") {
     return <Navigate to="/primeiro-acesso" replace />;
   }
 

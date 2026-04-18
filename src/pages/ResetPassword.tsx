@@ -7,60 +7,65 @@ import PasswordStrength from "@/components/PasswordStrength";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { AuthServiceError } from "@/services/auth.service";
+import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import { mapZodErrors, resetPasswordSchema } from "@/lib/auth-validators";
-import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
+
+const RECOVERY_PENDING_STORAGE_KEY = "sano-recovery-pending";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const { logout, resetPassword } = useAuth();
+  const { resetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
-  const isSupabaseMode = hasSupabaseConfig();
   const [form, setForm] = useState({ password: "", confirmPassword: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(isSupabaseMode);
-  const [tokenError, setTokenError] = useState<string | null>(!isSupabaseMode && !token ? "O link de redefinicao esta incompleto ou invalido." : null);
+  const [isCheckingSession, setIsCheckingSession] = useState(hasSupabaseRuntimeConfig() && !token);
+  const [tokenError, setTokenError] = useState<string | null>(hasSupabaseRuntimeConfig() || token ? null : "O link de redefinicao esta incompleto ou invalido.");
 
   useEffect(() => {
-    if (!isSupabaseMode) return;
-
     let active = true;
 
     const validateRecoverySession = async () => {
+      if (!hasSupabaseRuntimeConfig() || token) {
+        return;
+      }
+
+      setIsCheckingSession(true);
+      setTokenError(null);
+
       try {
         const supabase = getSupabaseClient();
-        const hasRecoveryPendingFlag =
-          typeof window !== "undefined" && Boolean(window.sessionStorage.getItem("sano-recovery-pending"));
+        const recoveryPending = window.sessionStorage.getItem(RECOVERY_PENDING_STORAGE_KEY) === "true";
 
-        for (let attempt = 0; attempt < (hasRecoveryPendingFlag ? 8 : 1); attempt += 1) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
+        for (let attempt = 0; attempt < (recoveryPending ? 5 : 1); attempt += 1) {
+          const { data, error } = await supabase.auth.getSession();
 
-          if (!active) return;
+          if (error) {
+            throw error;
+          }
 
-          if (session) {
-            setTokenError(null);
-            if (typeof window !== "undefined") {
-              window.sessionStorage.removeItem("sano-recovery-pending");
+          if (data.session) {
+            if (active) {
+              setTokenError(null);
             }
             return;
           }
 
-          if (attempt < (hasRecoveryPendingFlag ? 7 : 0)) {
-            await new Promise((resolve) => window.setTimeout(resolve, 400));
-          }
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, 250);
+          });
         }
 
         if (active) {
-          setTokenError("O link de redefinicao e invalido, expirou ou ja foi utilizado.");
+          setTokenError("O link de redefinicao expirou ou nao foi validado corretamente.");
         }
-      } catch {
+      } catch (error) {
         if (active) {
-          setTokenError("Nao foi possivel validar o link de redefinicao agora. Solicite um novo link.");
+          const message = error instanceof Error ? error.message : "Nao foi possivel validar o link de redefinicao.";
+          setTokenError(message);
         }
       } finally {
         if (active) {
@@ -74,12 +79,12 @@ export default function ResetPassword() {
     return () => {
       active = false;
     };
-  }, [isSupabaseMode]);
+  }, [token]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!isSupabaseMode && !token) {
+    if (!token && !hasSupabaseRuntimeConfig()) {
       setTokenError("O link de redefinicao esta incompleto ou invalido.");
       return;
     }
@@ -96,14 +101,9 @@ export default function ResetPassword() {
 
     try {
       await resetPassword({ token, password: parsed.data.password });
-      if (isSupabaseMode) {
-        if (typeof window !== "undefined") {
-          window.sessionStorage.removeItem("sano-recovery-pending");
-        }
-        await logout();
-      }
+      window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
       toast.success("Senha redefinida com sucesso. Entre com sua nova senha para continuar.");
-      navigate("/", { replace: true });
+      navigate("/?reset=success", { replace: true });
     } catch (error) {
       if (error instanceof AuthServiceError) {
         if (error.code === "invalid_reset_token") {

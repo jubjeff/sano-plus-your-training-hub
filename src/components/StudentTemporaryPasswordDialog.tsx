@@ -18,7 +18,9 @@ export default function StudentTemporaryPasswordDialog({ open, onOpenChange, ema
   };
 
   const copyAccessData = async () => {
-    await navigator.clipboard.writeText(`Aluno: ${studentName}\nE-mail: ${email}\nSenha provisoria: ${temporaryPassword}`);
+    await navigator.clipboard.writeText(
+      `Aluno: ${studentName}\nE-mail: ${email}\nSenha provisoria: ${temporaryPassword}\nNo primeiro acesso, sera obrigatorio criar uma nova senha.`,
+    );
     toast.success("Dados de acesso copiados.");
   };
 

@@ -1,8 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 import { store as localStore } from "@/lib/store";
-import { hasSupabaseConfig } from "@/lib/supabase/client";
-import { supabaseAppStore } from "@/lib/supabase/app-store";
+import { supabaseStore } from "@/lib/supabase-store";
+import { hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import type { Student, Workout, StudentCheckIn, CoachAlert } from "@/types";
 
 interface StoreSnapshot {
@@ -12,8 +12,14 @@ interface StoreSnapshot {
   alerts: CoachAlert[];
 }
 
+type StoreLike = typeof localStore & {
+  refresh?: () => Promise<void>;
+};
+
+let cachedSnapshot: StoreSnapshot | null = null;
+
 function getActiveStore() {
-  return hasSupabaseConfig() ? supabaseAppStore : localStore;
+  return (hasSupabaseRuntimeConfig() ? supabaseStore : localStore) as StoreLike;
 }
 
 function subscribe(cb: () => void) {
@@ -22,12 +28,29 @@ function subscribe(cb: () => void) {
 
 function getSnapshot(): StoreSnapshot {
   const activeStore = getActiveStore();
-  return {
-    students: activeStore.getStudents(),
-    workouts: activeStore.getWorkouts(),
-    checkIns: activeStore.getCheckIns(),
-    alerts: activeStore.getAlerts(),
+  const nextStudents = activeStore.getStudents();
+  const nextWorkouts = activeStore.getWorkouts();
+  const nextCheckIns = activeStore.getCheckIns();
+  const nextAlerts = activeStore.getAlerts();
+
+  if (
+    cachedSnapshot &&
+    cachedSnapshot.students === nextStudents &&
+    cachedSnapshot.workouts === nextWorkouts &&
+    cachedSnapshot.checkIns === nextCheckIns &&
+    cachedSnapshot.alerts === nextAlerts
+  ) {
+    return cachedSnapshot;
+  }
+
+  cachedSnapshot = {
+    students: nextStudents,
+    workouts: nextWorkouts,
+    checkIns: nextCheckIns,
+    alerts: nextAlerts,
   };
+
+  return cachedSnapshot;
 }
 
 export function useStore() {
@@ -35,9 +58,8 @@ export function useStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot);
 
   useEffect(() => {
-    if (!hasSupabaseConfig()) return;
-    void supabaseAppStore.ensureUser(user).catch(() => undefined);
-  }, [user]);
+    void getActiveStore().refresh?.();
+  }, [user?.id]);
 
   const activeStore = getActiveStore();
   const isCoach = user?.role === "coach";
@@ -51,15 +73,16 @@ export function useStore() {
     students: coachScopedStudents,
     checkIns: coachScopedCheckIns,
     alerts: coachScopedAlerts,
+    refresh: activeStore.refresh?.bind(activeStore),
     getStudent: activeStore.getStudent.bind(activeStore),
     getStudentByUserId: activeStore.getStudentByUserId.bind(activeStore),
     getStudentCheckIns: activeStore.getStudentCheckIns.bind(activeStore),
     addStudent: activeStore.addStudent.bind(activeStore),
     updateStudent: activeStore.updateStudent.bind(activeStore),
-    provisionStudentAccess: (activeStore as any).provisionStudentAccess?.bind(activeStore),
-    completeStudentFirstAccess: (activeStore as any).completeStudentFirstAccess?.bind(activeStore),
-    resetStudentTemporaryAccess: (activeStore as any).resetStudentTemporaryAccess?.bind(activeStore),
-    markStudentLastLogin: (activeStore as any).markStudentLastLogin?.bind(activeStore),
+    provisionStudentAccess: activeStore.provisionStudentAccess.bind(activeStore),
+    completeStudentFirstAccess: activeStore.completeStudentFirstAccess.bind(activeStore),
+    resetStudentTemporaryAccess: activeStore.resetStudentTemporaryAccess.bind(activeStore),
+    markStudentLastLogin: activeStore.markStudentLastLogin.bind(activeStore),
     submitProofOfPayment: activeStore.submitProofOfPayment.bind(activeStore),
     approveProofOfPayment: activeStore.approveProofOfPayment.bind(activeStore),
     markPaymentReceived: activeStore.markPaymentReceived.bind(activeStore),

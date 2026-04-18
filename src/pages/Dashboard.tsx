@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
 import { buildCoachRanking, getEngagementLabel, getEngagementTone } from "@/lib/training-management";
 import { getFinancialStatusLabel, getStudentFinancialStatus } from "@/lib/student-dashboard";
-import { ArrowRight, BellRing, Clock, Dumbbell, RefreshCw, UserCheck, UserX, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, BellRing, Clock, Dumbbell, RefreshCw, UserCheck, UserX, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const { students, workouts, checkIns, alerts, markCoachAlertRead } = useStore();
   const navigate = useNavigate();
   const [rankingFilter, setRankingFilter] = useState<"top" | "risk" | "blocked" | "goal">("top");
@@ -38,6 +41,16 @@ export default function Dashboard() {
     }
   }, [ranking, rankingFilter]);
 
+  const proDaysRemaining = useMemo(() => {
+    if (user?.role !== "coach" || user.teacherPlanType !== "pro" || !user.teacherCurrentPeriodEndsAt) {
+      return null;
+    }
+
+    return Math.ceil((new Date(user.teacherCurrentPeriodEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  }, [user]);
+
+  const shouldShowProEndingAlert = typeof proDaysRemaining === "number" && proDaysRemaining > 0 && proDaysRemaining <= 30;
+
   const stats = [
     { label: "Total de alunos", value: totalStudents, icon: Users, tone: "text-primary" },
     { label: "Alunos ativos", value: activeStudents, icon: UserCheck, tone: "text-success" },
@@ -47,6 +60,26 @@ export default function Dashboard() {
 
   return (
     <div className="page-shell">
+      {shouldShowProEndingAlert && user?.teacherCurrentPeriodEndsAt ? (
+        <Alert className="border-warning/30 bg-warning/10 text-foreground">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertTitle>Seu PRO entra no ultimo mes de validade</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Seu acesso PRO vai ate {formatDate(user.teacherCurrentPeriodEndsAt)}. Restam {proDaysRemaining} dia{proDaysRemaining === 1 ? "" : "s"} para o encerramento do ciclo atual.
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/perfil")}
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
+            >
+              Ver plano no perfil
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <section className="section-shell overflow-hidden">
         <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
           <div className="space-y-4">

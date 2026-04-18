@@ -1,12 +1,16 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { authService } from "@/lib/auth-service";
-import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
-import type { AuthUser, CompleteFirstAccessInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, UpdateProfileInput } from "@/types/auth";
+import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
+import type { AuthUser, CompleteFirstAccessInput, ForgotPasswordInput, LoginInput, RegisterInput, ResolvedAuthSession, ResetPasswordInput, UpdateProfileInput } from "@/types/auth";
+import type { DatabaseUserProfile } from "@/types/profile";
 
 type AuthContextValue = {
+  session: ResolvedAuthSession | null;
   user: AuthUser | null;
+  profile: DatabaseUserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isProfileLoading: boolean;
   login: (input: LoginInput) => Promise<AuthUser | null>;
   register: (input: RegisterInput) => Promise<AuthUser | null>;
   logout: () => Promise<void>;
@@ -22,92 +26,128 @@ type AuthContextValue = {
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<ResolvedAuthSession | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [profile, setProfile] = useState<DatabaseUserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const currentUser = await authService.getCurrentUser();
-    setUser(currentUser);
+    setIsProfileLoading(true);
+    try {
+      const snapshot = await authService.getAuthSnapshot();
+      setSession(snapshot.session);
+      setUser(snapshot.user);
+      setProfile(snapshot.profile);
+    } finally {
+      setIsProfileLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     let active = true;
+    const supabase = hasSupabaseRuntimeConfig() ? getSupabaseClient() : null;
 
     const bootstrap = async () => {
       try {
-        const currentUser = await authService.getCurrentUser();
+        const snapshot = await authService.getAuthSnapshot();
         if (active) {
-          setUser(currentUser);
+          setSession(snapshot.session);
+          setUser(snapshot.user);
+          setProfile(snapshot.profile);
         }
       } catch {
         if (active) {
+          setSession(null);
           setUser(null);
+          setProfile(null);
         }
       } finally {
         if (active) {
           setIsLoading(false);
+          setIsProfileLoading(false);
         }
       }
     };
 
     bootstrap();
 
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasSupabaseConfig()) return;
-
-    let active = true;
-    const supabase = getSupabaseClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === "SIGNED_OUT") {
-        if (active) {
-          setUser(null);
-          setIsLoading(false);
-        }
+    const subscription = supabase?.auth.onAuthStateChange(() => {
+      if (!active) {
         return;
       }
 
-      try {
-        const currentUser = await authService.getCurrentUser();
-        if (active) {
-          setUser(currentUser);
-          setIsLoading(false);
+      void (async () => {
+        try {
+          const snapshot = await authService.getAuthSnapshot();
+          if (active) {
+            setSession(snapshot.session);
+            setUser(snapshot.user);
+            setProfile(snapshot.profile);
+          }
+        } catch {
+          if (active) {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+          }
+        } finally {
+          if (active) {
+            setIsLoading(false);
+            setIsProfileLoading(false);
+          }
         }
-      } catch {
-        if (active) {
-          setUser(null);
-          setIsLoading(false);
-        }
-      }
+      })();
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      subscription?.data.subscription.unsubscribe();
     };
   }, []);
 
   const login = useCallback(async (input: LoginInput) => {
     const currentUser = await authService.login(input);
-    setUser(currentUser);
+    const snapshot = await authService.getAuthSnapshot();
+    let nextSession = snapshot.session;
+
+    if (!nextSession && hasSupabaseRuntimeConfig()) {
+      const {
+        data: { session: liveSession },
+      } = await getSupabaseClient().auth.getSession();
+
+      if (liveSession) {
+        nextSession = {
+          userId: liveSession.user.id,
+          email: liveSession.user.email ?? null,
+          emailVerifiedAt: liveSession.user.email_confirmed_at ?? null,
+          provider: "supabase",
+          createdAt: liveSession.user.created_at ?? new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+        };
+      }
+    }
+
+    setSession(nextSession);
+    setUser(snapshot.user ?? currentUser);
+    setProfile(snapshot.profile);
     return currentUser;
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
     const currentUser = await authService.register(input);
-    setUser(currentUser);
+    const snapshot = await authService.getAuthSnapshot();
+    setSession(snapshot.session);
+    setUser(snapshot.user ?? currentUser);
+    setProfile(snapshot.profile);
     return currentUser;
   }, []);
 
   const logout = useCallback(async () => {
     await authService.logout();
+    setSession(null);
     setUser(null);
+    setProfile(null);
   }, []);
 
   const requestPasswordReset = useCallback(async (input: ForgotPasswordInput) => {
@@ -116,7 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = useCallback(async (input: ResetPasswordInput) => {
     const currentUser = await authService.resetPassword(input);
-    setUser(currentUser);
+    const snapshot = await authService.getAuthSnapshot();
+    setSession(snapshot.session);
+    setUser(snapshot.user ?? currentUser);
+    setProfile(snapshot.profile);
     return currentUser;
   }, []);
 
@@ -126,13 +169,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeFirstAccess = useCallback(async (input: CompleteFirstAccessInput) => {
     const currentUser = await authService.completeFirstAccess(input);
-    setUser(currentUser);
+    const snapshot = await authService.getAuthSnapshot();
+    setSession(snapshot.session);
+    setUser(snapshot.user ?? currentUser);
+    setProfile(snapshot.profile);
     return currentUser;
   }, []);
 
   const updateProfile = useCallback(async (input: UpdateProfileInput) => {
     const currentUser = await authService.updateProfile(input);
-    setUser(currentUser);
+    const snapshot = await authService.getAuthSnapshot();
+    setSession(snapshot.session);
+    setUser(snapshot.user ?? currentUser);
+    setProfile(snapshot.profile);
     return currentUser;
   }, []);
 
@@ -142,9 +191,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      session,
       user,
-      isAuthenticated: Boolean(user),
+      profile,
+      isAuthenticated: Boolean(session && user),
       isLoading,
+      isProfileLoading,
       login,
       register,
       logout,
@@ -156,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshUser,
       touchSessionActivity,
     }),
-    [user, isLoading, login, register, logout, requestPasswordReset, resetPassword, issueStudentTemporaryAccess, completeFirstAccess, updateProfile, refreshUser, touchSessionActivity],
+    [session, user, profile, isLoading, isProfileLoading, login, register, logout, requestPasswordReset, resetPassword, issueStudentTemporaryAccess, completeFirstAccess, updateProfile, refreshUser, touchSessionActivity],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

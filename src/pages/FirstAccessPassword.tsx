@@ -6,8 +6,8 @@ import PasswordStrength from "@/components/PasswordStrength";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { AuthServiceError } from "@/services/auth.service";
 import { mapZodErrors, resetPasswordSchema } from "@/lib/auth-validators";
 
 export default function FirstAccessPassword() {

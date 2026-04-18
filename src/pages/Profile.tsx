@@ -1,5 +1,5 @@
 import MyProfileCard from "@/components/MyProfileCard";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 
 export default function Profile() {
   const { user } = useAuth();

@@ -1,13 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "@/auth/provider";
 import AppLayout from "@/components/AppLayout";
-import FirstAccessRoute from "@/components/FirstAccessRoute";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import PublicOnlyRoute from "@/components/PublicOnlyRoute";
-import RoleRoute from "@/components/RoleRoute";
+import FirstAccessRoute from "@/guards/first-access-route";
+import ProtectedRoute from "@/guards/protected-route";
+import PublicOnlyRoute from "@/guards/public-only-route";
+import RoleRoute from "@/guards/role-route";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
 import Dashboard from "@/pages/Dashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import FirstAccessPassword from "@/pages/FirstAccessPassword";

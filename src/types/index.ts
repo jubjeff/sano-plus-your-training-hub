@@ -76,6 +76,7 @@ export interface Student {
   id: string;
   coachId: string;
   userId?: string | null;
+  mustChangePassword?: boolean;
   fullName: string;
   email: string;
   phone: string;

@@ -26,6 +26,7 @@ export interface AuthUser {
   teacherPlanType?: TeacherPlanType | null;
   teacherSubscriptionStatus?: TeacherSubscriptionStatus | null;
   teacherTrialEndsAt?: string | null;
+  teacherCurrentPeriodEndsAt?: string | null;
   teacherHasActiveAccess?: boolean | null;
   teacherCanAddStudent?: boolean | null;
   teacherAccessMessage?: string | null;
@@ -33,6 +34,15 @@ export interface AuthUser {
 
 export interface AuthSession {
   userId: string;
+  createdAt: string;
+  lastActiveAt: string;
+}
+
+export interface ResolvedAuthSession {
+  userId: string;
+  email: string | null;
+  emailVerifiedAt: string | null;
+  provider: "supabase" | "local";
   createdAt: string;
   lastActiveAt: string;
 }

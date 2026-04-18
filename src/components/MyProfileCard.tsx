@@ -7,12 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { authService, AuthServiceError } from "@/services/auth.service";
 import { formatCpf, formatPhone, mapZodErrors, updateProfileSchema } from "@/lib/auth-validators";
 import { formatDate } from "@/lib/format";
 import { createProfilePreviewUrl, validateProfileImageFile } from "@/lib/profile-media";
-import { confirmMockProPayment, fetchTeacherAccessStatus, requestTeacherProUpgrade } from "@/lib/supabase/teacher-plans";
 
 export default function MyProfileCard({ showHeader = true }: { showHeader?: boolean }) {
   const { user, updateProfile, refreshUser } = useAuth();
@@ -66,6 +65,9 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
   const isProPlan = user.teacherPlanType === "pro";
   const currentPlanLabel = isProPlan ? "Pro" : isBasicPlan ? "Basic" : "Conta";
   const shouldShowUpgradeCta = isCoachAccount && isBasicPlan;
+  const proValidityDisplay = isCoachAccount && isProPlan && user.teacherCurrentPeriodEndsAt
+    ? formatDate(user.teacherCurrentPeriodEndsAt)
+    : "Sem validade informada";
 
   const resetEditingState = () => {
     setForm({
@@ -169,23 +171,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
     setIsUpgradingPlan(true);
 
     try {
-      const teacherId = user.teacherId ?? (await fetchTeacherAccessStatus()).access.teacher_id;
-      const upgradeRequest = await requestTeacherProUpgrade({
-        message: "Upgrade solicitado pelo professor na tela de perfil.",
-        metadata: {
-          source: "profile_upgrade_card",
-          mockedPayment: true,
-        },
-      });
-
-      await confirmMockProPayment({
-        teacherId,
-        accessRequestId: upgradeRequest.request.id,
-        metadata: {
-          source: "profile_upgrade_card",
-        },
-      });
-
+      await authService.activateCoachProPlan();
       await refreshUser();
       toast.success("Assinatura Pro confirmada com sucesso.");
     } catch (error) {
@@ -232,6 +218,12 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                 <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                 CPF protegido
               </Badge>
+              {isCoachAccount && isProPlan ? (
+                <Badge className="border border-amber-400/30 bg-amber-400/12 text-amber-100 hover:bg-amber-400/12">
+                  <Crown className="mr-1 h-3.5 w-3.5" />
+                  Voce ja e PRO
+                </Badge>
+              ) : null}
             </div>
             {!isEditing ? (
               <Button type="button" onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
@@ -365,6 +357,21 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                 </div>
                 {errors.phone ? <p className="text-xs font-medium text-destructive">{errors.phone}</p> : null}
               </div>
+
+              {isCoachAccount && isProPlan ? (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="profile-pro-validity" className="flex items-center gap-2">
+                    <span>Validade do PRO</span>
+                    <Badge variant="outline" className="border-amber-400/30 bg-amber-400/10 text-[10px] uppercase tracking-[0.18em] text-amber-100">
+                      Ativo
+                    </Badge>
+                  </Label>
+                  <div className="relative">
+                    <Crown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-200" />
+                    <Input id="profile-pro-validity" value={proValidityDisplay} disabled className="pl-9 opacity-100" />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="profile-notes">Observacoes pessoais</Label>

@@ -1,155 +1,128 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type SupabaseProfileRole = "professor" | "aluno";
 
-export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
+export interface SupabaseProfileRecord {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  cpf: string | null;
+  birth_date: string | null;
+  phone: string | null;
+  notes: string | null;
+  role: SupabaseProfileRole | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupabaseDatabasePlaceholder {
   public: {
     Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+      profiles: {
+        Row: SupabaseProfileRecord;
+        Insert: {
+          id: string;
+          email: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          cpf?: string | null;
+          birth_date?: string | null;
+          phone?: string | null;
+          notes?: string | null;
+          role?: SupabaseProfileRole | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          email?: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          cpf?: string | null;
+          birth_date?: string | null;
+          phone?: string | null;
+          notes?: string | null;
+          role?: SupabaseProfileRole | null;
+          updated_at?: string;
+        };
+      };
+      teachers: {
+        Row: {
+          id: string;
+          user_id: string;
+          onboarding_completed: boolean;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          onboarding_completed?: boolean;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          onboarding_completed?: boolean;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
+      teacher_subscriptions: {
+        Row: {
+          id: string;
+          teacher_id: string;
+          plan_type: string;
+          status: string;
+          access_blocked: boolean;
+          billing_provider: string | null;
+          external_subscription_id: string | null;
+          started_at: string;
+          current_period_starts_at: string | null;
+          current_period_ends_at: string | null;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          trial_granted: boolean;
+          canceled_at: string | null;
+          blocked_reason: string | null;
+          student_limit: number | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      students: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      workout_templates: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      student_workout_plans: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      student_check_ins: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      coach_alert_reads: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+      integration_events: {
+        Row: Record<string, unknown>;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+      };
+    };
+  };
 }
-
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

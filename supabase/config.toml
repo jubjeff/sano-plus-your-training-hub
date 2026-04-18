@@ -1,1 +1,13 @@
-project_id = "ejovomghlxqqqtynffom"
+project_id = "sano-plus-app"
+
+[functions.teacher-admin-actions]
+verify_jwt = true
+
+[functions.automation-dispatch]
+verify_jwt = false
+
+[functions.integration-webhook]
+verify_jwt = false
+
+[functions.secure-ops]
+verify_jwt = false

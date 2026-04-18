@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
+import { hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import type { Student } from "@/types";
 import StudentTemporaryPasswordDialog from "@/components/StudentTemporaryPasswordDialog";
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +14,7 @@ import { toast } from "@/components/ui/sonner";
 import { formatPhone, mapZodErrors } from "@/lib/auth-validators";
 import { createProfilePreviewUrl, validateProfileImageFile } from "@/lib/profile-media";
 import { normalizeStudentPayload, studentFormSchema } from "@/lib/student-access";
+import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
 
 interface Props {
   open: boolean;
@@ -22,7 +24,7 @@ interface Props {
 
 export default function StudentFormDialog({ open, onOpenChange, student }: Props) {
   const { user, issueStudentTemporaryAccess } = useAuth();
-  const { addStudent, updateStudent } = useStore();
+  const { addStudent, updateStudent, refresh } = useStore();
   const isEditing = Boolean(student);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,24 +127,59 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
         });
         toast.success("Aluno atualizado com sucesso.");
       } else {
-        const createdStudent = await addStudent({
-          coachId: user?.id || "seed-coach",
-          fullName: payload.fullName,
-          email: payload.email,
-          phone: payload.phone,
-          birthDate: payload.birthDate,
-          goal: payload.goal,
-          notes: payload.notes,
-          startDate: form.startDate,
-          profilePhotoFile: photoFile,
-        });
-        const access = await issueStudentTemporaryAccess(createdStudent.id);
+        const access = hasSupabaseRuntimeConfig()
+          ? await teacherAdminActionsService.createStudentWithTemporaryPassword({
+              fullName: payload.fullName,
+              email: payload.email,
+              phone: payload.phone || null,
+              birthDate: payload.birthDate || null,
+              goal: payload.goal || null,
+              notes: payload.notes || null,
+              startDate: form.startDate,
+            })
+          : await (async () => {
+              const createdStudent = await addStudent({
+                coachId: user?.id || "seed-coach",
+                fullName: payload.fullName,
+                email: payload.email,
+                phone: payload.phone,
+                birthDate: payload.birthDate,
+                goal: payload.goal,
+                notes: payload.notes,
+                startDate: form.startDate,
+                profilePhotoFile: photoFile,
+              });
+
+              return issueStudentTemporaryAccess(createdStudent.id);
+            })();
+
+        if (hasSupabaseRuntimeConfig()) {
+          await refresh?.();
+
+          if (photoFile) {
+            try {
+              await updateStudent(access.studentId, {
+                profilePhotoFile: photoFile,
+              });
+            } catch (photoError) {
+              toast.error(photoError instanceof Error ? photoError.message : "O aluno foi criado, mas a foto nao pode ser enviada.");
+            }
+          }
+        }
+
         setTemporaryAccess({
           studentName: access.studentName,
           email: access.email,
           temporaryPassword: access.temporaryPassword,
         });
-        toast.success("Aluno criado com senha provisoria.");
+        if (access.emailDelivery?.status === "sent") {
+          toast.success("Aluno criado com senha provisoria e e-mail enviado.");
+        } else if (access.emailDelivery?.status === "skipped") {
+          toast.success("Aluno criado com senha provisoria.");
+          toast.message(access.emailDelivery.message);
+        } else {
+          toast.success("Aluno criado com senha provisoria.");
+        }
       }
 
       onOpenChange(false);

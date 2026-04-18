@@ -6,15 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { AuthServiceError } from "@/services/auth.service";
+import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
 import { loginSchema, mapZodErrors } from "@/lib/auth-validators";
-import { sanitizeInternalRedirectPath } from "@/lib/supabase/auth-redirects";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const params = new URLSearchParams(location.search);
+  const registeredEmail = params.get("registered")?.trim() ?? "";
+  const resetStatus = params.get("reset")?.trim() ?? "";
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +72,18 @@ export default function Login() {
         </span>
       }
     >
+      {registeredEmail ? (
+        <div className="rounded-[24px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
+          Conta criada para <span className="font-medium">{registeredEmail}</span>. Confirme o e-mail recebido para liberar seu primeiro login.
+        </div>
+      ) : null}
+
+      {resetStatus === "success" ? (
+        <div className="rounded-[24px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
+          Sua senha foi redefinida com sucesso. Entre com a nova senha para continuar.
+        </div>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>

@@ -2,57 +2,16 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell from "@/components/AuthShell";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { sanitizeInternalRedirectPath } from "@/lib/supabase/auth-redirects";
+import { useAuth } from "@/auth/use-auth";
+import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
+import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 
-async function resolveSessionFromCallback() {
-  const supabase = getSupabaseClient();
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const searchParams = new URLSearchParams(window.location.search);
-  const accessToken = hashParams.get("access_token");
-  const refreshToken = hashParams.get("refresh_token");
-  const authCode = searchParams.get("code");
-
-  if (accessToken && refreshToken) {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data.session;
-  }
-
-  if (authCode) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
-
-    if (error) {
-      throw error;
-    }
-
-    return data.session;
-  }
-
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
-
-  if (error) {
-    throw error;
-  }
-
-  return session;
-}
+const RECOVERY_PENDING_STORAGE_KEY = "sano-recovery-pending";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { refreshUser } = useAuth();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     let active = true;
@@ -61,33 +20,46 @@ export default function AuthCallback() {
       const nextPath = sanitizeInternalRedirectPath(searchParams.get("next"), "/dashboard");
 
       try {
+        if (!hasSupabaseRuntimeConfig()) {
+          if (active) {
+            navigate(nextPath, { replace: true });
+          }
+          return;
+        }
+
+        const supabase = getSupabaseClient();
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-        const hashError = hashParams.get("error_description") || hashParams.get("error");
-        const authType = hashParams.get("type");
-        const isRecoveryFlow = authType === "recovery" || nextPath.includes("redefinir-senha");
-        if (hashError) {
-          throw new Error(hashError);
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const authType = hashParams.get("type") ?? searchParams.get("type");
+        const code = searchParams.get("code");
+        const isRecoveryFlow = authType === "recovery" || nextPath === "/redefinir-senha";
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            throw error;
+          }
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            throw error;
+          }
         }
 
-        const session = await resolveSessionFromCallback();
-
-        if (!session) {
-          throw new Error(
-            nextPath.includes("redefinir-senha")
-              ? "O link de redefinicao e invalido, expirou ou ja foi utilizado."
-              : "Nao foi possivel concluir a autenticacao com este link.",
-          );
-        }
-
-        if (!isRecoveryFlow) {
+        if (isRecoveryFlow) {
+          window.sessionStorage.setItem(RECOVERY_PENDING_STORAGE_KEY, "true");
+        } else {
+          window.sessionStorage.removeItem(RECOVERY_PENDING_STORAGE_KEY);
           await refreshUser();
         }
 
         if (active) {
-          if (isRecoveryFlow && typeof window !== "undefined") {
-            window.sessionStorage.setItem("sano-recovery-pending", nowIso());
-          }
-          navigate(nextPath, { replace: true });
+          navigate(isRecoveryFlow ? "/redefinir-senha" : nextPath, { replace: true });
         }
       } catch (error) {
         if (active) {
@@ -108,15 +80,11 @@ export default function AuthCallback() {
   return (
     <AuthShell
       title="Concluindo autenticacao"
-      subtitle="Estamos validando sua sessao com o Supabase e preparando o proximo passo."
+      subtitle="Estamos validando seu acesso para continuar com a experiencia exatamente de onde voce parou."
     >
       <div className="rounded-[24px] border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
-        Aguarde alguns instantes enquanto o retorno da autenticacao e processado.
+        Aguarde alguns instantes enquanto preparamos seu acesso.
       </div>
     </AuthShell>
   );
-}
-
-function nowIso() {
-  return new Date().toISOString();
 }

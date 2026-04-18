@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import AuthShell from "@/components/AuthShell";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { AuthServiceError } from "@/services/auth.service";
 import { forgotPasswordSchema, mapZodErrors, normalizeEmail } from "@/lib/auth-validators";
 
 export default function ForgotPassword() {
@@ -15,7 +14,6 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [issuedToken, setIssuedToken] = useState<string | null>(null);
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -31,8 +29,7 @@ export default function ForgotPassword() {
     setIsSubmitting(true);
 
     try {
-      const result = await requestPasswordReset(parsed.data as { email: string });
-      setIssuedToken(result.token);
+      await requestPasswordReset(parsed.data as { email: string });
       setSubmittedEmail(parsed.data.email);
       toast.success("Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.");
     } catch (error) {
@@ -93,14 +90,6 @@ export default function ForgotPassword() {
               <p className="text-sm text-muted-foreground">
                 Verifique sua caixa de entrada e tambem a pasta de spam. O link abrira a tela correta para definir uma nova senha.
               </p>
-              {issuedToken ? (
-                <Button asChild variant="outline">
-                  <Link to={`/redefinir-senha?token=${encodeURIComponent(issuedToken)}`}>
-                    Abrir redefinicao
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              ) : null}
             </div>
           </div>
         </div>

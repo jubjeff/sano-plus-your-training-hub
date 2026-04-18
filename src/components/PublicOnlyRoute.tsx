@@ -1,10 +1,10 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/hooks/use-auth";
-import { sanitizeInternalRedirectPath } from "@/lib/supabase/auth-redirects";
+import { useAuthorization } from "@/auth/use-authorization";
+import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
 
 export default function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, getAuthorizedHomePath } = useAuthorization();
 
   if (isLoading) {
     return (
@@ -18,13 +18,7 @@ export default function PublicOnlyRoute({ children }: { children: React.ReactNod
 
   if (isAuthenticated) {
     const params = new URLSearchParams(location.search);
-    const redirectTo =
-      sanitizeInternalRedirectPath(params.get("redirect"), "") ||
-      (user?.role === "student"
-        ? (user.mustChangePassword ? "/primeiro-acesso" : "/aluno/dashboard")
-        : user?.teacherHasActiveAccess === false
-        ? "/perfil"
-        : "/dashboard");
+    const redirectTo = sanitizeInternalRedirectPath(params.get("redirect"), "") || getAuthorizedHomePath();
     return <Navigate to={redirectTo} replace />;
   }
 

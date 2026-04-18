@@ -1,1285 +1,1384 @@
+import { buildAuthCallbackUrl } from "@/lib/auth-redirects";
+import { normalizeEmail, normalizePhone, updateProfileSchema, validateStrongPassword } from "@/lib/auth-validators";
+import { createProfilePreviewUrl, loadPersistedProfileImage, loadPersistedProfileImageBlob, persistProfileImageFile } from "@/lib/profile-media";
 import { store } from "@/lib/store";
-import { forgotPasswordSchema, formatCpf, isValidCpf, loginSchema, normalizeCpf, normalizeEmail, normalizePhone, registerSchema, resetPasswordSchema, sanitizeName, updateProfileSchema } from "@/lib/auth-validators";
-import { loadPersistedProfileImage, persistProfileImageFile, removePersistedProfileImage } from "@/lib/profile-media";
-import { buildAuthCallbackUrl } from "@/lib/supabase/auth-redirects";
-import { getSupabaseClient, hasSupabaseConfig, resetSupabaseClient } from "@/lib/supabase/client";
-import { fetchTeacherAccessStatus, registerTeacherWithTrial } from "@/lib/supabase/teacher-plans";
-import type { AuthSession, AuthUser, CompleteFirstAccessInput, ForgotPasswordInput, LoginInput, RegisterInput, ResetPasswordInput, UpdateProfileInput } from "@/types/auth";
-import type { StudentTemporaryAccess } from "@/types";
+import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
+import { EDGE_FUNCTION_NAMES, invokeSupabaseEdgeFunction } from "@/integrations/supabase";
+import { mapAuthRoleToSupabaseProfileRole, mapSupabaseProfileRoleToAuthRole } from "@/integrations/supabase/profile-mappers";
+import type { User } from "@supabase/supabase-js";
+import type {
+  AuthSession,
+  ResolvedAuthSession,
+  AuthUser,
+  CompleteFirstAccessInput,
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+  TeacherPlanType,
+  TeacherSubscriptionStatus,
+  UpdateProfileInput,
+} from "@/types/auth";
+import type { DatabaseUserProfile } from "@/types/profile";
 
-type StoredAuthUser = Omit<AuthUser, "avatarUrl"> & {
-  passwordHash: string;
-  passwordSalt: string;
-};
+const AUTH_DB_STORAGE_KEY = "sano-plus-auth-db";
+const AUTH_SESSION_STORAGE_KEY = "sano-plus-auth-session";
+const SUPABASE_PROFILE_AVATAR_BUCKET = "profile-avatars";
 
-type ResetTokenRecord = {
-  tokenHash: string;
-  userId?: string | null;
-  email: string;
-  createdAt: string;
-  expiresAt: string;
-  usedAt?: string | null;
-};
-
-type RateLimitRecord = {
-  timestamps: string[];
+type StoredAuthUser = AuthUser & {
+  password: string;
+  resetPasswordToken?: string | null;
+  resetPasswordIssuedAt?: string | null;
 };
 
 type AuthDatabase = {
   users: StoredAuthUser[];
-  session: AuthSession | null;
-  resetTokens: ResetTokenRecord[];
-  rateLimits: Record<string, RateLimitRecord>;
 };
 
-const AUTH_STORAGE_KEY = "sano-plus-auth";
-const LOGIN_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_LIMIT_ATTEMPTS = 5;
-const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
-const TEMPORARY_PASSWORD_TTL_MS = 72 * 60 * 60 * 1000;
+type SupabaseProfileRow = {
+  id?: string;
+  email?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  cpf?: string | null;
+  birth_date?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+  role?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
 
-export class AuthServiceError extends Error {
-  code: string;
-  field?: string;
+type TeacherAccessSnapshot = {
+  teacher_id: string;
+  subscription_id: string | null;
+  plan_type: TeacherPlanType;
+  stored_status: TeacherSubscriptionStatus;
+  effective_status: TeacherSubscriptionStatus;
+  trial_active: boolean;
+  trial_ends_at: string | null;
+  current_period_ends_at: string | null;
+  has_active_access: boolean;
+  student_limit: number | null;
+  current_student_count: number;
+  can_add_student: boolean;
+  access_message: string | null;
+};
 
-  constructor(code: string, message: string, field?: string) {
-    super(message);
-    this.code = code;
-    this.field = field;
-  }
-}
+type SupabaseStudentAccessRow = {
+  id: string;
+  teacher_id: string;
+  auth_user_id: string | null;
+  must_change_password: boolean;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  birth_date: string | null;
+  notes: string | null;
+  status: "active" | "inactive";
+  access_status: "pre_registered" | "temporary_password_pending" | "active" | "inactive";
+  temporary_password_generated_at: string | null;
+  first_access_completed_at: string | null;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function generateId(prefix = "id") {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function clearSupabaseBrowserSession() {
-  if (typeof window === "undefined") return;
-
-  const clearStorage = (storage: Storage) => {
-    const keysToRemove: string[] = [];
-    for (let index = 0; index < storage.length; index += 1) {
-      const key = storage.key(index);
-      if (!key) continue;
-
-      if (key.startsWith("sb-") || key.includes("supabase")) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach((key) => storage.removeItem(key));
-  };
-
-  clearStorage(window.localStorage);
-
-  if (typeof window.sessionStorage !== "undefined") {
-    clearStorage(window.sessionStorage);
-  }
-}
-
-function createId() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-function generateTemporaryPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
-async function sha256(value: string) {
-  const encoder = new TextEncoder();
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", encoder.encode(value));
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hashPassword(password: string, salt: string) {
-  return sha256(`${salt}:${password}`);
-}
-
-async function verifyPassword(password: string, salt: string, expectedHash: string) {
-  return (await hashPassword(password, salt)) === expectedHash;
-}
-
-function defaultDb(): AuthDatabase {
-  return {
-    users: [],
-    session: null,
-    resetTokens: [],
-    rateLimits: {},
-  };
-}
-
-function normalizeStoredUser(user: any): StoredAuthUser {
-  return {
-    id: user.id,
-    role: user.role ?? "coach",
-    linkedStudentId: user.linkedStudentId ?? null,
-    accountStatus: user.accountStatus ?? "active",
-    mustChangePassword: user.mustChangePassword ?? false,
-    temporaryPasswordGeneratedAt: user.temporaryPasswordGeneratedAt ?? null,
-    firstAccessCompletedAt: user.firstAccessCompletedAt ?? null,
-    fullName: user.fullName ?? "",
-    birthDate: user.birthDate ?? "",
-    cpf: user.cpf ?? null,
-    email: normalizeEmail(user.email ?? ""),
-    phone: user.phone ?? null,
-    notes: user.notes ?? null,
-    avatarStorageKey: user.avatarStorageKey ?? null,
-    createdAt: user.createdAt ?? nowIso(),
-    updatedAt: user.updatedAt ?? nowIso(),
-    emailVerifiedAt: user.emailVerifiedAt ?? null,
-    passwordSalt: user.passwordSalt,
-    passwordHash: user.passwordHash,
-  };
-}
-
-function readDb(): AuthDatabase {
-  if (!canUseStorage()) return defaultDb();
+function readStorage<T>(key: string): T | null {
+  if (!canUseStorage()) return null;
 
   try {
-    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) {
-      const db = defaultDb();
-      writeDb(db);
-      return db;
-    }
-
-    const parsed = JSON.parse(raw) as Partial<AuthDatabase>;
-    return {
-      users: Array.isArray(parsed.users) ? parsed.users.map(normalizeStoredUser) : [],
-      session: parsed.session ?? null,
-      resetTokens: Array.isArray(parsed.resetTokens) ? parsed.resetTokens : [],
-      rateLimits: parsed.rateLimits ?? {},
-    };
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
   } catch {
-    const db = defaultDb();
-    writeDb(db);
-    return db;
+    return null;
   }
 }
 
-function writeDb(db: AuthDatabase) {
+function writeStorage(key: string, value: unknown) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(db));
+  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
-function clearLegacyAuthSessionState() {
-  const db = readDb();
-  db.session = null;
-  writeDb(db);
+function removeStorage(key: string) {
+  if (!canUseStorage()) return;
+  window.localStorage.removeItem(key);
 }
 
-function cleanRateLimit(record?: RateLimitRecord) {
-  const now = Date.now();
-  return (record?.timestamps ?? []).filter((value) => now - new Date(value).getTime() <= LOGIN_LIMIT_WINDOW_MS);
-}
-
-function touchRateLimit(db: AuthDatabase, key: string) {
-  const timestamps = [...cleanRateLimit(db.rateLimits[key]), nowIso()];
-  db.rateLimits[key] = { timestamps };
-}
-
-function ensureWithinRateLimit(db: AuthDatabase, key: string) {
-  const timestamps = cleanRateLimit(db.rateLimits[key]);
-  db.rateLimits[key] = { timestamps };
-
-  if (timestamps.length >= LOGIN_LIMIT_ATTEMPTS) {
-    throw new AuthServiceError("rate_limited", "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.");
+function loadDatabase(): AuthDatabase {
+  const persisted = readStorage<AuthDatabase>(AUTH_DB_STORAGE_KEY);
+  if (persisted?.users?.length) {
+    return persisted;
   }
+
+  return { users: [] };
 }
 
-function stripUserSecrets(user: StoredAuthUser, avatarUrl?: string | null): AuthUser {
-  const { passwordHash, passwordSalt, ...publicUser } = user;
-  return { ...publicUser, avatarUrl: avatarUrl ?? null };
+function saveDatabase(db: AuthDatabase) {
+  writeStorage(AUTH_DB_STORAGE_KEY, db);
 }
 
-async function resolveUserAvatar(user: StoredAuthUser) {
-  return user.avatarStorageKey ? await loadPersistedProfileImage(user.avatarStorageKey).catch(() => null) : null;
+function loadSession(): AuthSession | null {
+  return readStorage<AuthSession>(AUTH_SESSION_STORAGE_KEY);
 }
 
-async function resolveUser(user?: StoredAuthUser | null) {
-  if (!user) return null;
-  const avatarUrl = await resolveUserAvatar(user);
-  return stripUserSecrets(user, avatarUrl);
+function saveSession(session: AuthSession) {
+  writeStorage(AUTH_SESSION_STORAGE_KEY, session);
 }
 
-function generateResetToken() {
-  return `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`;
+function clearSession() {
+  removeStorage(AUTH_SESSION_STORAGE_KEY);
 }
 
-async function buildResetRecord(email: string, userId?: string | null): Promise<{ token: string; record: ResetTokenRecord }> {
-  const token = generateResetToken();
-  const tokenHash = await sha256(token);
-  const createdAt = nowIso();
-
+function mapAuthUserToProfile(user: AuthUser): DatabaseUserProfile {
   return {
-    token,
-    record: {
-      tokenHash,
-      userId,
-      email,
-      createdAt,
-      expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString(),
-      usedAt: null,
-    },
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    avatarUrl: user.avatarUrl ?? null,
+    cpf: user.cpf ?? null,
+    birthDate: user.birthDate ?? null,
+    phone: user.phone ?? null,
+    notes: user.notes ?? null,
+    role: mapAuthRoleToSupabaseProfileRole(user.role),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
   };
 }
 
-function ensureStudentCanAuthenticate(user: StoredAuthUser) {
-  if (user.role !== "student") return;
-  if (user.accountStatus !== "active") {
-    throw new AuthServiceError("inactive_account", "Seu acesso foi desativado. Fale com seu professor.");
-  }
-
-  const student = store.getStudentByUserId(user.id);
-  if (!student || student.studentStatus !== "active") {
-    throw new AuthServiceError("inactive_account", "Seu acesso foi desativado. Fale com seu professor.");
-  }
-
-  if (!["temporary_password_pending", "active"].includes(student.accessStatus)) {
-    throw new AuthServiceError("inactive_account", "Seu acesso nao esta liberado no momento.");
-  }
-
-  if (
-    user.mustChangePassword &&
-    user.temporaryPasswordGeneratedAt &&
-    Date.now() - new Date(user.temporaryPasswordGeneratedAt).getTime() > TEMPORARY_PASSWORD_TTL_MS
-  ) {
-    throw new AuthServiceError("temporary_password_expired", "Sua senha provisoria expirou. Solicite uma nova ao professor.");
-  }
-}
-
-function ensureStudentCanUseApp(user: StoredAuthUser) {
-  ensureStudentCanAuthenticate(user);
-  if (user.mustChangePassword) {
-    throw new AuthServiceError("first_access_required", "Defina uma nova senha para continuar.");
-  }
-}
-
-function isSupabaseEnabled() {
-  return hasSupabaseConfig();
-}
-
-function isRecoveryFlowContext() {
-  if (typeof window === "undefined") return false;
-
-  const pathname = window.location.pathname;
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const searchParams = new URLSearchParams(window.location.search);
-  const hashType = hashParams.get("type");
-  const nextPath = searchParams.get("next") ?? "";
-
-  return (
-    pathname === "/redefinir-senha" ||
-    pathname === "/reset-password" ||
-    pathname === "/update-password" ||
-    (pathname === "/auth/callback" && (hashType === "recovery" || nextPath.includes("redefinir-senha")))
-  );
-}
-
-function mapSupabaseCoachUser(params: {
-  authUserId: string;
-  email: string;
-  fullName: string;
-  birthDate: string;
-  cpf?: string | null;
-  phone?: string | null;
-  avatarUrl?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  teacherId?: string | null;
-  teacherPlanType?: AuthUser["teacherPlanType"];
-  teacherSubscriptionStatus?: AuthUser["teacherSubscriptionStatus"];
-  teacherTrialEndsAt?: string | null;
-  teacherHasActiveAccess?: boolean | null;
-  teacherCanAddStudent?: boolean | null;
-  teacherAccessMessage?: string | null;
-}): AuthUser {
+function mapLocalSessionToResolvedSession(user: AuthUser, session: AuthSession): ResolvedAuthSession {
   return {
-    id: params.authUserId,
+    userId: user.id,
+    email: user.email,
+    emailVerifiedAt: user.emailVerifiedAt ?? null,
+    provider: "local",
+    createdAt: session.createdAt,
+    lastActiveAt: session.lastActiveAt,
+  };
+}
+
+function stripSensitiveFields(user: StoredAuthUser): AuthUser {
+  const { password: _password, resetPasswordToken: _token, resetPasswordIssuedAt: _issuedAt, ...safeUser } = user;
+  return safeUser;
+}
+
+function createFallbackCoachUser(input: RegisterInput): StoredAuthUser {
+  const timestamp = nowIso();
+  const userId = generateId("coach");
+  const subscriptionStatus: TeacherSubscriptionStatus = input.selectedPlan === "pro" ? "active" : "trialing";
+
+  return {
+    id: userId,
     role: "coach",
     linkedStudentId: null,
     accountStatus: "active",
     mustChangePassword: false,
-    fullName: params.fullName,
-    birthDate: params.birthDate,
-    cpf: params.cpf ?? null,
-    email: normalizeEmail(params.email),
-    phone: params.phone ?? null,
+    temporaryPasswordGeneratedAt: null,
+    firstAccessCompletedAt: timestamp,
+    fullName: input.fullName,
+    birthDate: input.birthDate,
+    cpf: input.cpf,
+    email: normalizeEmail(input.email),
+    phone: null,
     notes: null,
     avatarStorageKey: null,
-    avatarUrl: params.avatarUrl ?? null,
-    createdAt: params.createdAt,
-    updatedAt: params.updatedAt,
-    emailVerifiedAt: null,
-    teacherId: params.teacherId ?? null,
-    teacherPlanType: params.teacherPlanType ?? null,
-    teacherSubscriptionStatus: params.teacherSubscriptionStatus ?? null,
-    teacherTrialEndsAt: params.teacherTrialEndsAt ?? null,
-    teacherHasActiveAccess: params.teacherHasActiveAccess ?? null,
-    teacherCanAddStudent: params.teacherCanAddStudent ?? null,
-    teacherAccessMessage: params.teacherAccessMessage ?? null,
+    avatarUrl: null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    emailVerifiedAt: timestamp,
+    teacherId: userId,
+    teacherPlanType: input.selectedPlan,
+    teacherSubscriptionStatus: subscriptionStatus,
+    teacherTrialEndsAt: input.selectedPlan === "basic" ? timestamp : null,
+    teacherCurrentPeriodEndsAt: input.selectedPlan === "pro" ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+    teacherHasActiveAccess: true,
+    teacherCanAddStudent: true,
+    teacherAccessMessage: null,
+    password: input.password,
+    resetPasswordToken: null,
+    resetPasswordIssuedAt: null,
   };
 }
 
-async function resolveSupabaseCoachUser() {
-  if (!isSupabaseEnabled()) return null;
-
-  const supabase = getSupabaseClient();
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !authUser) {
-    return null;
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("user_id, email, full_name, birth_date, cpf, phone, avatar_url, metadata, created_at, updated_at")
-    .eq("user_id", authUser.id)
-    .single();
-
-  if (profileError || !profile) {
-    return null;
-  }
-
-  let accessSnapshot: Awaited<ReturnType<typeof fetchTeacherAccessStatus>>["access"] | null = null;
-  try {
-    const accessData = await fetchTeacherAccessStatus();
-    accessSnapshot = accessData.access;
-  } catch {
-    accessSnapshot = null;
-  }
-
-  let teacherId = accessSnapshot?.teacher_id ?? null;
-  if (!teacherId) {
-    const { data: teacherRecord } = await supabase
-      .from("teachers")
-      .select("id")
-      .eq("user_id", authUser.id)
-      .single();
-
-    teacherId = teacherRecord?.id ?? null;
-  }
-
-  const selectedPlanFromProfile =
-    profile.metadata && typeof profile.metadata === "object" && "selected_plan" in profile.metadata
-      ? profile.metadata.selected_plan
-      : null;
-  const selectedPlanFromAuth = authUser.user_metadata?.selected_plan ?? null;
-  const fallbackPlanType =
-    accessSnapshot?.plan_type ??
-    (selectedPlanFromProfile === "basic" || selectedPlanFromProfile === "pro" ? selectedPlanFromProfile : null) ??
-    (selectedPlanFromAuth === "basic" || selectedPlanFromAuth === "pro" ? selectedPlanFromAuth : null);
-
-  return mapSupabaseCoachUser({
-    authUserId: profile.user_id,
-    email: profile.email,
-    fullName: profile.full_name,
-    birthDate: profile.birth_date,
-    cpf: profile.cpf,
-    phone: profile.phone,
-    avatarUrl: profile.avatar_url,
-    createdAt: profile.created_at,
-    updatedAt: profile.updated_at,
-    teacherId,
-    teacherPlanType: fallbackPlanType ?? null,
-    teacherSubscriptionStatus: accessSnapshot?.effective_status ?? null,
-    teacherTrialEndsAt: accessSnapshot?.trial_ends_at ?? null,
-    teacherHasActiveAccess: accessSnapshot?.has_active_access ?? null,
-    teacherCanAddStudent: accessSnapshot?.can_add_student ?? null,
-    teacherAccessMessage: accessSnapshot?.access_message ?? null,
-  });
-}
-
-async function resolveSupabaseStudentUser() {
-  if (!isSupabaseEnabled()) return null;
-
-  const supabase = getSupabaseClient();
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !authUser) {
-    return null;
-  }
-
-  const { data: studentRows, error: studentError } = await supabase
-    .from("students")
-    .select(`
-      id,
-      teacher_id,
-      auth_user_id,
-      full_name,
-      birth_date,
-      email,
-      phone,
-      notes,
-      status,
-      access_status,
-      temporary_password_generated_at,
-      first_access_completed_at,
-      created_at,
-      updated_at
-    `)
-    .eq("auth_user_id", authUser.id)
-    .limit(1);
-
-  if (studentError) {
-    return null;
-  }
-
-  const student = (studentRows ?? [])[0];
-  if (!student) {
-    return null;
-  }
-
-  return {
-    id: authUser.id,
-    role: "student" as const,
-    linkedStudentId: student.id,
-    accountStatus: student.status === "inactive" ? "inactive" : "active",
-    mustChangePassword: student.access_status === "temporary_password_pending",
-    temporaryPasswordGeneratedAt: student.temporary_password_generated_at ?? null,
-    firstAccessCompletedAt: student.first_access_completed_at ?? null,
-    fullName: student.full_name,
-    birthDate: student.birth_date ?? "",
-    cpf: null,
-    email: normalizeEmail(student.email ?? authUser.email ?? ""),
-    phone: student.phone ?? null,
-    notes: student.notes ?? null,
-    avatarStorageKey: null,
-    avatarUrl: null,
-    createdAt: student.created_at,
-    updatedAt: student.updated_at,
-    emailVerifiedAt: null,
-  } satisfies AuthUser;
-}
-
-async function resolveSupabaseAppUser() {
-  const coachUser = await resolveSupabaseCoachUser();
-  if (coachUser) return coachUser;
-
-  return resolveSupabaseStudentUser();
-}
-
-function isSupabaseAuthError(message?: string) {
-  if (!message) return false;
-  return /invalid login credentials|email not confirmed|user already registered|invalid/i.test(message);
-}
-
-function mapSupabasePasswordRecoveryError(message?: string, field: "email" | "password" = "email") {
-  const normalizedMessage = message?.toLowerCase() ?? "";
-
-  if (normalizedMessage.includes("email rate limit exceeded")) {
-    return new AuthServiceError(
-      "password_reset_rate_limited",
-      "Voce solicitou muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
-      field,
-    );
-  }
-
-  if (normalizedMessage.includes("for security purposes")) {
-    return new AuthServiceError(
-      "password_reset_rate_limited",
-      "Voce solicitou muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
-      field,
-    );
-  }
-
-  if (normalizedMessage.includes("same_password")) {
-    return new AuthServiceError(
-      "same_password",
-      "Escolha uma senha diferente da senha atual.",
-      field,
-    );
-  }
-
-  if (normalizedMessage.includes("auth session missing") || normalizedMessage.includes("session missing")) {
-    return new AuthServiceError(
-      "invalid_reset_token",
-      "O link de redefinicao e invalido, expirou ou ja foi utilizado. Solicite um novo link.",
-      field,
-    );
-  }
-
-  if (normalizedMessage.includes("expired") || normalizedMessage.includes("invalid token")) {
-    return new AuthServiceError(
-      "invalid_reset_token",
-      "O link de redefinicao e invalido, expirou ou ja foi utilizado. Solicite um novo link.",
-      field,
-    );
-  }
-
-  return new AuthServiceError(
-    field === "password" ? "password_reset_failed" : "password_reset_request_failed",
-    field === "password"
-      ? "Nao foi possivel salvar sua nova senha agora. Tente novamente."
-      : "Nao foi possivel enviar o e-mail de redefinicao agora. Tente novamente.",
-    field,
-  );
-}
-
-function shouldTreatPasswordResetRequestAsSoftSuccess(message?: string) {
-  const normalizedMessage = message?.toLowerCase() ?? "";
-
-  return (
-    normalizedMessage.includes("email rate limit exceeded") ||
-    normalizedMessage.includes("for security purposes")
-  );
-}
-
-async function tryProvisionSupabaseCoachFromMetadata() {
-  if (!isSupabaseEnabled()) return;
-
-  const supabase = getSupabaseClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return;
-
-  const metadata = authUser.user_metadata ?? {};
-  const fullName = typeof metadata.full_name === "string" ? metadata.full_name.trim() : "";
-  const birthDate = typeof metadata.birth_date === "string" ? metadata.birth_date.trim() : "";
-  const cpf = typeof metadata.cpf === "string" ? metadata.cpf.trim() : "";
-  const phone = typeof metadata.phone === "string" ? metadata.phone.trim() : null;
-  const selectedPlan = metadata.selected_plan === "pro" ? "pro" : metadata.selected_plan === "basic" ? "basic" : null;
-  const mockProPaymentConfirmed = Boolean(metadata.mock_pro_payment_confirmed);
-
-  if (!fullName || !birthDate || !cpf || !selectedPlan) {
+async function syncAvatar(user: StoredAuthUser, avatarFile?: File | null, removeAvatar = false) {
+  if (removeAvatar) {
+    user.avatarStorageKey = null;
+    user.avatarUrl = null;
     return;
   }
 
-  await supabase.functions.invoke("create-teacher-account", {
-    body: {
-      fullName,
-      birthDate,
-      cpf,
-      phone,
-      selectedPlan,
-      mockProPaymentConfirmed,
-      metadata: {
-        source: "auth_metadata_bootstrap",
+  if (!avatarFile) return;
+
+  const nextStorageKey = await persistProfileImageFile(avatarFile, user.avatarStorageKey ?? undefined);
+  user.avatarStorageKey = nextStorageKey;
+  user.avatarUrl = (await loadPersistedProfileImage(nextStorageKey).catch(() => null)) ?? createProfilePreviewUrl(avatarFile);
+}
+
+function refreshStudentDerivedFields(user: StoredAuthUser) {
+  if (user.role !== "student" || !user.linkedStudentId) return;
+
+  const student = store.getStudent(user.linkedStudentId);
+  if (!student) return;
+
+  user.accountStatus = student.studentStatus === "active" ? "active" : "inactive";
+  user.mustChangePassword = student.accessStatus === "temporary_password_pending";
+  user.fullName = student.fullName;
+  user.birthDate = student.birthDate;
+  user.email = normalizeEmail(student.email);
+  user.phone = student.phone || null;
+  user.notes = student.notes || null;
+  user.temporaryPasswordGeneratedAt = student.temporaryPasswordGeneratedAt ?? null;
+  user.firstAccessCompletedAt = student.firstAccessCompletedAt ?? null;
+  user.updatedAt = nowIso();
+}
+
+async function persistDatabaseUser(db: AuthDatabase, user: StoredAuthUser) {
+  const index = db.users.findIndex((entry) => entry.id === user.id);
+  if (index >= 0) {
+    db.users[index] = user;
+  } else {
+    db.users.push(user);
+  }
+
+  saveDatabase(db);
+}
+
+function updateLocalSessionForUser(userId: string) {
+  const session = loadSession();
+  const timestamp = nowIso();
+
+  if (session?.userId === userId) {
+    saveSession({
+      ...session,
+      lastActiveAt: timestamp,
+    });
+    return;
+  }
+
+  saveSession({
+    userId,
+    createdAt: timestamp,
+    lastActiveAt: timestamp,
+  });
+}
+
+async function getLocalPersistedUserFromSession() {
+  const session = loadSession();
+  if (!session) return null;
+
+  const db = loadDatabase();
+  const user = db.users.find((entry) => entry.id === session.userId);
+  if (!user) {
+    clearSession();
+    return null;
+  }
+
+  refreshStudentDerivedFields(user);
+  await persistDatabaseUser(db, user);
+  return user;
+}
+
+async function getLocalResolvedAuthState() {
+  const session = loadSession();
+  if (!session) {
+    return {
+      session: null,
+      user: null,
+      profile: null,
+    };
+  }
+
+  const user = await getLocalPersistedUserFromSession();
+  if (!user) {
+    return {
+      session: null,
+      user: null,
+      profile: null,
+    };
+  }
+
+  const safeUser = stripSensitiveFields(user);
+  return {
+    session: mapLocalSessionToResolvedSession(safeUser, session),
+    user: safeUser,
+    profile: mapAuthUserToProfile(safeUser),
+  };
+}
+
+function assertStrongPassword(password: string) {
+  const checks = validateStrongPassword(password);
+  if (!checks.minLength || !checks.uppercase || !checks.lowercase || !checks.number || !checks.special) {
+    throw new AuthServiceError(
+      "weak_password",
+      "password",
+      "A nova senha precisa ter pelo menos 8 caracteres, com letra maiuscula, minuscula, numero e caractere especial.",
+    );
+  }
+}
+
+function normalizePlanType(value: unknown): TeacherPlanType {
+  return value === "pro" ? "pro" : "basic";
+}
+
+function normalizeSubscriptionStatus(value: unknown, planType: TeacherPlanType): TeacherSubscriptionStatus {
+  if (
+    value === "trialing" ||
+    value === "active" ||
+    value === "expired" ||
+    value === "blocked" ||
+    value === "pending_payment" ||
+    value === "canceled"
+  ) {
+    return value;
+  }
+
+  return planType === "pro" ? "active" : "trialing";
+}
+
+function getNullableMetadataString(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function resolveSupabaseProfileRole(value: unknown) {
+  const normalized = String(value ?? "").toLowerCase();
+  return normalized === "student" || normalized === "aluno" ? "aluno" : "professor";
+}
+
+function buildSupabaseProfilePayload(
+  user: User,
+  currentProfile: SupabaseProfileRow | null,
+  overrides: Partial<SupabaseProfileRow> = {},
+): SupabaseProfileRow {
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+
+  return {
+    id: user.id,
+    email: overrides.email ?? currentProfile?.email ?? normalizeEmail(user.email ?? ""),
+    full_name: overrides.full_name ?? currentProfile?.full_name ?? getNullableMetadataString(metadata, "full_name"),
+    avatar_url: overrides.avatar_url ?? currentProfile?.avatar_url ?? getNullableMetadataString(metadata, "avatar_url"),
+    cpf: overrides.cpf ?? currentProfile?.cpf ?? getNullableMetadataString(metadata, "cpf"),
+    birth_date: overrides.birth_date ?? currentProfile?.birth_date ?? getNullableMetadataString(metadata, "birth_date"),
+    phone: overrides.phone ?? currentProfile?.phone ?? getNullableMetadataString(metadata, "phone"),
+    notes: overrides.notes ?? currentProfile?.notes ?? getNullableMetadataString(metadata, "notes"),
+    role: overrides.role ?? currentProfile?.role ?? resolveSupabaseProfileRole(metadata.role),
+  };
+}
+
+function getSupabaseAvatarPath(userId: string) {
+  return `${userId}/avatar`;
+}
+
+function isLegacyLocalAvatarKey(value?: string | null) {
+  return Boolean(value?.startsWith("profile-avatar-"));
+}
+
+async function resolveSupabaseAvatarUrl(profile: SupabaseProfileRow | null, avatarStorageKey?: string | null) {
+  const profileAvatarUrl = profile?.avatar_url ?? null;
+  if (profileAvatarUrl && !profileAvatarUrl.startsWith("blob:")) {
+    return profileAvatarUrl;
+  }
+
+  if (isLegacyLocalAvatarKey(avatarStorageKey)) {
+    return loadPersistedProfileImage(avatarStorageKey).catch(() => profileAvatarUrl);
+  }
+
+  return profileAvatarUrl;
+}
+
+function inferAvatarMimeType(blob: Blob) {
+  if (blob.type === "image/jpeg" || blob.type === "image/png" || blob.type === "image/webp") {
+    return blob.type;
+  }
+
+  return "image/png";
+}
+
+function inferAvatarExtension(mimeType: string) {
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/webp") return "webp";
+  return "png";
+}
+
+async function uploadSupabaseAvatar(userId: string, file: File) {
+  if (!hasSupabaseRuntimeConfig()) {
+    return null;
+  }
+
+  const storagePath = getSupabaseAvatarPath(userId);
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.storage.from(SUPABASE_PROFILE_AVATAR_BUCKET).upload(storagePath, file, {
+    upsert: true,
+    contentType: file.type,
+  });
+
+  if (error) {
+    throw new AuthServiceError("profile_avatar_upload_failed", "avatarFile", error.message);
+  }
+
+  const { data } = supabase.storage.from(SUPABASE_PROFILE_AVATAR_BUCKET).getPublicUrl(storagePath);
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
+async function removeSupabaseAvatar(userId: string) {
+  if (!hasSupabaseRuntimeConfig()) {
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.storage.from(SUPABASE_PROFILE_AVATAR_BUCKET).remove([getSupabaseAvatarPath(userId)]);
+  if (error && !error.message.toLowerCase().includes("not found")) {
+    throw new AuthServiceError("profile_avatar_remove_failed", "avatarFile", error.message);
+  }
+}
+
+async function fetchSupabaseProfile(userId: string) {
+  if (!hasSupabaseRuntimeConfig()) return null;
+
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) return null;
+    return (data ?? null) as SupabaseProfileRow | null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureSupabaseProfile(user: User) {
+  const currentProfile = await fetchSupabaseProfile(user.id);
+  const normalizedEmail = normalizeEmail(user.email ?? "");
+
+  if (currentProfile && currentProfile.email === normalizedEmail) {
+    return currentProfile;
+  }
+
+  if (!hasSupabaseRuntimeConfig()) {
+    return currentProfile;
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const payload = buildSupabaseProfilePayload(user, currentProfile, {
+      email: normalizedEmail,
+    });
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" })
+      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+      .maybeSingle();
+
+    if (error) {
+      return currentProfile;
+    }
+
+    return (data ?? currentProfile ?? null) as SupabaseProfileRow | null;
+  } catch {
+    return currentProfile;
+  }
+}
+
+async function upsertSupabaseProfile(user: User, overrides: Partial<SupabaseProfileRow> = {}) {
+  if (!hasSupabaseRuntimeConfig()) return;
+
+  const currentProfile = await fetchSupabaseProfile(user.id);
+  const supabase = getSupabaseClient();
+  const payload = buildSupabaseProfilePayload(user, currentProfile, overrides);
+  const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+  if (error) {
+    throw new AuthServiceError("profile_sync_failed", "form", error.message);
+  }
+}
+
+async function updateSupabaseProfile(user: User, changes: Partial<SupabaseProfileRow>) {
+  if (!hasSupabaseRuntimeConfig()) {
+    return null;
+  }
+
+  const supabase = getSupabaseClient();
+  const existingProfile = await ensureSupabaseProfile(user);
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(changes)
+    .eq("id", user.id)
+    .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+    .maybeSingle();
+
+  if (error) {
+    throw new AuthServiceError("profile_update_failed", "form", error.message);
+  }
+
+  if (data) {
+    return data as SupabaseProfileRow;
+  }
+
+  await upsertSupabaseProfile(user, {
+    ...changes,
+    email: normalizeEmail(user.email ?? ""),
+  });
+
+  return (await fetchSupabaseProfile(user.id)) ?? existingProfile;
+}
+
+async function migrateLegacySupabaseAvatar(user: User, profile: SupabaseProfileRow | null, avatarStorageKey?: string | null) {
+  if (profile?.avatar_url || !isLegacyLocalAvatarKey(avatarStorageKey)) {
+    return profile;
+  }
+
+  const blob = await loadPersistedProfileImageBlob(avatarStorageKey).catch(() => null);
+  if (!blob) {
+    return profile;
+  }
+
+  try {
+    const mimeType = inferAvatarMimeType(blob);
+    const file = new File([blob], `avatar.${inferAvatarExtension(mimeType)}`, { type: mimeType });
+    const avatarUrl = await uploadSupabaseAvatar(user.id, file);
+    if (!avatarUrl) {
+      return profile;
+    }
+
+    return (await updateSupabaseProfile(user, { avatar_url: avatarUrl })) ?? profile;
+  } catch {
+    return profile;
+  }
+}
+
+async function fetchSupabaseStudentAccess(userId: string) {
+  if (!hasSupabaseRuntimeConfig()) {
+    return null;
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("students")
+    .select("id,teacher_id,auth_user_id,must_change_password,full_name,email,phone,birth_date,notes,status,access_status,temporary_password_generated_at,first_access_completed_at,last_login_at,created_at,updated_at")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new AuthServiceError("student_context_failed", "form", error.message);
+  }
+
+  return (data ?? null) as SupabaseStudentAccessRow | null;
+}
+
+async function ensureSupabaseTeacherAccess(user: User) {
+  if (!hasSupabaseRuntimeConfig()) {
+    return null;
+  }
+
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("provision_current_teacher_account", {
+    p_selected_plan: typeof metadata.selected_plan === "string" ? metadata.selected_plan : null,
+    p_mock_pro_payment_confirmed: Boolean(metadata.mockProPaymentConfirmed),
+  });
+
+  if (error) {
+    throw new AuthServiceError("teacher_context_failed", "form", error.message);
+  }
+
+  const snapshot = (Array.isArray(data) ? data[0] : data) as TeacherAccessSnapshot | null;
+  if (!snapshot) {
+    return null;
+  }
+
+  return snapshot;
+}
+
+function mapSupabaseUserToFallbackAuthUser(user: User, profile: SupabaseProfileRow | null): AuthUser {
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const resolvedProfileRole = (profile?.role as "professor" | "aluno" | null | undefined) ?? null;
+  const authRole =
+    mapSupabaseProfileRoleToAuthRole(resolvedProfileRole) ??
+    (resolveSupabaseProfileRole(metadata.role) === "aluno" ? "student" : "coach");
+
+  if (authRole === "student") {
+    throw new AuthServiceError("student_context_missing", "form", "Conta de aluno sem vinculo operacional carregado.");
+  }
+
+  const planType = normalizePlanType(metadata.selected_plan);
+  const subscriptionStatus = normalizeSubscriptionStatus(metadata.subscription_status, planType);
+
+  return {
+    id: user.id,
+    role: "coach",
+    linkedStudentId: null,
+    accountStatus: "active",
+    mustChangePassword: false,
+    temporaryPasswordGeneratedAt: null,
+    firstAccessCompletedAt: user.updated_at ?? null,
+    fullName: String(profile?.full_name ?? metadata.full_name ?? user.email?.split("@")[0] ?? "Conta Sano+"),
+    birthDate: String(profile?.birth_date ?? metadata.birth_date ?? "1990-01-01"),
+    cpf: (profile?.cpf ?? metadata.cpf ?? null) as string | null,
+    email: normalizeEmail(user.email ?? ""),
+    phone: (profile?.phone ?? metadata.phone ?? null) as string | null,
+    notes: (profile?.notes ?? metadata.notes ?? null) as string | null,
+    avatarStorageKey: profile?.avatar_url ? getSupabaseAvatarPath(user.id) : null,
+    avatarUrl: profile?.avatar_url ?? null,
+    createdAt: profile?.created_at ?? user.created_at ?? nowIso(),
+    updatedAt: profile?.updated_at ?? user.updated_at ?? nowIso(),
+    emailVerifiedAt: user.email_confirmed_at ?? null,
+    teacherId: user.id,
+    teacherPlanType: planType,
+    teacherSubscriptionStatus: subscriptionStatus,
+    teacherTrialEndsAt: (metadata.trial_ends_at ?? null) as string | null,
+    teacherCurrentPeriodEndsAt: (metadata.current_period_ends_at ?? null) as string | null,
+    teacherHasActiveAccess: true,
+    teacherCanAddStudent: true,
+    teacherAccessMessage: null,
+  };
+}
+
+async function mapSupabaseUserToAuthUser(user: User, profileOverride?: SupabaseProfileRow | null): Promise<AuthUser> {
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const legacyAvatarStorageKey = (metadata.avatar_storage_key ?? null) as string | null;
+  const ensuredProfile = profileOverride ?? (await ensureSupabaseProfile(user));
+  const profile = await migrateLegacySupabaseAvatar(user, ensuredProfile, legacyAvatarStorageKey);
+  const avatarStorageKey = (profile?.avatar_url ? getSupabaseAvatarPath(user.id) : null) ?? legacyAvatarStorageKey;
+  const avatarUrl = await resolveSupabaseAvatarUrl(profile, avatarStorageKey);
+  const authRole =
+    mapSupabaseProfileRoleToAuthRole((profile?.role as "professor" | "aluno" | null | undefined) ?? null) ??
+    (resolveSupabaseProfileRole(metadata.role) === "aluno"
+      ? "student"
+      : "coach");
+
+  if (authRole === "student") {
+    const student = await fetchSupabaseStudentAccess(user.id);
+    if (!student) {
+      throw new AuthServiceError("student_context_missing", "form", "Conta de aluno sem vinculo operacional no backend.");
+    }
+
+    return {
+      id: user.id,
+      role: "student",
+      linkedStudentId: student.id,
+      accountStatus: student.status === "active" ? "active" : "inactive",
+      mustChangePassword: student.must_change_password,
+      temporaryPasswordGeneratedAt: student.temporary_password_generated_at,
+      firstAccessCompletedAt: student.first_access_completed_at,
+      fullName: student.full_name,
+      birthDate: student.birth_date ?? "1990-01-01",
+      cpf: profile?.cpf ?? null,
+      email: normalizeEmail(student.email ?? user.email ?? ""),
+      phone: student.phone ?? null,
+      notes: student.notes ?? null,
+      avatarStorageKey,
+      avatarUrl,
+      createdAt: student.created_at ?? profile?.created_at ?? user.created_at ?? nowIso(),
+      updatedAt: student.updated_at ?? profile?.updated_at ?? user.updated_at ?? nowIso(),
+      emailVerifiedAt: user.email_confirmed_at ?? null,
+      teacherId: student.teacher_id,
+      teacherPlanType: null,
+      teacherSubscriptionStatus: null,
+      teacherTrialEndsAt: null,
+      teacherCurrentPeriodEndsAt: null,
+      teacherHasActiveAccess: null,
+      teacherCanAddStudent: null,
+      teacherAccessMessage: null,
+    };
+  }
+
+  const teacherAccess = await ensureSupabaseTeacherAccess(user);
+  const planType = normalizePlanType(teacherAccess?.plan_type ?? metadata.selected_plan);
+  const subscriptionStatus = normalizeSubscriptionStatus(
+    teacherAccess?.effective_status ?? metadata.subscription_status,
+    planType,
+  );
+
+  return {
+    id: user.id,
+    role: "coach",
+    linkedStudentId: null,
+    accountStatus: teacherAccess?.has_active_access === false ? "inactive" : "active",
+    mustChangePassword: false,
+    temporaryPasswordGeneratedAt: null,
+    firstAccessCompletedAt: user.updated_at ?? null,
+    fullName: String(profile?.full_name ?? metadata.full_name ?? user.email?.split("@")[0] ?? "Conta Sano+"),
+    birthDate: String(profile?.birth_date ?? metadata.birth_date ?? "1990-01-01"),
+    cpf: (profile?.cpf ?? metadata.cpf ?? null) as string | null,
+    email: normalizeEmail(user.email ?? ""),
+    phone: (profile?.phone ?? metadata.phone ?? null) as string | null,
+    notes: (profile?.notes ?? metadata.notes ?? null) as string | null,
+    avatarStorageKey,
+    avatarUrl,
+    createdAt: profile?.created_at ?? user.created_at ?? nowIso(),
+    updatedAt: profile?.updated_at ?? user.updated_at ?? nowIso(),
+    emailVerifiedAt: user.email_confirmed_at ?? null,
+    teacherId: teacherAccess?.teacher_id ?? user.id,
+    teacherPlanType: planType,
+    teacherSubscriptionStatus: subscriptionStatus,
+    teacherTrialEndsAt: teacherAccess?.trial_ends_at ?? null,
+    teacherCurrentPeriodEndsAt: teacherAccess?.current_period_ends_at ?? ((metadata.current_period_ends_at ?? null) as string | null),
+    teacherHasActiveAccess: teacherAccess?.has_active_access ?? true,
+    teacherCanAddStudent: teacherAccess?.can_add_student ?? true,
+    teacherAccessMessage: teacherAccess?.access_message ?? null,
+  };
+}
+
+async function getSupabaseAuthUser() {
+  if (!hasSupabaseRuntimeConfig()) return null;
+
+  try {
+    const supabase = getSupabaseClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) return null;
+
+    const profile = await ensureSupabaseProfile(session.user);
+    try {
+      return await mapSupabaseUserToAuthUser(session.user, profile);
+    } catch (error) {
+      console.error("Falha ao enriquecer usuario Supabase, usando fallback de coach.", error);
+      return mapSupabaseUserToFallbackAuthUser(session.user, profile);
+    }
+  } catch (error) {
+    console.error("Falha ao carregar usuario autenticado do Supabase.", error);
+    return null;
+  }
+}
+
+async function getSupabaseResolvedAuthState() {
+  if (!hasSupabaseRuntimeConfig()) {
+    return {
+      session: null,
+      user: null,
+      profile: null,
+    };
+  }
+
+  try {
+    const supabase = getSupabaseClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      return {
+        session: null,
+        user: null,
+        profile: null,
+      };
+    }
+
+    const profile = await ensureSupabaseProfile(session.user);
+    let currentUser: AuthUser;
+
+    try {
+      currentUser = await mapSupabaseUserToAuthUser(session.user, profile);
+    } catch (error) {
+      console.error("Falha ao resolver contexto autenticado completo, usando fallback de coach.", error);
+      currentUser = mapSupabaseUserToFallbackAuthUser(session.user, profile);
+    }
+
+    return {
+      session: {
+        userId: session.user.id,
+        email: session.user.email ?? null,
+        emailVerifiedAt: session.user.email_confirmed_at ?? null,
+        provider: "supabase" as const,
+        createdAt: session.user.created_at ?? nowIso(),
+        lastActiveAt: nowIso(),
       },
-    },
-  }).catch(() => undefined);
+      user: currentUser,
+      profile: mapAuthUserToProfile(currentUser),
+    };
+  } catch (error) {
+    console.error("Falha ao montar snapshot autenticado do Supabase.", error);
+    return {
+      session: null,
+      user: null,
+      profile: null,
+    };
+  }
+}
+
+export class AuthServiceError extends Error {
+  code: string;
+  field?: string;
+
+  constructor(code: string, field: string | undefined, message: string) {
+    super(message);
+    this.name = "AuthServiceError";
+    this.code = code;
+    this.field = field;
+  }
 }
 
 export const authService = {
-  async getCurrentUser() {
-    if (isSupabaseEnabled() && !isRecoveryFlowContext()) {
-      await tryProvisionSupabaseCoachFromMetadata();
+  async getAuthSnapshot() {
+    if (hasSupabaseRuntimeConfig()) {
+      return getSupabaseResolvedAuthState();
     }
 
-    const supabaseUser = await resolveSupabaseAppUser();
-    if (supabaseUser) {
-      clearLegacyAuthSessionState();
-      if (supabaseUser.role === "student" && supabaseUser.accountStatus !== "active") {
-        await getSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
-        return null;
+    return getLocalResolvedAuthState();
+  },
+
+  async getCurrentUser(): Promise<AuthUser | null> {
+    const snapshot = await this.getAuthSnapshot();
+    return snapshot.user;
+  },
+
+  async getCurrentSession(): Promise<ResolvedAuthSession | null> {
+    const snapshot = await this.getAuthSnapshot();
+    return snapshot.session;
+  },
+
+  async getCurrentProfile(): Promise<DatabaseUserProfile | null> {
+    const snapshot = await this.getAuthSnapshot();
+    return snapshot.profile;
+  },
+
+  async register(input: RegisterInput): Promise<AuthUser | null> {
+    if (!hasSupabaseRuntimeConfig()) {
+      const db = loadDatabase();
+      const email = normalizeEmail(input.email);
+
+      if (db.users.some((user) => normalizeEmail(user.email) === email)) {
+        throw new AuthServiceError("email_in_use", "email", "Ja existe uma conta com este e-mail.");
       }
 
-      return supabaseUser;
+      const user = createFallbackCoachUser(input);
+      await syncAvatar(user, input.avatarFile ?? null, false);
+      await persistDatabaseUser(db, user);
+      updateLocalSessionForUser(user.id);
+      return stripSensitiveFields(user);
     }
 
-    if (isSupabaseEnabled()) {
-      const {
-        data: { user: authUser },
-      } = await getSupabaseClient().auth.getUser().catch(() => ({ data: { user: null } }));
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizeEmail(input.email),
+      password: input.password,
+      options: {
+        emailRedirectTo: buildAuthCallbackUrl("/dashboard"),
+        data: {
+          role: "professor",
+          full_name: input.fullName,
+          birth_date: input.birthDate,
+          cpf: input.cpf,
+          selected_plan: input.selectedPlan,
+          mockProPaymentConfirmed: Boolean(input.mockProPaymentConfirmed),
+        },
+      },
+    });
 
-      if (authUser) {
-        if (isRecoveryFlowContext()) {
-          return null;
-        }
+    if (error) {
+      const normalizedMessage = error.message.toLowerCase();
 
-        await getSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
-        clearSupabaseBrowserSession();
+      if (normalizedMessage.includes("already registered") || normalizedMessage.includes("already been registered") || normalizedMessage.includes("already exists")) {
+        throw new AuthServiceError("email_in_use", "email", "Ja existe uma conta com este e-mail.");
       }
 
+      if (normalizedMessage.includes("password")) {
+        throw new AuthServiceError("register_failed", "password", error.message);
+      }
+
+      throw new AuthServiceError("register_failed", "form", error.message);
+    }
+
+    if (data.user && data.session) {
+      const avatarUrl = input.avatarFile ? await uploadSupabaseAvatar(data.user.id, input.avatarFile) : null;
+
+      await upsertSupabaseProfile(data.user, {
+        email: normalizeEmail(input.email),
+        full_name: input.fullName,
+        avatar_url: avatarUrl,
+        cpf: input.cpf,
+        birth_date: input.birthDate,
+        phone: null,
+        notes: null,
+        role: "professor",
+      });
+    }
+
+    if (!data.session) {
       return null;
     }
 
-    const db = readDb();
-    if (!db.session?.userId) return null;
-    const user = db.users.find((item) => item.id === db.session?.userId);
-    if (user) {
-      try {
-        if (user.role === "student") {
-          ensureStudentCanAuthenticate(user);
-        }
-      } catch {
-        db.session = null;
-        writeDb(db);
-        return null;
-      }
-    }
-    return resolveUser(user);
+    return this.getCurrentUser();
   },
 
-  async register(input: RegisterInput) {
-    if (isSupabaseEnabled()) {
-      const parsed = registerSchema.safeParse({
-        fullName: input.fullName,
-        birthDate: input.birthDate,
-        cpf: input.cpf,
-        email: input.email,
+  async login(input: LoginInput): Promise<AuthUser | null> {
+    if (hasSupabaseRuntimeConfig()) {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizeEmail(input.email),
         password: input.password,
-        confirmPassword: input.password,
       });
 
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
+      if (error) {
+        const normalizedMessage = error.message.toLowerCase();
+        if (normalizedMessage.includes("email not confirmed")) {
+          throw new AuthServiceError("email_not_confirmed", "form", "Confirme seu e-mail para concluir o acesso.");
+        }
+
+        throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha invalidos.");
       }
 
-      if (!input.selectedPlan) {
-        throw new AuthServiceError("plan_required", "Escolha um plano para continuar.", "selectedPlan");
-      }
-
-      if (input.selectedPlan === "pro" && !input.mockProPaymentConfirmed) {
-        throw new AuthServiceError("mock_payment_confirmation_required", "Confirme a assinatura simulada do plano Pro para continuar.", "mockProPaymentConfirmed");
-      }
-
-      try {
-        const registrationResult = await registerTeacherWithTrial({
-          email: parsed.data.email,
-          password: parsed.data.password,
-          fullName: parsed.data.fullName,
-          birthDate: parsed.data.birthDate,
-          cpf: parsed.data.cpf,
-          selectedPlan: input.selectedPlan,
-          mockProPaymentConfirmed: Boolean(input.mockProPaymentConfirmed),
+      const currentUser = await this.getCurrentUser();
+      if (currentUser?.role === "student" && currentUser.linkedStudentId) {
+        await getSupabaseClient().rpc("touch_student_last_login", {
+          p_student_id: currentUser.linkedStudentId,
         });
-
-        if ("requiresEmailConfirmation" in registrationResult) {
-          clearLegacyAuthSessionState();
-          return null;
-        }
-
-        clearLegacyAuthSessionState();
-      } catch (error) {
-        await getSupabaseClient().auth.signOut({ scope: "local" }).catch(() => undefined);
-        const message = error instanceof Error ? error.message : "Nao foi possivel criar sua conta agora. Tente novamente.";
-        if (/already registered|ja esta em uso/i.test(message)) {
-          throw new AuthServiceError("email_in_use", "Este e-mail ja esta em uso.", "email");
-        }
-        if (/cpf invalido/i.test(message)) {
-          throw new AuthServiceError("validation_error", "Informe um CPF valido.", "cpf");
-        }
-        throw new AuthServiceError("register_failed", message);
-      }
-
-      const currentUser = await resolveSupabaseAppUser();
-      if (!currentUser) {
-        return null;
       }
 
       return currentUser;
     }
 
-    const db = readDb();
-    const parsed = registerSchema.safeParse({
-      fullName: input.fullName,
-      birthDate: input.birthDate,
-      cpf: input.cpf,
-      email: input.email,
-      password: input.password,
-      confirmPassword: input.password,
-    });
-
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-    }
-
+    const db = loadDatabase();
     const email = normalizeEmail(input.email);
-    const cpf = normalizeCpf(input.cpf);
+    const user = db.users.find((entry) => normalizeEmail(entry.email) === email);
 
-    if (db.users.some((user) => user.email === email)) {
-      throw new AuthServiceError("email_in_use", "Este e-mail ja esta em uso.", "email");
+    if (!user || user.password !== input.password) {
+      throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha invalidos.");
     }
 
-    if (cpf && db.users.some((user) => user.cpf && user.cpf === cpf)) {
-      throw new AuthServiceError("cpf_in_use", "Este CPF ja esta cadastrado.", "cpf");
+    refreshStudentDerivedFields(user);
+
+    if (user.accountStatus !== "active") {
+      throw new AuthServiceError("inactive_account", "form", "Esta conta esta inativa no momento.");
     }
 
-    let avatarStorageKey: string | null = null;
-    if (input.avatarFile) {
-      avatarStorageKey = await persistProfileImageFile(input.avatarFile);
-    }
-
-    const createdAt = nowIso();
-    const passwordSalt = createId();
-    const passwordHash = await hashPassword(input.password, passwordSalt);
-
-    const user: StoredAuthUser = {
-      id: createId(),
-      role: "coach",
-      linkedStudentId: null,
-      accountStatus: "active",
-      mustChangePassword: false,
-      temporaryPasswordGeneratedAt: null,
-      firstAccessCompletedAt: createdAt,
-      fullName: sanitizeName(input.fullName),
-      birthDate: input.birthDate,
-      cpf,
-      email,
-      phone: null,
-      notes: null,
-      avatarStorageKey,
-      createdAt,
-      updatedAt: createdAt,
-      emailVerifiedAt: null,
-      passwordSalt,
-      passwordHash,
-    };
-
-    db.users.unshift(user);
-    db.session = { userId: user.id, createdAt, lastActiveAt: createdAt };
-    writeDb(db);
-
-    return resolveUser(user);
-  },
-
-  async issueStudentTemporaryAccess(studentId: string): Promise<StudentTemporaryAccess> {
-    if (isSupabaseEnabled()) {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.functions.invoke("issue-student-temporary-access", {
-        body: { studentId },
-      });
-
-      if (error || !data) {
-        throw new AuthServiceError("student_access_issue_failed", error?.message ?? "Nao foi possivel gerar o acesso do aluno.");
-      }
-
-      return data as StudentTemporaryAccess;
-    }
-
-    const db = readDb();
-    const student = store.getStudent(studentId);
-    if (!student) {
-      throw new AuthServiceError("student_not_found", "Aluno nao encontrado.");
-    }
-
-    const normalizedEmail = normalizeEmail(student.email);
-    const conflictingCoach = db.users.find((user) => user.email === normalizedEmail && user.role === "coach");
-    if (conflictingCoach) {
-      throw new AuthServiceError("email_in_use", "Este e-mail ja esta em uso por outra conta.");
-    }
-
-    const currentUser = db.users.find((user) => user.role === "student" && user.linkedStudentId === studentId);
-    const generatedAt = nowIso();
-    const temporaryPassword = generateTemporaryPassword();
-    const passwordSalt = createId();
-    const passwordHash = await hashPassword(temporaryPassword, passwordSalt);
-
-    const nextUser: StoredAuthUser = {
-      id: currentUser?.id ?? createId(),
-      role: "student",
-      linkedStudentId: studentId,
-      accountStatus: "active",
-      mustChangePassword: true,
-      temporaryPasswordGeneratedAt: generatedAt,
-      firstAccessCompletedAt: null,
-      fullName: student.fullName,
-      birthDate: student.birthDate,
-      cpf: currentUser?.cpf ?? null,
-      email: normalizedEmail,
-      phone: student.phone || null,
-      notes: student.notes || null,
-      avatarStorageKey: currentUser?.avatarStorageKey ?? student.profilePhotoStorageKey ?? null,
-      createdAt: currentUser?.createdAt ?? generatedAt,
-      updatedAt: generatedAt,
-      emailVerifiedAt: currentUser?.emailVerifiedAt ?? null,
-      passwordSalt,
-      passwordHash,
-    };
-
-    db.users = db.users.filter((user) => user.id !== nextUser.id);
-    db.users.unshift(nextUser);
-    writeDb(db);
-    store.provisionStudentAccess(studentId, nextUser.id, generatedAt);
-
-    return {
-      studentId,
-      studentName: student.fullName,
-      email: normalizedEmail,
-      temporaryPassword,
-      generatedAt,
-    };
-  },
-
-  async login(input: LoginInput) {
-    if (isSupabaseEnabled()) {
-      const parsed = loginSchema.safeParse(input);
-
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-      }
-
-      try {
-        const supabase = getSupabaseClient();
-        const { error } = await supabase.auth.signInWithPassword({
-          email: parsed.data.email,
-          password: parsed.data.password,
-        });
-
-        if (!error) {
-          clearLegacyAuthSessionState();
-          await tryProvisionSupabaseCoachFromMetadata().catch(() => undefined);
-          const currentUser = await resolveSupabaseAppUser();
-          if (currentUser?.role === "student") {
-            if (currentUser.accountStatus !== "active") {
-              await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-              throw new AuthServiceError("inactive_account", "Seu acesso foi desativado. Fale com seu professor.");
-            }
-
-            if (currentUser.linkedStudentId) {
-              try { await supabase.rpc("touch_student_last_login", { p_student_id: currentUser.linkedStudentId }); } catch {}
-            }
-          }
-
-          if (currentUser) return currentUser;
-
-          let profileRows: any[] | null = null;
-          try {
-            const res = await supabase.from("profiles").select("user_id").eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "").limit(1);
-            profileRows = res.data;
-          } catch {}
-
-          if (profileRows && profileRows.length > 0) {
-            await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-            throw new AuthServiceError(
-              "account_not_linked",
-              "Sua conta existe, mas ainda nao terminou de ser vinculada ao workspace. Tente entrar novamente em alguns instantes.",
-            );
-          }
-
-          await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-          throw new AuthServiceError("account_not_linked", "Sua conta nao esta vinculada a um perfil ativo no sistema.");
-        }
-
-        const normalizedMessage = error.message.toLowerCase();
-        if (normalizedMessage.includes("invalid login credentials")) {
-          throw new AuthServiceError("invalid_credentials", "E-mail ou senha invalidos.");
-        }
-
-        if (normalizedMessage.includes("email not confirmed")) {
-          throw new AuthServiceError("email_not_confirmed", "Confirme seu e-mail para concluir o acesso.");
-        }
-
-        if (isSupabaseAuthError(error.message)) {
-          throw new AuthServiceError("login_failed", error.message);
-        }
-
-        throw new AuthServiceError("login_failed", error.message);
-      } catch (error) {
-        if (error instanceof AuthServiceError) {
-          throw error;
-        }
-
-        throw new AuthServiceError("login_failed", "Nao foi possivel entrar agora. Tente novamente.");
-      }
-    }
-
-    const db = readDb();
-    const parsed = loginSchema.safeParse(input);
-
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-    }
-
-    const email = normalizeEmail(input.email);
-    const rateKey = `login:${email}`;
-    ensureWithinRateLimit(db, rateKey);
-
-    const user = db.users.find((item) => item.email === email);
-    const valid = user ? await verifyPassword(input.password, user.passwordSalt, user.passwordHash) : false;
-
-    if (!user || !valid) {
-      touchRateLimit(db, rateKey);
-      writeDb(db);
-      throw new AuthServiceError("invalid_credentials", "E-mail ou senha invalidos.");
-    }
-
-    if (user.role === "student") {
-      ensureStudentCanAuthenticate(user);
-    }
-
-    db.rateLimits[rateKey] = { timestamps: [] };
-    db.session = {
-      userId: user.id,
-      createdAt: db.session?.userId === user.id ? db.session.createdAt : nowIso(),
-      lastActiveAt: nowIso(),
-    };
-    writeDb(db);
+    user.updatedAt = nowIso();
+    await persistDatabaseUser(db, user);
+    updateLocalSessionForUser(user.id);
 
     if (user.role === "student" && user.linkedStudentId) {
       store.markStudentLastLogin(user.linkedStudentId);
     }
 
-    return resolveUser(user);
-  },
-
-  async completeFirstAccess(input: CompleteFirstAccessInput) {
-    if (isSupabaseEnabled()) {
-      const currentUser = await resolveSupabaseAppUser();
-      if (!currentUser || currentUser.role !== "student" || !currentUser.mustChangePassword || !currentUser.linkedStudentId) {
-        throw new AuthServiceError("invalid_state", "Nao ha troca obrigatoria pendente para esta conta.");
-      }
-
-      const parsed = resetPasswordSchema.safeParse({
-        password: input.password,
-        confirmPassword: input.password,
-      });
-
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-      }
-
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.updateUser({ password: input.password });
-      if (error) {
-        throw new AuthServiceError("first_access_failed", error.message, "password");
-      }
-
-      clearLegacyAuthSessionState();
-      await supabase.rpc("mark_student_first_access_complete", {
-        p_student_id: currentUser.linkedStudentId,
-      }).throwOnError();
-
-      try { await supabase.rpc("touch_student_last_login", { p_student_id: currentUser.linkedStudentId }); } catch {}
-
-      return resolveSupabaseAppUser();
-    }
-
-    const db = readDb();
-    if (!db.session?.userId) {
-      throw new AuthServiceError("unauthorized", "Sua sessao expirou. Entre novamente.");
-    }
-
-    const user = db.users.find((item) => item.id === db.session?.userId);
-    if (!user || user.role !== "student" || !user.mustChangePassword) {
-      throw new AuthServiceError("invalid_state", "Nao ha troca obrigatoria pendente para esta conta.");
-    }
-
-    const parsed = resetPasswordSchema.safeParse({
-      password: input.password,
-      confirmPassword: input.password,
-    });
-
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-    }
-
-    const isSameAsTemporary = await verifyPassword(input.password, user.passwordSalt, user.passwordHash);
-    if (isSameAsTemporary) {
-      throw new AuthServiceError("temporary_password_reuse", "Escolha uma senha diferente da senha provisoria.", "password");
-    }
-
-    const completedAt = nowIso();
-    user.passwordSalt = createId();
-    user.passwordHash = await hashPassword(input.password, user.passwordSalt);
-    user.mustChangePassword = false;
-    user.firstAccessCompletedAt = completedAt;
-    user.updatedAt = completedAt;
-    writeDb(db);
-
-    if (user.linkedStudentId) {
-      store.completeStudentFirstAccess(user.linkedStudentId, completedAt);
-      store.markStudentLastLogin(user.linkedStudentId);
-    }
-
-    return resolveUser(user);
-  },
-
-  async setStudentAccountStatus(studentId: string, active: boolean) {
-    if (isSupabaseEnabled()) {
-      return;
-    }
-
-    const db = readDb();
-    db.users = db.users.map((user) =>
-      user.role === "student" && user.linkedStudentId === studentId
-        ? { ...user, accountStatus: active ? "active" : "inactive", updatedAt: nowIso() }
-        : user,
-    );
-    writeDb(db);
+    return stripSensitiveFields(user);
   },
 
   async logout() {
-    const db = readDb();
-    db.session = null;
-    writeDb(db);
-    clearSupabaseBrowserSession();
-
-    if (isSupabaseEnabled()) {
-      const supabase = getSupabaseClient();
-      await Promise.race([
-        supabase.auth.signOut({ scope: "local" }).catch(() => undefined),
-        new Promise((resolve) => window.setTimeout(resolve, 1500)),
-      ]);
+    if (hasSupabaseRuntimeConfig()) {
+      try {
+        await getSupabaseClient().auth.signOut();
+      } catch {
+        // noop
+      }
     }
-    clearSupabaseBrowserSession();
-    resetSupabaseClient();
+
+    clearSession();
   },
 
   async requestPasswordReset(input: ForgotPasswordInput) {
-    if (isSupabaseEnabled()) {
-      const parsed = forgotPasswordSchema.safeParse(input);
-
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-      }
-
+    if (hasSupabaseRuntimeConfig()) {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(input.email), {
         redirectTo: buildAuthCallbackUrl("/redefinir-senha"),
       });
-      if (error) {
-        if (shouldTreatPasswordResetRequestAsSoftSuccess(error.message)) {
-          return {
-            token: "",
-            message: "Se existir uma conta com esse e-mail, voce recebera instrucoes para redefinir sua senha.",
-          };
-        }
 
-        throw mapSupabasePasswordRecoveryError(error.message, "email");
+      if (error) {
+        throw new AuthServiceError("password_reset_request_failed", "form", error.message);
       }
 
       return {
         token: "",
-        message: "Se existir uma conta com esse e-mail, voce recebera instrucoes para redefinir sua senha.",
+        message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
       };
     }
 
-    const db = readDb();
-    const parsed = forgotPasswordSchema.safeParse(input);
+    const db = loadDatabase();
+    const email = normalizeEmail(input.email);
+    const user = db.users.find((entry) => normalizeEmail(entry.email) === email);
 
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
+    if (!user) {
+      return {
+        token: "",
+        message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
+      };
     }
 
-    const email = normalizeEmail(input.email);
-    const rateKey = `forgot:${email}`;
-    ensureWithinRateLimit(db, rateKey);
-    touchRateLimit(db, rateKey);
-
-    const user = db.users.find((item) => item.email === email);
-    const { token, record } = await buildResetRecord(email, user?.id ?? null);
-    db.resetTokens.unshift(record);
-    writeDb(db);
+    const token = generateId("reset");
+    user.resetPasswordToken = token;
+    user.resetPasswordIssuedAt = nowIso();
+    user.updatedAt = nowIso();
+    await persistDatabaseUser(db, user);
 
     return {
       token,
-      message: "Se existir uma conta com esse e-mail, voce recebera instrucoes para redefinir sua senha.",
+      message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
     };
   },
 
-  async resetPassword(input: ResetPasswordInput) {
-    if (isSupabaseEnabled()) {
-      const parsed = resetPasswordSchema.safeParse({
-        password: input.password,
-        confirmPassword: input.password,
-      });
-
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-      }
-
+  async resetPassword(input: ResetPasswordInput): Promise<AuthUser | null> {
+    if (hasSupabaseRuntimeConfig()) {
       const supabase = getSupabaseClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (!session) {
-        throw new AuthServiceError(
-          "invalid_reset_token",
-          "O link de redefinicao e invalido, expirou ou ja foi utilizado. Solicite um novo link.",
-        );
+      if (!session?.user) {
+        throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao e invalido, expirou ou ja foi utilizado.");
       }
 
+      assertStrongPassword(input.password);
       const { error } = await supabase.auth.updateUser({ password: input.password });
+
       if (error) {
-        throw mapSupabasePasswordRecoveryError(error.message, "password");
+        throw new AuthServiceError("reset_failed", "form", error.message);
       }
 
-      clearLegacyAuthSessionState();
-      const currentUser = await resolveSupabaseAppUser();
-      return currentUser;
-    }
-
-    const db = readDb();
-    const parsed = resetPasswordSchema.safeParse({
-      password: input.password,
-      confirmPassword: input.password,
-    });
-
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-    }
-
-    const tokenHash = await sha256(input.token);
-    const record = db.resetTokens.find((item) => item.tokenHash === tokenHash);
-
-    if (!record || record.usedAt || new Date(record.expiresAt).getTime() < Date.now() || !record.userId) {
-      throw new AuthServiceError("invalid_reset_token", "O link de redefinicao e invalido ou expirou.");
-    }
-
-    const user = db.users.find((item) => item.id === record.userId);
-    if (!user) {
-      throw new AuthServiceError("invalid_reset_token", "O link de redefinicao e invalido ou expirou.");
-    }
-
-    user.passwordSalt = createId();
-    user.passwordHash = await hashPassword(input.password, user.passwordSalt);
-    user.mustChangePassword = false;
-    user.firstAccessCompletedAt = nowIso();
-    user.updatedAt = nowIso();
-    record.usedAt = nowIso();
-    db.session = { userId: user.id, createdAt: nowIso(), lastActiveAt: nowIso() };
-    writeDb(db);
-
-    return resolveUser(user);
-  },
-
-  async refreshSessionUser() {
-    return this.getCurrentUser();
-  },
-
-  async updateProfile(input: UpdateProfileInput) {
-    if (isSupabaseEnabled()) {
-      const currentUser = await resolveSupabaseAppUser();
-      if (currentUser?.role === "coach") {
-        const parsed = updateProfileSchema.safeParse({
-          fullName: input.fullName,
-          birthDate: input.birthDate,
-          phone: input.phone ?? "",
-          notes: input.notes ?? "",
-        });
-
-        if (!parsed.success) {
-          const issue = parsed.error.issues[0];
-          throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
-        }
-
-        const supabase = getSupabaseClient();
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            full_name: parsed.data.fullName,
-            birth_date: parsed.data.birthDate,
-            phone: parsed.data.phone ? normalizePhone(parsed.data.phone) : null,
-            updated_at: nowIso(),
-          })
-          .eq("user_id", currentUser.id);
-
-        if (error) {
-          throw new AuthServiceError("profile_update_failed", error.message);
-        }
-
-        return resolveSupabaseAppUser();
-      }
-
-      if (currentUser?.role === "student") {
-        throw new AuthServiceError("profile_update_not_allowed", "O perfil do aluno nao pode ser editado por esta rota.");
-      }
-
+      await supabase.auth.signOut();
       return null;
     }
 
-    const db = readDb();
+    const db = loadDatabase();
+    const token = input.token.trim();
+    const user = db.users.find((entry) => entry.resetPasswordToken === token);
 
-    if (!db.session?.userId) {
-      throw new AuthServiceError("unauthorized", "Sua sessao expirou. Entre novamente.");
+    if (!token || !user) {
+      throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao e invalido, expirou ou ja foi utilizado.");
     }
 
-    const user = db.users.find((item) => item.id === db.session?.userId);
-    if (!user) {
-      throw new AuthServiceError("unauthorized", "Sua sessao expirou. Entre novamente.");
+    assertStrongPassword(input.password);
+
+    user.password = input.password;
+    user.resetPasswordToken = null;
+    user.resetPasswordIssuedAt = null;
+    user.mustChangePassword = false;
+    user.updatedAt = nowIso();
+
+    if (user.role === "student" && user.linkedStudentId) {
+      store.completeStudentFirstAccess(user.linkedStudentId, user.updatedAt);
     }
 
-    if (user.role === "student") {
-      ensureStudentCanUseApp(user);
+    await persistDatabaseUser(db, user);
+    clearSession();
+    return null;
+  },
+
+  async issueStudentTemporaryAccess(studentId: string) {
+    if (hasSupabaseRuntimeConfig()) {
+      const response = await invokeSupabaseEdgeFunction<{
+        ok: true;
+        requestId: string;
+        data: {
+          result: {
+            studentId: string;
+            studentName: string;
+            email: string;
+            temporaryPassword: string;
+            generatedAt: string;
+          };
+        };
+      }>(EDGE_FUNCTION_NAMES.teacherAdminActions, {
+        body: {
+          action: "reset_student_temporary_access",
+          payload: { studentId },
+        },
+      });
+
+      return response.data.result;
     }
 
+    const student = store.getStudent(studentId);
+    if (!student) {
+      throw new AuthServiceError("student_not_found", undefined, "Aluno nao encontrado.");
+    }
+
+    const db = loadDatabase();
+    const timestamp = nowIso();
+    const temporaryPassword = `Aluno@${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    const existingUser = db.users.find((entry) => entry.role === "student" && entry.linkedStudentId === studentId);
+
+    if (existingUser) {
+      existingUser.password = temporaryPassword;
+      existingUser.accountStatus = "active";
+      existingUser.mustChangePassword = true;
+      existingUser.temporaryPasswordGeneratedAt = timestamp;
+      existingUser.firstAccessCompletedAt = null;
+      existingUser.fullName = student.fullName;
+      existingUser.email = normalizeEmail(student.email);
+      existingUser.birthDate = student.birthDate;
+      existingUser.phone = student.phone || null;
+      existingUser.notes = student.notes || null;
+      existingUser.updatedAt = timestamp;
+      await persistDatabaseUser(db, existingUser);
+      store.resetStudentTemporaryAccess(studentId, timestamp);
+    } else {
+      const studentUser: StoredAuthUser = {
+        id: generateId("student"),
+        role: "student",
+        linkedStudentId: studentId,
+        accountStatus: "active",
+        mustChangePassword: true,
+        temporaryPasswordGeneratedAt: timestamp,
+        firstAccessCompletedAt: null,
+        fullName: student.fullName,
+        birthDate: student.birthDate,
+        cpf: null,
+        email: normalizeEmail(student.email),
+        phone: student.phone || null,
+        notes: student.notes || null,
+        avatarStorageKey: null,
+        avatarUrl: student.profilePhotoUrl ?? null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        emailVerifiedAt: timestamp,
+          teacherId: null,
+          teacherPlanType: null,
+          teacherSubscriptionStatus: null,
+          teacherTrialEndsAt: null,
+          teacherCurrentPeriodEndsAt: null,
+          teacherHasActiveAccess: null,
+          teacherCanAddStudent: null,
+          teacherAccessMessage: null,
+        password: temporaryPassword,
+        resetPasswordToken: null,
+        resetPasswordIssuedAt: null,
+      };
+
+      await persistDatabaseUser(db, studentUser);
+      store.provisionStudentAccess(studentId, studentUser.id, timestamp);
+    }
+
+    return {
+      studentId,
+      studentName: student.fullName,
+      email: normalizeEmail(student.email),
+      temporaryPassword,
+      generatedAt: timestamp,
+    };
+  },
+
+  async completeFirstAccess(input: CompleteFirstAccessInput) {
+    assertStrongPassword(input.password);
+    if (hasSupabaseRuntimeConfig()) {
+      const supabase = getSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new AuthServiceError("not_authenticated", undefined, "Sua sessao expirou. Entre novamente.");
+      }
+
+      const studentContext = await fetchSupabaseStudentAccess(user.id);
+      if (!studentContext || studentContext.access_status !== "temporary_password_pending") {
+        throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo nao esta disponivel para a conta atual.");
+      }
+
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: input.password,
+      });
+
+      if (passwordError) {
+        throw new AuthServiceError("first_access_failed", "password", passwordError.message);
+      }
+
+      const { error: firstAccessError } = await supabase.rpc("mark_student_first_access_complete", {
+        p_student_id: studentContext.id,
+      });
+
+      if (firstAccessError) {
+        throw new AuthServiceError("first_access_failed", "form", firstAccessError.message);
+      }
+
+      await supabase.rpc("touch_student_last_login", {
+        p_student_id: studentContext.id,
+      });
+
+      return this.getCurrentUser();
+    }
+
+    const db = loadDatabase();
+    const currentUser = await getLocalPersistedUserFromSession();
+
+    if (!currentUser || currentUser.role !== "student" || !currentUser.linkedStudentId || !currentUser.mustChangePassword) {
+      throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo nao esta disponivel para a conta atual.");
+    }
+
+    currentUser.password = input.password;
+    currentUser.mustChangePassword = false;
+    currentUser.firstAccessCompletedAt = nowIso();
+    currentUser.updatedAt = currentUser.firstAccessCompletedAt;
+
+    store.completeStudentFirstAccess(currentUser.linkedStudentId, currentUser.firstAccessCompletedAt);
+    store.markStudentLastLogin(currentUser.linkedStudentId);
+
+    await persistDatabaseUser(db, currentUser);
+    updateLocalSessionForUser(currentUser.id);
+    return stripSensitiveFields(currentUser);
+  },
+
+  async updateProfile(input: UpdateProfileInput) {
     const parsed = updateProfileSchema.safeParse({
       fullName: input.fullName,
       birthDate: input.birthDate,
-      phone: input.phone ?? "",
-      notes: input.notes ?? "",
+      phone: input.phone ?? null,
+      notes: input.notes ?? null,
     });
 
     if (!parsed.success) {
-      const issue = parsed.error.issues[0];
-      throw new AuthServiceError("validation_error", issue.message, String(issue.path[0] ?? "form"));
+      throw new AuthServiceError("invalid_profile", "form", parsed.error.issues[0]?.message ?? "Perfil invalido.");
     }
 
-    let avatarStorageKey = user.avatarStorageKey ?? null;
+    const supabaseUser = hasSupabaseRuntimeConfig() ? await getSupabaseAuthUser() : null;
+    if (supabaseUser) {
+      const {
+        data: { user },
+      } = await getSupabaseClient().auth.getUser();
 
-    if (input.removeAvatar && avatarStorageKey) {
-      await removePersistedProfileImage(avatarStorageKey).catch(() => undefined);
-      avatarStorageKey = null;
+      if (!user) {
+        throw new AuthServiceError("not_authenticated", undefined, "Sua sessao expirou. Entre novamente.");
+      }
+
+      let avatarUrl = supabaseUser.avatarUrl ?? null;
+
+      if (input.removeAvatar) {
+        await removeSupabaseAvatar(user.id);
+        avatarUrl = null;
+      } else if (input.avatarFile) {
+        avatarUrl = await uploadSupabaseAvatar(user.id, input.avatarFile);
+      }
+
+      const normalizedPhone = normalizePhone(parsed.data.phone ?? "") || null;
+      const updatedProfile = await updateSupabaseProfile(user, {
+        full_name: parsed.data.fullName,
+        avatar_url: avatarUrl,
+        birth_date: parsed.data.birthDate,
+        phone: normalizedPhone,
+        notes: parsed.data.notes ?? null,
+      });
+
+      const refreshed = await mapSupabaseUserToAuthUser(user, updatedProfile);
+      if (refreshed) {
+        return refreshed;
+      }
     }
 
-    if (input.avatarFile) {
-      avatarStorageKey = await persistProfileImageFile(input.avatarFile, avatarStorageKey);
+    const db = loadDatabase();
+    const currentUser = await getLocalPersistedUserFromSession();
+    if (!currentUser) {
+      throw new AuthServiceError("not_authenticated", undefined, "Sua sessao expirou. Entre novamente.");
     }
 
-    user.fullName = parsed.data.fullName;
-    user.birthDate = parsed.data.birthDate;
-    user.phone = parsed.data.phone ? normalizePhone(parsed.data.phone) : null;
-    user.notes = parsed.data.notes?.trim() ? parsed.data.notes.trim() : null;
-    user.avatarStorageKey = avatarStorageKey;
-    user.updatedAt = nowIso();
+    currentUser.fullName = parsed.data.fullName;
+    currentUser.birthDate = parsed.data.birthDate;
+    currentUser.phone = normalizePhone(parsed.data.phone ?? "");
+    currentUser.notes = parsed.data.notes ?? null;
+    currentUser.updatedAt = nowIso();
 
-    writeDb(db);
+    await syncAvatar(currentUser, input.avatarFile ?? null, Boolean(input.removeAvatar));
+    await persistDatabaseUser(db, currentUser);
+    updateLocalSessionForUser(currentUser.id);
 
-    if (user.role === "student" && user.linkedStudentId) {
-      await store.updateStudent(user.linkedStudentId, {
-        fullName: user.fullName,
-        birthDate: user.birthDate,
-        phone: user.phone ?? "",
-        profilePhotoStorageKey: user.avatarStorageKey ?? null,
+    if (currentUser.role === "student" && currentUser.linkedStudentId) {
+      await store.updateStudent(currentUser.linkedStudentId, {
+        fullName: currentUser.fullName,
+        birthDate: currentUser.birthDate,
+        phone: currentUser.phone ?? "",
+        notes: currentUser.notes ?? "",
+        profilePhotoUrl: currentUser.avatarUrl ?? null,
+        profilePhotoStorageKey: currentUser.avatarStorageKey ?? null,
       });
     }
 
-    return resolveUser(user);
+    return stripSensitiveFields(currentUser);
   },
 
   async updateSessionActivity() {
-    const db = readDb();
-    if (!db.session) return;
-    db.session.lastActiveAt = nowIso();
-    writeDb(db);
+    if (hasSupabaseRuntimeConfig()) {
+      return;
+    }
+
+    const session = loadSession();
+    if (session) {
+      saveSession({
+        ...session,
+        lastActiveAt: nowIso(),
+      });
+    }
   },
 
-  formatCpf,
-  isValidCpf,
-  normalizeCpf,
-  normalizeEmail,
+  async setStudentAccountStatus(studentId: string, active: boolean) {
+    if (hasSupabaseRuntimeConfig()) {
+      await invokeSupabaseEdgeFunction(EDGE_FUNCTION_NAMES.teacherAdminActions, {
+        body: {
+          action: "set_student_status",
+          payload: { studentId, active },
+        },
+      });
+      return this.getCurrentUser();
+    }
 
-  async clearAllAuthData() {
-    const db = readDb();
-    await Promise.all(db.users.map((user) => removePersistedProfileImage(user.avatarStorageKey).catch(() => undefined)));
-    if (canUseStorage()) window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    const db = loadDatabase();
+    const studentUser = db.users.find((entry) => entry.role === "student" && entry.linkedStudentId === studentId);
+    if (!studentUser) return null;
+
+    studentUser.accountStatus = active ? "active" : "inactive";
+    studentUser.updatedAt = nowIso();
+    await persistDatabaseUser(db, studentUser);
+    return stripSensitiveFields(studentUser);
+  },
+
+  async activateCoachProPlan() {
+    const currentUser = await this.getCurrentUser();
+    if (!currentUser || currentUser.role !== "coach") {
+      throw new AuthServiceError("invalid_role", undefined, "Somente contas de professor podem fazer upgrade.");
+    }
+
+    if (hasSupabaseRuntimeConfig()) {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.rpc("confirm_mock_pro_payment", {
+        p_teacher_id: currentUser.teacherId ?? null,
+      });
+
+      if (error) {
+        throw new AuthServiceError("upgrade_failed", "form", error.message);
+      }
+
+      return this.getCurrentUser();
+    }
+
+    const db = loadDatabase();
+    const localUser = await getLocalPersistedUserFromSession();
+    if (!localUser || localUser.role !== "coach") {
+      throw new AuthServiceError("invalid_role", undefined, "Somente contas de professor podem fazer upgrade.");
+    }
+
+    localUser.teacherPlanType = "pro";
+    localUser.teacherSubscriptionStatus = "active";
+    localUser.teacherCurrentPeriodEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    localUser.teacherHasActiveAccess = true;
+    localUser.teacherCanAddStudent = true;
+    localUser.teacherAccessMessage = null;
+    localUser.updatedAt = nowIso();
+    await persistDatabaseUser(db, localUser);
+    updateLocalSessionForUser(localUser.id);
+    return stripSensitiveFields(localUser);
+  },
+
+  clearAllAuthData() {
+    clearSession();
+    removeStorage(AUTH_DB_STORAGE_KEY);
   },
 };

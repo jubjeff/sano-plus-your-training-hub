@@ -86,6 +86,24 @@ export async function loadPersistedProfileImage(storageKey?: string | null) {
   });
 }
 
+export async function loadPersistedProfileImageBlob(storageKey?: string | null) {
+  if (!storageKey) return null;
+  const db = await openProfileMediaDb();
+
+  return new Promise<Blob | null>((resolve, reject) => {
+    const transaction = db.transaction(PROFILE_MEDIA_STORE, "readonly");
+    const store = transaction.objectStore(PROFILE_MEDIA_STORE);
+    const request = store.get(storageKey);
+
+    request.onsuccess = () => {
+      const file = request.result as Blob | undefined;
+      resolve(file ?? null);
+    };
+
+    request.onerror = () => reject(request.error ?? new Error("Falha ao carregar o blob da foto de perfil."));
+  });
+}
+
 export async function removePersistedProfileImage(storageKey?: string | null) {
   if (!storageKey) return;
   const db = await openProfileMediaDb();

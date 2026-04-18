@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 import { useStore } from "@/hooks/use-store";
-import { authService } from "@/lib/auth-service";
 import type { Exercise, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +17,7 @@ import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
 import { getStudentAccessStatusLabel, getStudentAccessTone } from "@/lib/student-access";
 import { getAttendanceSummary, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getProofStatusLabel, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { getAllowedProgressModes, getEngagementLabel, getEngagementTone, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan, normalizeProgressMode } from "@/lib/training-management";
+import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -27,8 +26,7 @@ function generateId() {
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { issueStudentTemporaryAccess } = useAuth();
-  const { students, checkIns, updateStudent, setStudentLifecycle, getStudentCheckIns, approveProofOfPayment, markPaymentReceived, updatePaymentDueDate } = useStore();
+  const { students, checkIns, updateStudent, setStudentLifecycle, getStudentCheckIns, approveProofOfPayment, markPaymentReceived, updatePaymentDueDate, refresh } = useStore();
   const student = students.find((item) => item.id === id);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -54,7 +52,7 @@ export default function StudentProfile() {
       ?.exercises.find((exercise) => exercise.id === editorState.exerciseId);
   }, [editorState, workoutDraft]);
 
-  const studentCheckIns = useMemo(() => (student ? getStudentCheckIns(student.id) : []), [getStudentCheckIns, student, checkIns]);
+  const studentCheckIns = useMemo(() => (student ? getStudentCheckIns(student.id) : []), [getStudentCheckIns, student]);
   const attendance = useMemo(() => (student ? getAttendanceSummary(student, studentCheckIns) : null), [student, studentCheckIns]);
   const workoutPlan = useMemo(() => (student ? getStudentWorkoutPlan(student) : null), [student]);
   const engagement = useMemo(() => (student ? getStudentEngagementStats(student, studentCheckIns) : null), [student, studentCheckIns]);
@@ -177,14 +175,19 @@ export default function StudentProfile() {
   };
 
   const handleTemporaryAccess = async () => {
-    const result = await issueStudentTemporaryAccess(student.id);
+    const result = await teacherAdminActionsService.resetStudentTemporaryAccess(student.id);
+    await refresh?.();
     setTemporaryDialog({ open: true, email: result.email, password: result.temporaryPassword });
+    if (result.emailDelivery?.status === "sent") {
+      toast.success("Nova senha provisoria enviada ao aluno por e-mail.");
+    } else if (result.emailDelivery?.status === "skipped") {
+      toast.message(result.emailDelivery.message);
+    }
   };
 
   const handleLifecycleToggle = async () => {
     const nextActive = student.studentStatus !== "active";
     await setStudentLifecycle(student.id, nextActive);
-    await authService.setStudentAccountStatus(student.id, nextActive);
   };
 
   const handleUpdateDueDate = async () => {

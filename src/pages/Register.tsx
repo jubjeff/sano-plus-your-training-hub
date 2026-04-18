@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthServiceError } from "@/lib/auth-service";
+import { useAuth } from "@/auth/use-auth";
+import { AuthServiceError } from "@/services/auth.service";
+import { sanitizeInternalRedirectPath } from "@/lib/auth-redirects";
 import { formatCpf, mapZodErrors, normalizeEmail, registerSchema } from "@/lib/auth-validators";
 import { createProfilePreviewUrl, validateProfileImageFile } from "@/lib/profile-media";
-import { sanitizeInternalRedirectPath } from "@/lib/supabase/auth-redirects";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -126,7 +126,7 @@ export default function Register() {
 
       if (!currentUser) {
         toast.success("Conta criada. Confirme seu e-mail para concluir o acesso e ativar seu plano.");
-        navigate("/", { replace: true });
+        navigate(`/?registered=${encodeURIComponent(parsed.data.email)}`, { replace: true });
         return;
       }
 
