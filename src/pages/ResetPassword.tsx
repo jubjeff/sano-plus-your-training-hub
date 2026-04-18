@@ -19,17 +19,38 @@ export default function ResetPassword() {
   const { resetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
+  const recoveryHashError = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const errorDescription = hashParams.get("error_description")?.trim();
+    const errorCode = hashParams.get("error_code")?.trim();
+
+    if (errorDescription) {
+      return decodeURIComponent(errorDescription.replaceAll("+", " "));
+    }
+
+    if (errorCode === "otp_expired") {
+      return "O link de redefinicao expirou ou ja foi utilizado.";
+    }
+
+    return null;
+  }, []);
   const [form, setForm] = useState({ password: "", confirmPassword: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(hasSupabaseRuntimeConfig() && !token);
-  const [tokenError, setTokenError] = useState<string | null>(hasSupabaseRuntimeConfig() || token ? null : "O link de redefinicao esta incompleto ou invalido.");
+  const [tokenError, setTokenError] = useState<string | null>(
+    recoveryHashError ?? (hasSupabaseRuntimeConfig() || token ? null : "O link de redefinicao esta incompleto ou invalido."),
+  );
 
   useEffect(() => {
     let active = true;
 
     const validateRecoverySession = async () => {
-      if (!hasSupabaseRuntimeConfig() || token) {
+      if (!hasSupabaseRuntimeConfig() || token || recoveryHashError) {
         return;
       }
 
@@ -79,7 +100,7 @@ export default function ResetPassword() {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, recoveryHashError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

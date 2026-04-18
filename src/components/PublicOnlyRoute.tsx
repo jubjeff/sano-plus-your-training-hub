@@ -12,6 +12,8 @@ function isRecoveryNavigation(location: ReturnType<typeof useLocation>) {
     hash.includes("type=recovery") ||
     hash.includes("access_token=") ||
     hash.includes("refresh_token=") ||
+    hash.includes("error_code=otp_expired") ||
+    hash.includes("error=access_denied") ||
     search.has("code")
   );
 }
@@ -33,7 +35,15 @@ export default function PublicOnlyRoute({ children }: { children: React.ReactNod
   if (isRecoveryNavigation(location)) {
     const params = new URLSearchParams(location.search);
     params.set("next", "/redefinir-senha");
-    return <Navigate to={`/auth/callback?${params.toString()}${location.hash}`} replace />;
+
+    const hash = location.hash.toLowerCase();
+    const hasRecoveryTokens = hash.includes("access_token=") || hash.includes("refresh_token=") || search.has("code");
+
+    if (hasRecoveryTokens) {
+      return <Navigate to={`/auth/callback?${params.toString()}${location.hash}`} replace />;
+    }
+
+    return <Navigate to={`/redefinir-senha${location.search}${location.hash}`} replace />;
   }
 
   if (isAuthenticated) {
