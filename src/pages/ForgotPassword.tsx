@@ -42,7 +42,7 @@ export default function ForgotPassword() {
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
       } else {
-        setErrors({ form: "Nao foi possivel iniciar a recuperacao agora. Tente novamente." });
+        setErrors({ form: "Não foi possível iniciar a recuperação agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -52,7 +52,7 @@ export default function ForgotPassword() {
   return (
     <AuthShell
       title="Recupere seu acesso"
-      subtitle="Informe seu e-mail para iniciar a redefinicao de senha com uma resposta segura e discreta."
+      subtitle="Informe seu e-mail para iniciar a redefinição de senha com uma resposta segura e discreta."
       footer={
         <span>
           Lembrou sua senha?{" "}
@@ -64,7 +64,7 @@ export default function ForgotPassword() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input
             id="email"
             type="email"
@@ -81,7 +81,7 @@ export default function ForgotPassword() {
         {errors.form ? <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{errors.form}</p> : null}
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Enviando..." : "Enviar link de recuperacao"}
+          {isSubmitting ? "Enviando..." : "Enviar link de recuperação"}
         </Button>
       </form>
 
@@ -91,10 +91,10 @@ export default function ForgotPassword() {
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">
-                O link de redefinicao foi enviado para <span className="font-semibold">{submittedEmail}</span>.
+                O link de redefinição foi enviado para <span className="font-semibold">{submittedEmail}</span>.
               </p>
               <p className="text-sm text-muted-foreground">
-                Verifique sua caixa de entrada e tambem a pasta de spam. O link abrira a tela correta para definir uma nova senha.
+                Verifique sua caixa de entrada e também a pasta de spam. O link abrirá a tela correta para definir uma nova senha.
               </p>
             </div>
           </div>

@@ -46,7 +46,7 @@ export default function WorkoutEditor() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-card/60 p-10 text-center">
         <h1 className="font-display text-2xl font-semibold">Treino não encontrado</h1>
-        <p className="max-w-md text-sm text-muted-foreground">O plano selecionado não existe mais ou ainda não foi carregado nesta sessão.</p>
+        <p className="max-w-md text-sm text-muted-foreground">O treino selecionado não existe mais ou ainda não foi carregado nesta sessão.</p>
         <Button variant="outline" onClick={() => navigate("/biblioteca")}>Voltar para a biblioteca</Button>
       </div>
     );

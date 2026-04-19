@@ -36,7 +36,7 @@ export default function ResetPassword() {
     }
 
     if (errorCode === "otp_expired") {
-      return "O link de redefinicao expirou ou ja foi utilizado.";
+      return "O link de redefinição expirou ou já foi utilizado.";
     }
 
     return null;
@@ -46,7 +46,7 @@ export default function ResetPassword() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(hasSupabaseRuntimeConfig() && !token && !tokenHash);
   const [tokenError, setTokenError] = useState<string | null>(
-    recoveryHashError ?? (hasSupabaseRuntimeConfig() || token || tokenHash ? null : "O link de redefinicao esta incompleto ou invalido."),
+    recoveryHashError ?? (hasSupabaseRuntimeConfig() || token || tokenHash ? null : "O link de redefinição está incompleto ou inválido."),
   );
 
   const clearRecoveryState = () => {
@@ -79,7 +79,7 @@ export default function ResetPassword() {
           await supabase.auth.signOut();
           clearRecoveryState();
           if (active) {
-            setTokenError("O link de redefinicao expirou. Solicite um novo link e tente novamente.");
+            setTokenError("O link de redefinição expirou. Solicite um novo link e tente novamente.");
           }
           return;
         }
@@ -96,7 +96,7 @@ export default function ResetPassword() {
             });
 
             if (verifyError) {
-              throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao expirou ou ja foi utilizado.");
+              throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinição expirou ou já foi utilizado.");
             }
           }
 
@@ -127,11 +127,11 @@ export default function ResetPassword() {
 
         if (active) {
           clearRecoveryState();
-          setTokenError("O link de redefinicao expirou ou nao foi validado corretamente.");
+          setTokenError("O link de redefinição expirou ou não foi validado corretamente.");
         }
       } catch (error) {
         if (active) {
-          const message = error instanceof Error ? error.message : "Nao foi possivel validar o link de redefinicao.";
+          const message = error instanceof Error ? error.message : "Não foi possível validar o link de redefinição.";
           clearRecoveryState();
           setTokenError(message);
         }
@@ -153,7 +153,7 @@ export default function ResetPassword() {
     event.preventDefault();
 
     if (!token && !tokenHash && !hasSupabaseRuntimeConfig()) {
-      setTokenError("O link de redefinicao esta incompleto ou invalido.");
+      setTokenError("O link de redefinição está incompleto ou inválido.");
       return;
     }
 
@@ -176,7 +176,7 @@ export default function ResetPassword() {
         if (Number.isNaN(recoveryAge) || recoveryAge > RECOVERY_LINK_WINDOW_MS) {
           await supabase.auth.signOut();
           clearRecoveryState();
-          throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao expirou ou ja foi utilizado.");
+          throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinição expirou ou já foi utilizado.");
         }
       }
 
@@ -192,7 +192,7 @@ export default function ResetPassword() {
           setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
         }
       } else {
-        setErrors({ form: "Nao foi possivel redefinir sua senha agora. Tente novamente." });
+        setErrors({ form: "Não foi possível redefinir sua senha agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -217,7 +217,7 @@ export default function ResetPassword() {
   return (
     <AuthShell
       title="Defina uma nova senha"
-      subtitle="Escolha uma senha forte para restaurar o acesso com seguranca e continuar de onde parou."
+      subtitle="Escolha uma senha forte para restaurar o acesso com segurança e continuar de onde parou."
       footer={
         <span>
           Precisa de um novo link?{" "}
@@ -234,7 +234,7 @@ export default function ResetPassword() {
             <div>
               <p className="text-sm font-medium text-destructive">{tokenError}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Solicite um novo link para continuar com a redefinicao.
+                Solicite um novo link para continuar com a redefinição.
               </p>
             </div>
           </div>

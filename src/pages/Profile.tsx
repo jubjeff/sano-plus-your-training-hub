@@ -10,7 +10,7 @@ export default function Profile() {
         <section className="section-shell border-warning/30 bg-warning/10 p-5">
           <p className="text-sm font-semibold text-foreground">Acesso principal bloqueado</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {user.teacherAccessMessage || "Seu periodo de teste expirou. Faca upgrade para o plano Pro para continuar."}
+            {user.teacherAccessMessage || "Seu período de teste expirou. Faça upgrade para o plano Pro para continuar."}
           </p>
         </section>
       ) : null}
@@ -23,7 +23,7 @@ export default function Profile() {
           <div className="mt-4">
             <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">Gerencie seus dados pessoais</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Visualize e atualize as informacoes permitidas da sua conta com seguranca. Campos criticos, como documento e e-mail, permanecem protegidos quando existirem.
+              Visualize e atualize as informações permitidas da sua conta com segurança. Campos críticos, como documento e e-mail, permanecem protegidos quando existirem.
             </p>
           </div>
         </div>

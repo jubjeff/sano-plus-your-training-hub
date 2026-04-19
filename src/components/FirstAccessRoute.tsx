@@ -9,7 +9,7 @@ export default function FirstAccessRoute({ children }: { children: React.ReactNo
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="section-shell w-full max-w-sm p-6 text-center">
           <p className="text-sm font-medium text-foreground">Preparando seu acesso...</p>
-          <p className="mt-2 text-sm text-muted-foreground">Validando sessao e perfil para continuar.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Validando sessão e perfil para continuar.</p>
         </div>
       </div>
     );

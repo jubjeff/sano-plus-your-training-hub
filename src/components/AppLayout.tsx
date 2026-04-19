@@ -30,13 +30,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const planBadge = isCoach ? (isProPlan ? "Pro" : isBasicPlan ? "Basic" : "Conta") : "Aluno";
 
   const title = location.pathname === "/dashboard"
-    ? "Operacao diaria"
+    ? "Operação diária"
     : location.pathname === "/aluno/dashboard" || location.pathname === "/area-do-aluno"
     ? "Dashboard do aluno"
     : location.pathname === "/perfil"
     ? "Meu perfil"
     : location.pathname.startsWith("/alunos")
-    ? "Gestao de alunos"
+    ? "Gestão de alunos"
     : location.pathname.startsWith("/biblioteca")
     ? "Biblioteca de treinos"
     : "Painel Sano+";
@@ -64,7 +64,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await logout();
-    toast.success("Sessao encerrada com seguranca.");
+    toast.success("Sessão encerrada com segurança.");
     window.location.replace("/");
   };
 
@@ -106,7 +106,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <p className="mt-3 text-sm leading-6 text-sidebar-foreground/85">
-            Plataforma para personal trainers organizarem alunos, treino e evolucao em um so fluxo.
+            Plataforma para personal trainers organizarem alunos, treinos e evolução em um só fluxo.
           </p>
         </div>
 
@@ -146,10 +146,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="mx-3 mt-5 rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 p-4">
             <div className="flex items-center gap-2 text-sidebar-accent-foreground">
               <Sparkles className="h-4 w-4 text-sidebar-primary" />
-              <span className="text-sm font-semibold">Visao operacional</span>
+              <span className="text-sm font-semibold">Visão operacional</span>
             </div>
             <p className="mt-2 text-xs leading-5 text-sidebar-foreground">
-              Priorize trocas de treino, acompanhe carteira ativa e mantenha a biblioteca pronta para reutilizacao.
+              Priorize as trocas de treino, acompanhe a carteira ativa e mantenha a biblioteca pronta para reutilização.
             </p>
           </div>
         </nav>

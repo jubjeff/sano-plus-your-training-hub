@@ -74,7 +74,7 @@ export default function StudentProfile() {
   if (!student) {
     return (
       <div className="section-shell py-16 text-center">
-        <p className="text-muted-foreground">Aluno nao encontrado.</p>
+        <p className="text-muted-foreground">Aluno não encontrado.</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/alunos")}>Voltar</Button>
       </div>
     );
@@ -177,9 +177,9 @@ export default function StudentProfile() {
     await refresh?.();
     setTemporaryAccess(result);
     if (result.emailDelivery?.status === "sent") {
-      toast.success("Nova senha provisoria enviada ao aluno por e-mail.");
+      toast.success("Nova senha provisória enviada ao aluno por e-mail.");
     } else if (result.emailDelivery?.status === "failed") {
-      toast.error("A senha provisoria foi atualizada, mas o envio automatico do e-mail falhou.");
+      toast.error("A senha provisória foi atualizada, mas o envio automático do e-mail falhou.");
     } else if (result.emailDelivery?.status === "skipped") {
       toast.message(result.emailDelivery.message);
     }
@@ -247,7 +247,7 @@ export default function StudentProfile() {
                 <Badge className={getStudentAccessTone(student.accessStatus)}>{getStudentAccessStatusLabel(student.accessStatus)}</Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Senha provisoria gerada em</span>
+                <span className="text-muted-foreground">Senha provisória gerada em</span>
                 <span>{student.temporaryPasswordGeneratedAt ? formatDate(student.temporaryPasswordGeneratedAt) : "-"}</span>
               </div>
               <div className="flex items-center justify-between">
@@ -280,7 +280,7 @@ export default function StudentProfile() {
               {student.accessStatus === "temporary_password_pending" ? (
                 <Button variant="outline" onClick={handleTemporaryAccess}>
                   <KeyRound className="mr-2 h-4 w-4" />
-                  Regenerar senha provisoria
+                  Regenerar senha provisória
                 </Button>
               ) : null}
 
@@ -320,8 +320,8 @@ export default function StudentProfile() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Dados esportivos</p>
               <div className="mt-3 space-y-2 text-sm">
                 <p><span className="text-muted-foreground">Objetivo:</span> {student.goal}</p>
-                <p><span className="text-muted-foreground">Observacoes:</span> {student.notes || "Sem observacoes"}</p>
-                <p><span className="text-muted-foreground">Inicio:</span> {formatDate(student.startDate)}</p>
+                <p><span className="text-muted-foreground">Observações:</span> {student.notes || "Sem observações"}</p>
+                <p><span className="text-muted-foreground">Início:</span> {formatDate(student.startDate)}</p>
               </div>
             </div>
           </div>

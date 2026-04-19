@@ -133,9 +133,9 @@ export default function Register() {
       if (form.selectedPlan === "pro") {
         toast.success("Assinatura Pro confirmada com sucesso.");
       } else if (currentUser?.teacherSubscriptionStatus === "trialing") {
-        toast.success("Seu periodo de teste foi ativado por 1 mes.");
+        toast.success("Seu período de teste foi ativado por 1 mês.");
       } else if (currentUser?.teacherSubscriptionStatus === "pending_payment") {
-        toast.warning("Este CPF ja utilizou o periodo de teste gratuito. Para liberar o acesso, assine o plano Pro.");
+        toast.warning("Este CPF já utilizou o período de teste gratuito. Para liberar o acesso, assine o plano Pro.");
       } else {
         toast.success("Conta criada com sucesso.");
       }
@@ -151,7 +151,7 @@ export default function Register() {
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
       } else {
-        setErrors({ form: "Nao foi possivel criar sua conta agora. Tente novamente." });
+        setErrors({ form: "Não foi possível criar sua conta agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -161,10 +161,10 @@ export default function Register() {
   return (
     <AuthShell
       title="Crie sua conta"
-      subtitle="Configure um acesso profissional com validacoes fortes, avatar e sessao persistente."
+      subtitle="Configure um acesso profissional com validações robustas, foto de perfil e sessão persistente."
       footer={
         <span>
-          Ja tem conta?{" "}
+          Já tem conta?{" "}
           <Link to="/" className="font-medium text-primary transition-colors hover:text-primary/80">
             Entrar
           </Link>
@@ -225,7 +225,7 @@ export default function Register() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input
             id="email"
             type="email"

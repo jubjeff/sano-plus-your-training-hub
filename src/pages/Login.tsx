@@ -48,13 +48,13 @@ export default function Login() {
           : currentUser?.teacherHasActiveAccess === false
           ? "/perfil"
           : "/dashboard");
-      toast.success("Acesso liberado com sucesso.");
+      toast.success("Acesso realizado com sucesso.");
       navigate(redirectTo, { replace: true });
     } catch (error) {
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
       } else {
-        setErrors({ form: "Nao foi possivel entrar agora. Tente novamente." });
+        setErrors({ form: "Não foi possível entrar agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -64,7 +64,7 @@ export default function Login() {
   return (
     <AuthShell
       title="Acesse sua conta"
-      subtitle="Entre com seguranca para acompanhar alunos, treinos e a operacao diaria do Sano+."
+      subtitle="Entre com segurança para acompanhar alunos, treinos e a operação diária do Sano+."
       footer={
         <span>
           Novo por aqui?{" "}
@@ -76,7 +76,7 @@ export default function Login() {
     >
       {registeredEmail ? (
         <div className="rounded-[24px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
-          Conta criada para <span className="font-medium">{registeredEmail}</span>. Confirme o e-mail recebido para liberar seu primeiro login.
+          A conta foi criada para <span className="font-medium">{registeredEmail}</span>. Confirme o e-mail recebido para liberar seu primeiro acesso.
         </div>
       ) : null}
 
@@ -88,13 +88,13 @@ export default function Login() {
 
       {accessMode === "student-first-login" ? (
         <div className="rounded-[24px] border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
-          Entre com o e-mail e a senha provisoria recebidos. No primeiro acesso, voce sera direcionado para criar uma nova senha antes de entrar na area do aluno.
+          Entre com o e-mail e a senha provisória recebidos. No primeiro acesso, você será direcionado para criar uma nova senha antes de entrar na área do aluno.
         </div>
       ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input
             id="email"
             type="email"

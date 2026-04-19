@@ -37,7 +37,7 @@ export default function FirstAccessPassword() {
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
       } else {
-        setErrors({ form: "Nao foi possivel concluir o primeiro acesso agora. Tente novamente." });
+        setErrors({ form: "Não foi possível concluir o primeiro acesso agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -47,11 +47,11 @@ export default function FirstAccessPassword() {
   return (
     <AuthShell
       title="Crie sua nova senha"
-      subtitle={`Este e o primeiro acesso de ${user?.fullName || "sua conta"}. Antes de entrar no sistema, defina uma senha pessoal e segura.`}
+      subtitle={`Este é o primeiro acesso de ${user?.fullName || "sua conta"}. Antes de entrar no sistema, defina uma senha pessoal e segura.`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-[24px] border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
-          A senha provisoria vale apenas para este primeiro login. Voce so acessa a area do aluno depois de concluir esta troca.
+          A senha provisória vale apenas para este primeiro login. Você só acessa a área do aluno depois de concluir essa troca.
         </div>
 
         <div className="space-y-2">

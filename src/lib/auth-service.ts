@@ -900,7 +900,7 @@ export const authService = {
       const email = normalizeEmail(input.email);
 
       if (db.users.some((user) => normalizeEmail(user.email) === email)) {
-        throw new AuthServiceError("email_in_use", "email", "Ja existe uma conta com este e-mail.");
+        throw new AuthServiceError("email_in_use", "email", "Já existe uma conta com este e-mail.");
       }
 
       const user = createFallbackCoachUser(input);
@@ -936,12 +936,12 @@ export const authService = {
         throw new AuthServiceError(
           "email_rate_limited",
           "form",
-          "Voce atingiu o limite temporario de envio de e-mails. Aguarde alguns minutos antes de tentar novamente.",
+          "Você atingiu o limite temporário de envio de e-mails. Aguarde alguns minutos antes de tentar novamente.",
         );
       }
 
       if (normalizedMessage.includes("already registered") || normalizedMessage.includes("already been registered") || normalizedMessage.includes("already exists")) {
-        throw new AuthServiceError("email_in_use", "email", "Ja existe uma conta com este e-mail.");
+        throw new AuthServiceError("email_in_use", "email", "Já existe uma conta com este e-mail.");
       }
 
       if (normalizedMessage.includes("password")) {
@@ -987,7 +987,7 @@ export const authService = {
           throw new AuthServiceError("email_not_confirmed", "form", "Confirme seu e-mail para concluir o acesso.");
         }
 
-        throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha invalidos.");
+        throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha inválidos.");
       }
 
       const currentUser = await this.getCurrentUser();
@@ -1009,13 +1009,13 @@ export const authService = {
     const user = db.users.find((entry) => normalizeEmail(entry.email) === email);
 
     if (!user || user.password !== input.password) {
-      throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha invalidos.");
+      throw new AuthServiceError("invalid_credentials", "form", "E-mail ou senha inválidos.");
     }
 
     refreshStudentDerivedFields(user);
 
     if (user.accountStatus !== "active") {
-      throw new AuthServiceError("inactive_account", "form", "Esta conta esta inativa no momento.");
+      throw new AuthServiceError("inactive_account", "form", "Esta conta está inativa no momento.");
     }
 
     user.updatedAt = nowIso();
@@ -1072,7 +1072,7 @@ export const authService = {
       return {
         token: "",
         message: result.exists
-          ? "O e-mail de redefinicao foi enviado com sucesso."
+          ? "O e-mail de redefinição foi enviado com sucesso."
           : "Nenhuma conta foi encontrada com este e-mail.",
       };
     }
@@ -1088,7 +1088,7 @@ export const authService = {
     if (!user) {
       return {
         token: "",
-        message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
+        message: "Se houver uma conta para este e-mail, enviaremos as instruções de redefinição.",
       };
     }
 
@@ -1100,7 +1100,7 @@ export const authService = {
 
     return {
       token,
-      message: "Se houver uma conta para este e-mail, enviaremos as instrucoes de redefinicao.",
+      message: "Se houver uma conta para este e-mail, enviaremos as instruções de redefinição.",
     };
   },
 
@@ -1112,7 +1112,7 @@ export const authService = {
       } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao e invalido, expirou ou ja foi utilizado.");
+        throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinição é inválido, expirou ou já foi utilizado.");
       }
 
       assertStrongPassword(input.password);
@@ -1135,7 +1135,7 @@ export const authService = {
     const user = db.users.find((entry) => entry.resetPasswordToken === token);
 
     if (!token || !user) {
-      throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinicao e invalido, expirou ou ja foi utilizado.");
+      throw new AuthServiceError("invalid_reset_token", undefined, "O link de redefinição é inválido, expirou ou já foi utilizado.");
     }
 
     assertStrongPassword(input.password);
@@ -1175,7 +1175,7 @@ export const authService = {
 
     const student = store.getStudent(studentId);
     if (!student) {
-      throw new AuthServiceError("student_not_found", undefined, "Aluno nao encontrado.");
+      throw new AuthServiceError("student_not_found", undefined, "Aluno não encontrado.");
     }
 
     const db = loadDatabase();
@@ -1246,7 +1246,7 @@ export const authService = {
         emailDelivery: {
           status: "skipped" as const,
           provider: "none" as const,
-          message: "Envio automatico indisponivel no modo local.",
+          message: "Envio automático indisponível no modo local.",
         },
       };
     },
@@ -1260,12 +1260,12 @@ export const authService = {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new AuthServiceError("not_authenticated", undefined, "Sua sessao expirou. Entre novamente.");
+        throw new AuthServiceError("not_authenticated", undefined, "Sua sessão expirou. Entre novamente.");
       }
 
       const studentContext = await fetchSupabaseStudentAccess(user.id);
       if (!studentContext || studentContext.access_status !== "temporary_password_pending") {
-        throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo nao esta disponivel para a conta atual.");
+        throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo não está disponível para a conta atual.");
       }
 
       const { error: passwordError } = await supabase.auth.updateUser({
@@ -1295,7 +1295,7 @@ export const authService = {
     const currentUser = await getLocalPersistedUserFromSession();
 
     if (!currentUser || currentUser.role !== "student" || !currentUser.linkedStudentId || !currentUser.mustChangePassword) {
-      throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo nao esta disponivel para a conta atual.");
+      throw new AuthServiceError("first_access_not_available", undefined, "Este fluxo não está disponível para a conta atual.");
     }
 
     currentUser.password = input.password;
@@ -1320,7 +1320,7 @@ export const authService = {
     });
 
     if (!parsed.success) {
-      throw new AuthServiceError("invalid_profile", "form", parsed.error.issues[0]?.message ?? "Perfil invalido.");
+      throw new AuthServiceError("invalid_profile", "form", parsed.error.issues[0]?.message ?? "Perfil inválido.");
     }
 
     const supabaseUser = hasSupabaseRuntimeConfig() ? await getSupabaseAuthUser() : null;
@@ -1330,7 +1330,7 @@ export const authService = {
       } = await getSupabaseClient().auth.getUser();
 
       if (!user) {
-        throw new AuthServiceError("not_authenticated", undefined, "Sua sessao expirou. Entre novamente.");
+        throw new AuthServiceError("not_authenticated", undefined, "Sua sessão expirou. Entre novamente.");
       }
 
       let avatarUrl = supabaseUser.avatarUrl ?? null;

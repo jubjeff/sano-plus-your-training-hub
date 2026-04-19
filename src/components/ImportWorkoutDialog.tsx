@@ -26,7 +26,7 @@ export default function ImportWorkoutDialog({ open, onOpenChange, studentId }: P
 
         <DialogBody>
           {workouts.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">Nenhum treino disponivel na biblioteca.</p>
+            <p className="py-4 text-sm text-muted-foreground">Nenhum treino disponível na biblioteca.</p>
           ) : (
             <div className="space-y-3">
               {workouts.map((workout) => (

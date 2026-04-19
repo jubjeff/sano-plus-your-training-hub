@@ -59,7 +59,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
   if (!user) return null;
 
   const effectiveAvatar = removeAvatar ? null : avatarPreviewUrl || user.avatarUrl || null;
-  const cpfDisplay = user.cpf ? formatCpf(user.cpf) : "Nao vinculado a esta conta";
+  const cpfDisplay = user.cpf ? formatCpf(user.cpf) : "Não vinculado a esta conta";
   const isCoachAccount = user.role === "coach";
   const isBasicPlan = user.teacherPlanType === "basic";
   const isProPlan = user.teacherPlanType === "pro";
@@ -160,7 +160,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
       if (error instanceof AuthServiceError) {
         setErrors(error.field ? { [error.field]: error.message } : { form: error.message });
       } else {
-        setErrors({ form: "Nao foi possivel atualizar seu perfil agora. Tente novamente." });
+        setErrors({ form: "Não foi possível atualizar seu perfil agora. Tente novamente." });
       }
     } finally {
       setIsSubmitting(false);
@@ -175,7 +175,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
       await refreshUser();
       toast.success("Assinatura Pro confirmada com sucesso.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nao foi possivel ativar o plano Pro agora. Tente novamente.";
+      const message = error instanceof Error ? error.message : "Não foi possível ativar o plano Pro agora. Tente novamente.";
       toast.error(message);
     } finally {
       setIsUpgradingPlan(false);
@@ -198,7 +198,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
               <div>
                 <h2 className="font-display text-2xl font-semibold text-foreground">Seus dados na conta Sano+</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Atualize somente as informacoes permitidas do seu perfil. Campos sensiveis seguem protegidos e fora de qualquer fluxo de edicao.
+                  Atualize apenas as informações permitidas do seu perfil. Campos sensíveis seguem protegidos e fora de qualquer fluxo de edição.
                 </p>
               </div>
             </div>
@@ -221,7 +221,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
               {isCoachAccount && isProPlan ? (
                 <Badge className="border border-amber-400/30 bg-amber-400/12 text-amber-100 hover:bg-amber-400/12">
                   <Crown className="mr-1 h-3.5 w-3.5" />
-                  Voce ja e PRO
+                  Você já é PRO
                 </Badge>
               ) : null}
             </div>
@@ -244,7 +244,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                 </Badge>
                 <h3 className="mt-3 font-display text-xl font-semibold text-foreground">Ative o plano Pro na sua conta</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Seu plano atual e {currentPlanLabel}. Faca o upgrade para liberar alunos ilimitados e manter seu acesso ativo sem depender do trial.
+                  Seu plano atual é o {currentPlanLabel}. Faça o upgrade para liberar alunos ilimitados e manter seu acesso ativo sem depender do período de teste.
                 </p>
               </div>
 
@@ -279,7 +279,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                   <p className="text-sm font-medium">Documento protegido</p>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Esse campo e somente leitura e tambem fica bloqueado na camada de persistencia quando existir.
+                  Este campo é somente leitura e também fica bloqueado na camada de persistência quando existir.
                 </p>
               </div>
             </div>
@@ -374,13 +374,13 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
               ) : null}
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="profile-notes">Observacoes pessoais</Label>
+                <Label htmlFor="profile-notes">Observações pessoais</Label>
                 <Textarea
                   id="profile-notes"
                   value={form.notes}
                   onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
                   disabled={!isEditing || isSubmitting}
-                  placeholder="Anotacoes curtas para referencia do proprio profissional."
+                  placeholder="Anotações curtas para referência do próprio profissional."
                   className={errors.notes ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
                 {errors.notes ? <p className="text-xs font-medium text-destructive">{errors.notes}</p> : null}

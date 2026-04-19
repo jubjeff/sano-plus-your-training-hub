@@ -233,7 +233,7 @@ export function getPrimaryWorkoutForStudent(student: Student, checkIns: StudentC
       nextBlock: null,
       contextualMessage: block
         ? block.isRestDay
-          ? "Hoje e um dia de descanso ou recuperacao."
+          ? "Hoje é um dia de descanso ou recuperação."
           : `Treino planejado para ${weekday.label.toLowerCase()}.`
         : "Sem treino programado para hoje.",
     };
@@ -250,14 +250,14 @@ export function getPrimaryWorkoutForStudent(student: Student, checkIns: StudentC
   return {
     plan,
     mode: "next" as const,
-    label: suggestedBlock ? getBlockDisplayLabel(suggestedBlock, plan) : "Sem proximo treino",
+    label: suggestedBlock ? getBlockDisplayLabel(suggestedBlock, plan) : "Sem próximo treino",
     title: suggestedBlock?.name ?? "Sem treino configurado",
     block: suggestedBlock,
     lastCompletedBlock,
     nextBlock,
     contextualMessage: suggestedBlock
-      ? "Sua sequencia continua do ultimo bloco pendente."
-      : "Ainda nao existe um proximo treino sugerido para este plano.",
+      ? "Sua sequência continua a partir do último bloco pendente."
+      : "Ainda não existe um próximo treino sugerido para este plano.",
   };
 }
 
@@ -350,18 +350,18 @@ export function getEngagementLabel(status: StudentEngagementStatus) {
     case "active":
       return "Engajado";
     case "attention":
-      return "Atencao";
+      return "Atenção";
     case "disengaged":
       return "Desengajado";
   }
 }
 
 export function getMotivationalMessage(stats: StudentEngagementStats) {
-  if (stats.weeklyGoalAchieved) return "Meta semanal concluida. Excelente consistencia.";
-  if (stats.currentStreak >= 4) return "Otima sequencia. Continue nesse ritmo.";
-  if (stats.daysWithoutCheckIn >= 4) return `Faz ${stats.daysWithoutCheckIn} dias desde seu ultimo treino. Hora de voltar ao foco.`;
-  if (stats.weeklyGoal - stats.weeklyGoalProgress === 1) return "Voce esta a um treino de bater sua meta semanal.";
-  return "Seu progresso esta em andamento. Mantenha a frequencia desta semana.";
+  if (stats.weeklyGoalAchieved) return "Meta semanal concluída. Excelente consistência.";
+  if (stats.currentStreak >= 4) return "Ótima sequência. Continue nesse ritmo.";
+  if (stats.daysWithoutCheckIn >= 4) return `Faz ${stats.daysWithoutCheckIn} dias desde seu último treino. Hora de voltar ao foco.`;
+  if (stats.weeklyGoal - stats.weeklyGoalProgress === 1) return "Você está a um treino de bater sua meta semanal.";
+  return "Seu progresso está em andamento. Mantenha a frequência desta semana.";
 }
 
 type CoachAlertDraft = {
@@ -386,8 +386,8 @@ export function buildCoachAlertDrafts(students: Student[], checkIns: StudentChec
           coachId: student.coachId,
           studentId: student.id,
           alertType: "no_check_in",
-          title: `${student.fullName} ha ${stats.daysWithoutCheckIn} dias sem check-in`,
-          description: "Vale fazer contato e validar se o plano ainda esta aderente a rotina do aluno.",
+          title: `${student.fullName} está há ${stats.daysWithoutCheckIn} dias sem check-in`,
+          description: "Vale entrar em contato e validar se o plano ainda faz sentido para a rotina do aluno.",
         });
       }
 
@@ -397,7 +397,7 @@ export function buildCoachAlertDrafts(students: Student[], checkIns: StudentChec
           coachId: student.coachId,
           studentId: student.id,
           alertType: "below_goal",
-          title: `${student.fullName} esta abaixo da meta semanal`,
+          title: `${student.fullName} está abaixo da meta semanal`,
           description: `Meta atual: ${stats.weeklyGoal} treino${stats.weeklyGoal === 1 ? "" : "s"} por semana.`,
         });
       }
@@ -408,8 +408,8 @@ export function buildCoachAlertDrafts(students: Student[], checkIns: StudentChec
           coachId: student.coachId,
           studentId: student.id,
           alertType: "payment_blocked",
-          title: `${student.fullName} esta com treino bloqueado`,
-          description: `Inadimplencia de ${getPaymentDaysOverdue(student, now)} dia${getPaymentDaysOverdue(student, now) === 1 ? "" : "s"}.`,
+          title: `${student.fullName} está com o treino bloqueado`,
+          description: `Pagamento em atraso há ${getPaymentDaysOverdue(student, now)} dia${getPaymentDaysOverdue(student, now) === 1 ? "" : "s"}.`,
         });
       }
     });

@@ -164,7 +164,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
                 profilePhotoFile: photoFile,
               });
             } catch (photoError) {
-              toast.error(photoError instanceof Error ? photoError.message : "O aluno foi criado, mas a foto nao pode ser enviada.");
+              toast.error(photoError instanceof Error ? photoError.message : "O aluno foi criado, mas não foi possível enviar a foto.");
             }
           }
         }
@@ -173,21 +173,21 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
           ...access,
         });
         if (access.emailDelivery?.status === "sent") {
-          toast.success("Aluno criado com senha provisoria e e-mail enviado.");
+          toast.success("Aluno criado com senha provisória e e-mail enviado.");
         } else if (access.emailDelivery?.status === "failed") {
-          toast.success("Aluno criado com senha provisoria.");
-          toast.error("O e-mail automatico falhou, mas os dados de acesso estao disponiveis no popup.");
+          toast.success("Aluno criado com senha provisória.");
+          toast.error("O envio automático de e-mail falhou, mas os dados de acesso estão disponíveis no pop-up.");
         } else if (access.emailDelivery?.status === "skipped") {
-          toast.success("Aluno criado com senha provisoria.");
+          toast.success("Aluno criado com senha provisória.");
           toast.message(access.emailDelivery.message);
         } else {
-          toast.success("Aluno criado com senha provisoria.");
+          toast.success("Aluno criado com senha provisória.");
         }
       }
 
       onOpenChange(false);
     } catch (error) {
-      setErrors({ form: error instanceof Error ? error.message : "Nao foi possivel salvar o aluno." });
+      setErrors({ form: error instanceof Error ? error.message : "Não foi possível salvar o aluno." });
     } finally {
       setIsSubmitting(false);
     }
@@ -236,7 +236,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
               {errors.birthDate ? <p className="text-xs font-medium text-destructive">{errors.birthDate}</p> : null}
             </div>
             <div className="space-y-2">
-              <Label>Data de inicio</Label>
+              <Label>Data de início</Label>
               <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
             </div>
           </div>
@@ -246,20 +246,20 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
             <Input
               value={form.goal}
               onChange={(e) => setForm({ ...form, goal: e.target.value })}
-              placeholder="Ex: Hipertrofia, emagrecimento..."
+              placeholder="Ex.: hipertrofia, emagrecimento..."
             />
             {errors.goal ? <p className="text-xs font-medium text-destructive">{errors.goal}</p> : null}
           </div>
 
           <div className="space-y-2">
-            <Label>Observacoes</Label>
+            <Label>Observações</Label>
             <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} />
             {errors.notes ? <p className="text-xs font-medium text-destructive">{errors.notes}</p> : null}
           </div>
 
           {!isEditing ? (
             <div className="rounded-[22px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-muted-foreground">
-              O aluno sera criado com <span className="font-semibold text-foreground">senha provisoria</span> e sera obrigado a definir uma nova senha no primeiro login antes de entrar na area do aluno.
+              O aluno será criado com <span className="font-semibold text-foreground">senha provisória</span> e precisará definir uma nova senha no primeiro login antes de entrar na área do aluno.
             </div>
           ) : null}
 

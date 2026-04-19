@@ -63,10 +63,10 @@ export default function Dashboard() {
       {shouldShowProEndingAlert && user?.teacherCurrentPeriodEndsAt ? (
         <Alert className="border-warning/30 bg-warning/10 text-foreground">
           <AlertTriangle className="h-4 w-4 text-warning" />
-          <AlertTitle>Seu PRO entra no ultimo mes de validade</AlertTitle>
+          <AlertTitle>Seu PRO entrou no último mês de validade</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              Seu acesso PRO vai ate {formatDate(user.teacherCurrentPeriodEndsAt)}. Restam {proDaysRemaining} dia{proDaysRemaining === 1 ? "" : "s"} para o encerramento do ciclo atual.
+              Seu acesso PRO vai até {formatDate(user.teacherCurrentPeriodEndsAt)}. Restam {proDaysRemaining} dia{proDaysRemaining === 1 ? "" : "s"} para o encerramento do ciclo atual.
             </span>
             <button
               type="button"
@@ -87,9 +87,9 @@ export default function Dashboard() {
               Dashboard
             </span>
             <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight">Visao geral da sua operacao</h1>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">Visão geral da sua operação</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Priorize alunos que precisam de atencao, acompanhe a cadencia de troca de treinos e mantenha o fluxo diario do Sano+ sob controle.
+                Priorize alunos que precisam de atenção, acompanhe a cadência de troca de treinos e mantenha o fluxo diário do Sano+ sob controle.
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function Dashboard() {
           <div className="rounded-[28px] border border-border/60 bg-background/70 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Foco de hoje</p>
             <p className="mt-3 text-3xl font-semibold text-foreground">{needsWorkoutChange.length}</p>
-            <p className="mt-1 text-sm text-muted-foreground">alunos com revisao proxima de treino</p>
+            <p className="mt-1 text-sm text-muted-foreground">alunos com revisão próxima de treino</p>
             <button
               onClick={() => navigate("/alunos")}
               className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
@@ -195,15 +195,15 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Dumbbell className="h-5 w-5 text-primary" />
               <div>
-                <h2 className="font-display text-xl font-semibold">Ranking de adesao</h2>
-                <p className="text-sm text-muted-foreground">Leia rapidamente quem esta performando bem e quem precisa de atencao.</p>
+                <h2 className="font-display text-xl font-semibold">Ranking de adesão</h2>
+                <p className="text-sm text-muted-foreground">Veja rapidamente quem está performando bem e quem precisa de atenção.</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "top" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("top")}>Mais engajados</button>
               <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "risk" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("risk")}>Em risco</button>
               <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "blocked" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("blocked")}>Bloqueados</button>
-              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "goal" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("goal")}>Meta concluida</button>
+              <button className={`rounded-full px-3 py-1 text-xs font-semibold ${rankingFilter === "goal" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} onClick={() => setRankingFilter("goal")}>Meta concluída</button>
             </div>
           </div>
 
@@ -243,7 +243,7 @@ export default function Dashboard() {
             <BellRing className="h-5 w-5 text-warning" />
             <div>
               <h2 className="font-display text-xl font-semibold">Alertas de acompanhamento</h2>
-              <p className="text-sm text-muted-foreground">Alertas automaticos sobre desengajamento, meta e bloqueio financeiro.</p>
+              <p className="text-sm text-muted-foreground">Alertas automáticos sobre desengajamento, meta e bloqueio financeiro.</p>
             </div>
           </div>
           <div className="space-y-3">

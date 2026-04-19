@@ -66,7 +66,7 @@ export default function AuthCallback() {
         }
       } catch (error) {
         if (active) {
-          const message = error instanceof Error ? error.message : "Nao foi possivel concluir a autenticacao.";
+          const message = error instanceof Error ? error.message : "Não foi possível concluir a autenticação.";
           toast.error(message);
           navigate("/", { replace: true });
         }
@@ -82,8 +82,8 @@ export default function AuthCallback() {
 
   return (
     <AuthShell
-      title="Concluindo autenticacao"
-      subtitle="Estamos validando seu acesso para continuar com a experiencia exatamente de onde voce parou."
+      title="Concluindo autenticação"
+      subtitle="Estamos validando seu acesso para continuar a experiência exatamente de onde você parou."
     >
       <div className="rounded-[24px] border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
         Aguarde alguns instantes enquanto preparamos seu acesso.

@@ -31,7 +31,7 @@ export default function StudentTemporaryPasswordDialog({
 
   const copyPassword = async () => {
     await navigator.clipboard.writeText(temporaryPassword);
-    toast.success("Senha provisoria copiada.");
+    toast.success("Senha provisória copiada.");
   };
 
   const copyAccessData = async () => {
@@ -52,9 +52,9 @@ export default function StudentTemporaryPasswordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="font-display">Acesso provisorio gerado</DialogTitle>
+          <DialogTitle className="font-display">Acesso provisório gerado</DialogTitle>
           <DialogDescription>
-            O aluno entra com estes dados e sera obrigado a criar uma nova senha antes de acessar o dashboard.
+            O aluno entra com estes dados e precisará criar uma nova senha antes de acessar o dashboard.
           </DialogDescription>
         </DialogHeader>
 
@@ -62,7 +62,7 @@ export default function StudentTemporaryPasswordDialog({
           <div className="rounded-[24px] border border-primary/20 bg-primary/10 p-4 text-sm">
             <p className="font-medium text-foreground">{studentName}</p>
             <p className="mt-2 text-muted-foreground">
-              Compartilhe esta senha com seguranca. O aluno sera obrigado a trocar a senha no primeiro acesso antes de entrar no sistema.
+              Compartilhe esta senha com segurança. O aluno precisará trocar a senha no primeiro acesso antes de entrar no sistema.
             </p>
           </div>
 
@@ -79,7 +79,7 @@ export default function StudentTemporaryPasswordDialog({
               {accessLink}
               <ExternalLink className="h-4 w-4" />
             </a>
-            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Senha provisoria</p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Senha provisória</p>
             <div className="mt-2 flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="break-all font-mono text-sm text-foreground">{temporaryPassword}</span>
               <KeyRound className="h-4 w-4 text-primary" />
@@ -94,11 +94,11 @@ export default function StudentTemporaryPasswordDialog({
                   {emailDelivery?.status === "sent"
                     ? "E-mail enviado automaticamente."
                     : emailDelivery?.status === "failed"
-                    ? "O aluno foi criado, mas o e-mail automatico falhou."
-                    : "Envio automatico indisponivel neste ambiente."}
+                    ? "O aluno foi criado, mas o envio automático de e-mail falhou."
+                    : "O envio automático não está disponível neste ambiente."}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  {emailDelivery?.message ?? "Use os botoes abaixo para compartilhar os dados manualmente."}
+                  {emailDelivery?.message ?? "Use os botões abaixo para compartilhar os dados manualmente."}
                 </p>
                 {emailDelivery?.status === "failed" && emailDelivery.details ? (
                   <p className="mt-2 text-xs text-muted-foreground/80">{emailDelivery.details}</p>

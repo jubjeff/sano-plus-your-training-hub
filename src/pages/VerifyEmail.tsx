@@ -14,7 +14,7 @@ export default function VerifyEmail() {
       subtitle="Seu cadastro foi criado com sucesso. Falta apenas confirmar o e-mail para liberar o primeiro login no Sano+."
       footer={
         <span>
-          Ja confirmou?{" "}
+          Já confirmou?{" "}
           <Link to="/" className="font-medium text-primary transition-colors hover:text-primary/80">
             Voltar para o login
           </Link>
@@ -26,7 +26,7 @@ export default function VerifyEmail() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-primary" />
             <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">Enviamos um e-mail de confirmacao para liberar seu acesso.</p>
+              <p className="text-sm font-medium text-foreground">Enviamos um e-mail de confirmação para liberar seu acesso.</p>
               <p className="text-sm text-muted-foreground">
                 {email ? (
                   <>
@@ -44,8 +44,8 @@ export default function VerifyEmail() {
           <div className="flex items-start gap-3">
             <Mail className="mt-0.5 h-5 w-5 text-muted-foreground" />
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Depois da confirmacao, voce podera entrar normalmente com e-mail e senha.</p>
-              <p>Se nao encontrar a mensagem, verifique tambem a pasta de spam ou promocoes.</p>
+              <p>Depois da confirmação, você poderá entrar normalmente com e-mail e senha.</p>
+              <p>Se não encontrar a mensagem, verifique também a pasta de spam ou promoções.</p>
             </div>
           </div>
         </div>

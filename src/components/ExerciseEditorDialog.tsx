@@ -110,7 +110,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
 
     if (!normalizedUrl || !embedUrl) {
       updateForm({ youtubeUrl: normalizedValue, youtubeEmbedUrl: null });
-      setYoutubeError("Use um link valido do YouTube.");
+      setYoutubeError("Use um link válido do YouTube.");
       return;
     }
 
@@ -128,11 +128,11 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
   const handleSave = async () => {
     const nextErrors: string[] = [];
 
-    if (!form.name.trim()) nextErrors.push("Informe o nome do exercicio.");
+    if (!form.name.trim()) nextErrors.push("Informe o nome do exercício.");
     if (!form.muscleCategory) nextErrors.push("Selecione a categoria muscular.");
     if (!form.muscleGroupPrimary) nextErrors.push("Selecione a musculatura principal.");
     if (youtubeError) nextErrors.push("Corrija o link do YouTube antes de salvar.");
-    if (videoError) nextErrors.push("Corrija o upload do video antes de salvar.");
+    if (videoError) nextErrors.push("Corrija o upload do vídeo antes de salvar.");
 
     if (nextErrors.length > 0) {
       setErrors(nextErrors);
@@ -163,7 +163,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
           await removePersistedExerciseVideo(initialVideoStorageKey).catch(() => undefined);
         }
       } catch {
-        setErrors(["Nao foi possivel salvar o video localmente. Tente novamente."]);
+        setErrors(["Não foi possível salvar o vídeo localmente. Tente novamente."]);
         setSavingVideo(false);
         return;
       } finally {
@@ -182,21 +182,21 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle className="font-display">{exercise ? "Editar exercicio" : "Novo exercicio"}</DialogTitle>
+          <DialogTitle className="font-display">{exercise ? "Editar exercício" : "Novo exercício"}</DialogTitle>
         </DialogHeader>
 
         <DialogBody className="space-y-6">
           {errors.length > 0 && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Revise os campos obrigatorios</AlertTitle>
+              <AlertTitle>Revise os campos obrigatórios</AlertTitle>
               <AlertDescription>{errors.join(" ")}</AlertDescription>
             </Alert>
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="exercise-name">Nome do exercicio</Label>
+              <Label htmlFor="exercise-name">Nome do exercício</Label>
               <Input id="exercise-name" value={form.name} onChange={(event) => updateForm({ name: event.target.value })} placeholder="Ex: Supino inclinado com halteres" />
             </div>
 
@@ -250,11 +250,11 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
-                <Label>Series</Label>
+                <Label>Séries</Label>
                 <Input type="number" value={form.sets} onChange={(event) => updateForm({ sets: Number(event.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
-                <Label>Repeticoes</Label>
+                <Label>Repetições</Label>
                 <Input value={form.reps} onChange={(event) => updateForm({ reps: event.target.value })} />
               </div>
               <div className="space-y-2">
@@ -268,13 +268,13 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="exercise-description">Descricao / instrucoes</Label>
+              <Label htmlFor="exercise-description">Descrição / instruções</Label>
               <Textarea
                 id="exercise-description"
                 rows={4}
                 value={form.description ?? ""}
                 onChange={(event) => updateForm({ description: event.target.value })}
-                placeholder="Explique a execucao, pontos de atencao e ritmo."
+                placeholder="Explique a execução, os pontos de atenção e o ritmo."
               />
             </div>
 

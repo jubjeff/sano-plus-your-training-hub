@@ -39,7 +39,7 @@ export default function Students() {
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
               Alunos
             </span>
-            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Cadastro controlado e acesso com senha provisoria</h1>
+            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Cadastro controlado com senha provisória</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               Crie contas de aluno com Supabase Auth, envie o acesso inicial por e-mail e acompanhe quem ainda precisa concluir o primeiro login.
             </p>

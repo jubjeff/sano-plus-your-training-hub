@@ -9,7 +9,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="section-shell w-full max-w-sm p-6 text-center">
-          <p className="text-sm font-medium text-foreground">Preparando sua sessao...</p>
+          <p className="text-sm font-medium text-foreground">Preparando sua sessão...</p>
           <p className="mt-2 text-sm text-muted-foreground">Verificando credenciais e restaurando o acesso.</p>
         </div>
       </div>

@@ -36,7 +36,7 @@ function ExerciseCard({ studentId, blockId, exercise, onSaveLoad }: { studentId:
           <Badge variant="outline">Descanso: {exercise.rest}</Badge>
         </div>
         {exercise.description ? <p className="mt-3 text-sm text-muted-foreground">{exercise.description}</p> : null}
-        {exercise.notes ? <p className="mt-3 text-xs italic text-muted-foreground">Observacoes do professor: {exercise.notes}</p> : null}
+        {exercise.notes ? <p className="mt-3 text-xs italic text-muted-foreground">Observações do professor: {exercise.notes}</p> : null}
       </div>
       <div className="rounded-[20px] border border-border/60 bg-muted/20 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Minha carga</p>
@@ -77,14 +77,14 @@ export default function StudentPortal() {
   const hasCheckInToday = useMemo(() => checkIns.some((checkIn) => new Date(checkIn.checkedInAt).toDateString() === new Date().toDateString() && checkIn.workoutBlockId === primaryWorkout?.block?.id), [checkIns, primaryWorkout?.block?.id]);
 
   if (!student || !plan || !engagement || !primaryWorkout) {
-    return <div className="section-shell py-16 text-center"><p className="text-muted-foreground">Seu perfil de aluno ainda nao esta vinculado a uma conta ativa.</p></div>;
+    return <div className="section-shell py-16 text-center"><p className="text-muted-foreground">Seu perfil de aluno ainda não está vinculado a uma conta ativa.</p></div>;
   }
 
   const nextWorkoutDays = getDaysUntil(plan.nextWorkoutChangeDate ?? student.nextWorkoutChange);
   const statusTone = getFinancialStatusTone(financialStatus);
   const statusLabel = getFinancialStatusLabel(financialStatus);
-  const trainingModeLabel = primaryWorkout.mode === "today" ? "Treino do dia" : "Proximo treino";
-  const nextEvent = workoutBlocked ? "Regularize o pagamento para liberar os treinos." : nextWorkoutDays === null ? "Sem proxima troca agendada." : nextWorkoutDays <= 0 ? "Seu treino pode ser atualizado hoje." : `Sua proxima troca de treino acontece em ${nextWorkoutDays} dia${nextWorkoutDays === 1 ? "" : "s"}.`;
+  const trainingModeLabel = primaryWorkout.mode === "today" ? "Treino do dia" : "Próximo treino";
+  const nextEvent = workoutBlocked ? "Regularize o pagamento para liberar os treinos." : nextWorkoutDays === null ? "Sem próxima troca agendada." : nextWorkoutDays <= 0 ? "Seu treino pode ser atualizado hoje." : `Sua próxima troca de treino acontece em ${nextWorkoutDays} dia${nextWorkoutDays === 1 ? "" : "s"}.`;
 
   const handleProofSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -100,7 +100,7 @@ export default function StudentPortal() {
       await submitProofOfPayment(student.id, file);
       toast.success("Comprovante enviado com sucesso.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel enviar o comprovante.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o comprovante.");
     } finally {
       setIsSubmittingProof(false);
       event.target.value = "";
@@ -114,7 +114,7 @@ export default function StudentPortal() {
       registerStudentCheckIn(student.id, primaryWorkout.block.id, "student");
       toast.success("Check-in registrado. Bom treino.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel registrar o check-in.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível registrar o check-in.");
     } finally {
       setIsCheckingIn(false);
     }
@@ -134,12 +134,12 @@ export default function StudentPortal() {
           <div>
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">Dashboard do aluno</span>
             <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">{getGreeting()}, {student.fullName.split(" ")[0]}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Seu painel destaca o treino principal e o progresso de adesao da semana.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Seu painel destaca o treino principal e o progresso de adesão da semana.</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Badge className={statusTone}>{statusLabel}</Badge>
               <Badge variant="outline">{plan.trainingStructureType === "weekly" ? "Weekly" : "ABCDE"}</Badge>
-              <Badge variant="outline">{plan.trainingProgressMode === "fixed_schedule" ? "Fixo por dia" : "Sequencial por conclusao"}</Badge>
-              <Badge variant="outline">Frequencia {engagement.attendanceRate}%</Badge>
+              <Badge variant="outline">{plan.trainingProgressMode === "fixed_schedule" ? "Fixo por dia" : "Sequencial por conclusão"}</Badge>
+              <Badge variant="outline">Frequência {engagement.attendanceRate}%</Badge>
             </div>
           </div>
           <div className="rounded-[28px] border border-border/60 bg-background/70 p-5">
@@ -177,14 +177,14 @@ export default function StudentPortal() {
                     <div className="mt-5"><WorkoutBlockDetails studentId={student.id} block={primaryWorkout.block} onSaveLoad={handleSaveLoad} /></div>
                   </>
                 ) : workoutBlocked ? (
-                  <div className="mt-5 rounded-[22px] border border-destructive/30 bg-background/80 p-5 text-center"><Lock className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Treino bloqueado por inadimplencia</p><p className="mt-2 text-sm text-muted-foreground">O dashboard continua disponivel, mas os detalhes do treino ficam ocultos ate a regularizacao.</p><Button className="mt-4" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmittingProof}><UploadCloud className="mr-2 h-4 w-4" />{isSubmittingProof ? "Enviando..." : "Enviar comprovante"}</Button></div>
-                ) : <div className="mt-5 rounded-[22px] border border-dashed border-border/60 p-8 text-center text-muted-foreground">Nao ha treino configurado para este momento. Use a aba Treinos para consultar o plano completo.</div>}
+                  <div className="mt-5 rounded-[22px] border border-destructive/30 bg-background/80 p-5 text-center"><Lock className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Treino bloqueado por inadimplência</p><p className="mt-2 text-sm text-muted-foreground">O dashboard continua disponível, mas os detalhes do treino ficam ocultos até a regularização.</p><Button className="mt-4" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmittingProof}><UploadCloud className="mr-2 h-4 w-4" />{isSubmittingProof ? "Enviando..." : "Enviar comprovante"}</Button></div>
+                ) : <div className="mt-5 rounded-[22px] border border-dashed border-border/60 p-8 text-center text-muted-foreground">Não há treino configurado para este momento. Use a aba Treinos para consultar o plano completo.</div>}
               </div>
             </div>
 
             <div className="space-y-6">
               <section className="section-shell p-6">
-                <div className="mb-5 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Meta e consistencia</h2><p className="text-sm text-muted-foreground">Seu progresso da semana e ritmo de adesao.</p></div></div>
+                <div className="mb-5 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Meta e consistência</h2><p className="text-sm text-muted-foreground">Seu progresso da semana e ritmo de adesão.</p></div></div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-[24px] border border-border/60 bg-background/70 p-4"><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Meta semanal</p><p className="mt-2 text-3xl font-semibold">{engagement.weeklyGoalProgress}/{engagement.weeklyGoal}</p><Progress value={Math.min(100, Math.round((engagement.weeklyGoalProgress / Math.max(engagement.weeklyGoal, 1)) * 100))} className="mt-4" /><p className="mt-3 text-sm text-muted-foreground">{engagement.weeklyGoalAchieved ? "Meta semanal concluida." : `Faltam ${Math.max(engagement.weeklyGoal - engagement.weeklyGoalProgress, 0)} treino${Math.max(engagement.weeklyGoal - engagement.weeklyGoalProgress, 0) === 1 ? "" : "s"} para concluir a meta.`}</p></div>
                   <div className="rounded-[24px] border border-border/60 bg-background/70 p-4"><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Streak atual</p><p className="mt-2 text-3xl font-semibold">{engagement.currentStreak} dia{engagement.currentStreak === 1 ? "" : "s"}</p><p className="mt-3 text-sm text-muted-foreground">Melhor streak: {engagement.bestStreak}</p></div>
@@ -193,7 +193,7 @@ export default function StudentPortal() {
               </section>
 
               <section className="section-shell p-6">
-                <div className="mb-5 flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Financeiro</h2><p className="text-sm text-muted-foreground">Seu acesso respeita a regra de inadimplencia do plano.</p></div></div>
+                <div className="mb-5 flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Financeiro</h2><p className="text-sm text-muted-foreground">Seu acesso respeita a regra de inadimplência do plano.</p></div></div>
                 <div className="space-y-4">
                   <div className="rounded-[24px] border border-border/60 bg-background/70 p-5"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium">Status do pagamento</p><Badge className={statusTone}>{statusLabel}</Badge></div><div className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Vencimento</p><p className="mt-2 font-medium">{student.paymentDueDate ? formatDate(student.paymentDueDate) : "Sem data"}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ultimo pagamento</p><p className="mt-2 font-medium">{student.paymentLastPaidAt ? formatDate(student.paymentLastPaidAt) : "Nao registrado"}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dias de atraso</p><p className="mt-2 font-medium">{daysOverdue}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Comprovante</p><p className="mt-2 font-medium">{student.proofOfPaymentStatus === "submitted" ? "Enviado para analise" : student.proofOfPaymentStatus === "approved" ? "Aprovado" : "Nao enviado"}</p></div></div>{student.proofOfPaymentSentAt ? <p className="mt-4 text-xs text-muted-foreground">Ultimo comprovante enviado em {formatDate(student.proofOfPaymentSentAt)}.</p> : null}</div>
                   <div className="rounded-[24px] border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">{daysOverdue >= 3 && student.proofOfPaymentStatus !== "submitted" ? "Com 3 dias ou mais de atraso, os treinos e check-ins ficam bloqueados automaticamente." : student.proofOfPaymentStatus === "submitted" ? "Seu comprovante foi enviado e esta aguardando analise do professor." : "Se precisar, envie o comprovante por este painel para agilizar a regularizacao."}</div>
@@ -205,13 +205,13 @@ export default function StudentPortal() {
 
         <TabsContent value="treinos" className="space-y-6">
           <section className="section-shell p-6 lg:p-8">
-            <div className="mb-6 flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Treinos</h2><p className="text-sm text-muted-foreground">{plan.trainingStructureType === "weekly" ? "Visao completa dos treinos por dia da semana." : "Visao completa da sua sequencia de blocos ABCDE."}</p></div></div>
+            <div className="mb-6 flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /><div><h2 className="font-display text-xl font-semibold">Treinos</h2><p className="text-sm text-muted-foreground">{plan.trainingStructureType === "weekly" ? "Visão completa dos treinos por dia da semana." : "Visão completa da sua sequência de blocos ABCDE."}</p></div></div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {cards.map((card) => (
                 <button key={card.key} type="button" onClick={() => setSelectedCardKey(card.key)} className={`rounded-[24px] border p-5 text-left transition-colors hover:border-primary/30 ${card.isCurrent ? "border-primary/30 bg-primary/5" : workoutBlocked ? "border-destructive/20 bg-destructive/5" : "border-border/60 bg-background/70"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">{card.label}</p><h3 className="mt-2 text-lg font-semibold">{card.block?.name ?? "Descanso"}</h3></div>
-                    <div className="flex flex-col items-end gap-2">{card.isCurrent ? <Badge className="border-primary/20 bg-primary/10 text-primary">{primaryWorkout.mode === "today" ? "Atual" : "Proximo"}</Badge> : null}{card.isRecentlyCompleted ? <Badge variant="outline">Feito recente</Badge> : null}<Badge className={workoutBlocked ? "border-destructive/20 bg-destructive/10 text-destructive" : card.block ? "border-success/20 bg-success/10 text-success" : "border-muted bg-muted text-muted-foreground"}>{workoutBlocked ? "Bloqueado" : card.block ? "Disponivel" : "Descanso"}</Badge></div>
+                    <div className="flex flex-col items-end gap-2">{card.isCurrent ? <Badge className="border-primary/20 bg-primary/10 text-primary">{primaryWorkout.mode === "today" ? "Atual" : "Próximo"}</Badge> : null}{card.isRecentlyCompleted ? <Badge variant="outline">Feito recente</Badge> : null}<Badge className={workoutBlocked ? "border-destructive/20 bg-destructive/10 text-destructive" : card.block ? "border-success/20 bg-success/10 text-success" : "border-muted bg-muted text-muted-foreground"}>{workoutBlocked ? "Bloqueado" : card.block ? "Disponível" : "Descanso"}</Badge></div>
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">{workoutBlocked ? `Treino bloqueado por inadimplencia (${daysOverdue} dia${daysOverdue === 1 ? "" : "s"} de atraso).` : card.block ? `${card.block.exercises.length} exercicio${card.block.exercises.length === 1 ? "" : "s"} planejado${card.block.exercises.length === 1 ? "" : "s"} para ${card.label.toLowerCase()}.` : "Sem treino programado para este bloco."}</p>
                   {workoutBlocked ? <div className="mt-4 rounded-[18px] border border-destructive/20 bg-background/80 p-4 text-sm text-muted-foreground">Clique para ver os detalhes do bloqueio.</div> : card.block ? <div className="mt-4 space-y-2">{card.block.exercises.slice(0, 2).map((exercise) => <div key={exercise.id} className="rounded-[18px] border border-border/60 bg-muted/30 px-3 py-2 text-sm"><p className="font-medium">{exercise.name}</p><p className="text-xs text-muted-foreground">{exercise.sets}x{exercise.reps} • Descanso {exercise.rest}</p></div>)}{card.block.exercises.length > 2 ? <p className="text-xs text-muted-foreground">+ {card.block.exercises.length - 2} exercicio{card.block.exercises.length - 2 === 1 ? "" : "s"}</p> : null}</div> : <div className="mt-4 rounded-[18px] border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">Clique para ver o status deste bloco.</div>}
@@ -231,7 +231,7 @@ export default function StudentPortal() {
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">{selectedCard?.label}{selectedCard?.isCurrent ? " • Atual" : ""}</DialogTitle>
-            <DialogDescription>{workoutBlocked ? "Seu acesso aos detalhes do treino esta bloqueado por inadimplencia." : selectedCard?.block ? `Veja os detalhes completos de ${selectedCard.block.name}.` : "Nao ha treino programado para este bloco."}</DialogDescription>
+            <DialogDescription>{workoutBlocked ? "Seu acesso aos detalhes do treino está bloqueado por inadimplência." : selectedCard?.block ? `Veja os detalhes completos de ${selectedCard.block.name}.` : "Não há treino programado para este bloco."}</DialogDescription>
           </DialogHeader>
           <DialogBody>
           {selectedCard ? (

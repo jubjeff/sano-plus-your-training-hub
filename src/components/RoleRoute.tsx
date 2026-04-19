@@ -10,7 +10,7 @@ export default function RoleRoute({ role, children }: { role: AuthRole; children
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="section-shell w-full max-w-sm p-6 text-center">
           <p className="text-sm font-medium text-foreground">Preparando seu acesso...</p>
-          <p className="mt-2 text-sm text-muted-foreground">Validando sessao e perfil para liberar esta area.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Validando sessão e perfil para liberar esta área.</p>
         </div>
       </div>
     );
