@@ -14,7 +14,8 @@ import { formatDate, getDaysUntil } from "@/lib/format";
 import { validatePaymentProofFile } from "@/lib/payment-proof";
 import { getActivityCalendar, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { buildStudentPlanCards, getBlockDisplayLabel, getEngagementLabel, getEngagementTone, getMotivationalMessage, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan } from "@/lib/training-management";
-import type { Exercise } from "@/types";
+import { resolveExerciseFromLibrary } from "@/lib/exercise-utils";
+import type { Exercise, ExerciseLibraryItem } from "@/types";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -50,14 +51,36 @@ function ExerciseCard({ studentId, blockId, exercise, onSaveLoad }: { studentId:
   );
 }
 
-function WorkoutBlockDetails({ studentId, block, onSaveLoad }: { studentId: string; block: ReturnType<typeof getPrimaryWorkoutForStudent>["block"]; onSaveLoad: (studentId: string, blockId: string, exerciseId: string, value: string) => void }) {
+function WorkoutBlockDetails({
+  studentId,
+  block,
+  onSaveLoad,
+  exerciseLibraryMap,
+}: {
+  studentId: string;
+  block: ReturnType<typeof getPrimaryWorkoutForStudent>["block"];
+  onSaveLoad: (studentId: string, blockId: string, exerciseId: string, value: string) => void;
+  exerciseLibraryMap: Map<string, ExerciseLibraryItem>;
+}) {
   if (!block) return null;
-  return <div className="space-y-4">{block.exercises.map((exercise) => <ExerciseCard key={exercise.id} studentId={studentId} blockId={block.id} exercise={exercise} onSaveLoad={onSaveLoad} />)}</div>;
+  return (
+    <div className="space-y-4">
+      {block.exercises.map((exercise) => (
+        <ExerciseCard
+          key={exercise.id}
+          studentId={studentId}
+          blockId={block.id}
+          exercise={resolveExerciseFromLibrary(exercise, exerciseLibraryMap)}
+          onSaveLoad={onSaveLoad}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function StudentPortal() {
   const { user } = useAuth();
-  const { getStudentByUserId, getStudentCheckIns, submitProofOfPayment, registerStudentCheckIn, updateStudentExerciseLoad } = useStore();
+  const { getStudentByUserId, getStudentCheckIns, submitProofOfPayment, registerStudentCheckIn, updateStudentExerciseLoad, exerciseLibrary } = useStore();
   const student = getStudentByUserId(user?.id);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
@@ -75,6 +98,7 @@ export default function StudentPortal() {
   const primaryWorkout = useMemo(() => (student ? getPrimaryWorkoutForStudent(student, checkIns) : null), [checkIns, student]);
   const selectedCard = useMemo(() => cards.find((card) => card.key === selectedCardKey) ?? null, [cards, selectedCardKey]);
   const hasCheckInToday = useMemo(() => checkIns.some((checkIn) => new Date(checkIn.checkedInAt).toDateString() === new Date().toDateString() && checkIn.workoutBlockId === primaryWorkout?.block?.id), [checkIns, primaryWorkout?.block?.id]);
+  const exerciseLibraryMap = useMemo(() => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])), [exerciseLibrary]);
 
   if (!student || !plan || !engagement || !primaryWorkout) {
     return <div className="section-shell py-16 text-center"><p className="text-muted-foreground">Seu perfil de aluno ainda não está vinculado a uma conta ativa.</p></div>;
@@ -174,7 +198,7 @@ export default function StudentPortal() {
                       <Button onClick={handleCheckIn} disabled={isCheckingIn || hasCheckInToday}><CheckCircle2 className="mr-2 h-4 w-4" />{hasCheckInToday ? "Check-in de hoje registrado" : isCheckingIn ? "Registrando..." : "Fazer check-in"}</Button>
                       <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmittingProof}><UploadCloud className="mr-2 h-4 w-4" />{isSubmittingProof ? "Enviando..." : "Enviar comprovante"}</Button>
                     </div>
-                    <div className="mt-5"><WorkoutBlockDetails studentId={student.id} block={primaryWorkout.block} onSaveLoad={handleSaveLoad} /></div>
+                    <div className="mt-5"><WorkoutBlockDetails studentId={student.id} block={primaryWorkout.block} onSaveLoad={handleSaveLoad} exerciseLibraryMap={exerciseLibraryMap} /></div>
                   </>
                 ) : workoutBlocked ? (
                   <div className="mt-5 rounded-[22px] border border-destructive/30 bg-background/80 p-5 text-center"><Lock className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Treino bloqueado por inadimplência</p><p className="mt-2 text-sm text-muted-foreground">O dashboard continua disponível, mas os detalhes do treino ficam ocultos até a regularização.</p><Button className="mt-4" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmittingProof}><UploadCloud className="mr-2 h-4 w-4" />{isSubmittingProof ? "Enviando..." : "Enviar comprovante"}</Button></div>
@@ -235,7 +259,7 @@ export default function StudentPortal() {
           </DialogHeader>
           <DialogBody>
           {selectedCard ? (
-            workoutBlocked ? <div className="rounded-[24px] border border-destructive/20 bg-destructive/5 p-5 text-sm text-muted-foreground">O pagamento esta atrasado ha {daysOverdue} dia{daysOverdue === 1 ? "" : "s"}. Regularize com o professor ou envie um comprovante para liberar os detalhes dos treinos.</div> : selectedCard.block ? <WorkoutBlockDetails studentId={student.id} block={selectedCard.block} onSaveLoad={handleSaveLoad} /> : <div className="rounded-[24px] border border-dashed border-border/60 p-8 text-center text-muted-foreground">Descanso ou recuperacao programada para este bloco.</div>
+            workoutBlocked ? <div className="rounded-[24px] border border-destructive/20 bg-destructive/5 p-5 text-sm text-muted-foreground">O pagamento esta atrasado ha {daysOverdue} dia{daysOverdue === 1 ? "" : "s"}. Regularize com o professor ou envie um comprovante para liberar os detalhes dos treinos.</div> : selectedCard.block ? <WorkoutBlockDetails studentId={student.id} block={selectedCard.block} onSaveLoad={handleSaveLoad} exerciseLibraryMap={exerciseLibraryMap} /> : <div className="rounded-[24px] border border-dashed border-border/60 p-8 text-center text-muted-foreground">Descanso ou recuperacao programada para este bloco.</div>
           ) : null}
           </DialogBody>
         </DialogContent>

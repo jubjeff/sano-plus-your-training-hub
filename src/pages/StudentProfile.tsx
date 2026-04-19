@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
-import type { Exercise, WorkoutBlock } from "@/types";
+import type { ExerciseLibraryItem, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import ExerciseEditorDialog from "@/components/ExerciseEditorDialog";
@@ -18,6 +18,7 @@ import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
 import { getStudentAccessStatusLabel, getStudentAccessTone } from "@/lib/student-access";
 import { getAttendanceSummary, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getProofStatusLabel, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { getAllowedProgressModes, getEngagementLabel, getEngagementTone, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan, normalizeProgressMode } from "@/lib/training-management";
+import { createExerciseAssignmentFromLibrary, resolveExerciseFromLibrary } from "@/lib/exercise-utils";
 import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
 import { toast } from "@/components/ui/sonner";
 
@@ -28,7 +29,7 @@ function generateId() {
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { students, checkIns, updateStudent, setStudentLifecycle, getStudentCheckIns, approveProofOfPayment, markPaymentReceived, updatePaymentDueDate, refresh } = useStore();
+  const { students, checkIns, updateStudent, setStudentLifecycle, getStudentCheckIns, approveProofOfPayment, markPaymentReceived, updatePaymentDueDate, refresh, exerciseLibrary, addExerciseLibraryItem } = useStore();
   const student = students.find((item) => item.id === id);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -40,15 +41,9 @@ export default function StudentProfile() {
   const [weeklyGoalDraft, setWeeklyGoalDraft] = useState(4);
   const [currentSuggestedBlockIdDraft, setCurrentSuggestedBlockIdDraft] = useState<string | null>(null);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
-  const [editorState, setEditorState] = useState<{ blockId: string; exerciseId?: string } | null>(null);
+  const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
   const [paymentDueDateDraft, setPaymentDueDateDraft] = useState("");
-
-  const editingExercise = useMemo(() => {
-    if (!editorState?.exerciseId) return undefined;
-    return workoutDraft
-      .find((block) => block.id === editorState.blockId)
-      ?.exercises.find((exercise) => exercise.id === editorState.exerciseId);
-  }, [editorState, workoutDraft]);
+  const exerciseLibraryMap = useMemo(() => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])), [exerciseLibrary]);
 
   const studentCheckIns = useMemo(() => (student ? getStudentCheckIns(student.id) : []), [getStudentCheckIns, student]);
   const attendance = useMemo(() => (student ? getAttendanceSummary(student, studentCheckIns) : null), [student, studentCheckIns]);
@@ -130,9 +125,10 @@ export default function StudentProfile() {
     setWorkoutDraft((current) => current.map((block) => (block.id === blockId ? { ...block, name } : block)));
   };
 
-  const addExerciseToBlock = (blockId: string, exercise: Exercise) => {
+  const addExerciseToBlock = (blockId: string, exercise: ExerciseLibraryItem) => {
+    const assignment = createExerciseAssignmentFromLibrary(exercise);
     setWorkoutDraft((current) =>
-      current.map((block) => (block.id === blockId ? { ...block, exercises: [...block.exercises, exercise] } : block)),
+      current.map((block) => (block.id === blockId ? { ...block, exercises: [...block.exercises, assignment] } : block)),
     );
   };
 
@@ -144,7 +140,7 @@ export default function StudentProfile() {
     );
   };
 
-  const updateExercise = (blockId: string, exerciseId: string, data: Partial<Exercise>) => {
+  const updateExercise = (blockId: string, exerciseId: string, data: Record<string, unknown>) => {
     setWorkoutDraft((current) =>
       current.map((block) =>
         block.id === blockId
@@ -152,24 +148,6 @@ export default function StudentProfile() {
           : block,
       ),
     );
-  };
-
-  const saveExercise = (exercise: Exercise) => {
-    if (!editorState) return;
-
-    setWorkoutDraft((current) =>
-      current.map((block) => {
-        if (block.id !== editorState.blockId) return block;
-        if (!editorState.exerciseId) {
-          return { ...block, exercises: [...block.exercises, exercise] };
-        }
-        return {
-          ...block,
-          exercises: block.exercises.map((item) => (item.id === editorState.exerciseId ? exercise : item)),
-        };
-      }),
-    );
-    setEditorState(null);
   };
 
   const handleTemporaryAccess = async () => {
@@ -580,24 +558,25 @@ export default function StudentProfile() {
                 <div className="divide-y divide-border/60">
                   {block.exercises.map((exercise, index) => (
                     <div key={exercise.id} className="px-4 py-4">
-                      {editingWorkout ? (
+                      {(() => {
+                        const resolvedExercise = resolveExerciseFromLibrary(exercise, exerciseLibraryMap);
+                        return editingWorkout ? (
                         <div className="space-y-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="w-5 text-xs text-muted-foreground">{index + 1}.</span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{exercise.name || "Exercicio sem nome"}</p>
+                              <p className="truncate text-sm font-medium">{resolvedExercise.name || "Exercício sem nome"}</p>
                             </div>
                             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                              <Button variant="ghost" size="sm" className="flex-1 sm:flex-none" onClick={() => setEditorState({ blockId: block.id, exerciseId: exercise.id })}><Edit className="mr-1 h-4 w-4" />Editar</Button>
                               <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => removeExercise(block.id, exercise.id)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </div>
                           <div className="grid gap-3 pl-7 sm:grid-cols-2 lg:grid-cols-5">
-                            <div><Label className="text-xs">Series</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} className="mt-1 h-10 bg-card" /></div>
-                            <div><Label className="text-xs">Repeticoes</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} className="mt-1 h-10 bg-card" /></div>
+                            <div><Label className="text-xs">Séries</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} className="mt-1 h-10 bg-card" /></div>
+                            <div><Label className="text-xs">Repetições</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} className="mt-1 h-10 bg-card" /></div>
                             <div><Label className="text-xs">Carga</Label><Input value={exercise.load} onChange={(event) => updateExercise(block.id, exercise.id, { load: event.target.value })} className="mt-1 h-10 bg-card" /></div>
                             <div><Label className="text-xs">Descanso</Label><Input value={exercise.rest} onChange={(event) => updateExercise(block.id, exercise.id, { rest: event.target.value })} className="mt-1 h-10 bg-card" /></div>
-                            <div><Label className="text-xs">Observacoes</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} className="mt-1 h-10 bg-card" /></div>
+                            <div><Label className="text-xs">Observações</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} className="mt-1 h-10 bg-card" /></div>
                           </div>
                         </div>
                       ) : (
@@ -605,25 +584,26 @@ export default function StudentProfile() {
                           <div className="flex items-start gap-3">
                             <span className="mt-0.5 w-5 text-xs text-muted-foreground">{index + 1}.</span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium">{exercise.name}</p>
+                              <p className="text-sm font-medium">{resolvedExercise.name}</p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{exercise.sets}x{exercise.reps}</span>
                                 {exercise.load && exercise.load !== "-" && <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{exercise.load}</span>}
                                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Descanso: {exercise.rest}</span>
                               </div>
-                              {exercise.description && <p className="mt-3 text-sm leading-6 text-muted-foreground">{exercise.description}</p>}
-                              {exercise.notes && <p className="mt-3 text-xs italic text-muted-foreground">Observacoes do professor: {exercise.notes}</p>}
+                              {resolvedExercise.description && <p className="mt-3 text-sm leading-6 text-muted-foreground">{resolvedExercise.description}</p>}
+                              {exercise.notes && <p className="mt-3 text-xs italic text-muted-foreground">Observações do professor: {exercise.notes}</p>}
                             </div>
                           </div>
-                          <ExerciseMediaPreview exercise={exercise} />
+                          <ExerciseMediaPreview exercise={resolvedExercise} />
                         </div>
-                      )}
+                      );
+                      })()}
                     </div>
                   ))}
 
                   {editingWorkout && (
                     <div className="flex flex-wrap gap-2 px-4 py-3">
-                      <Button variant="outline" onClick={() => setEditorState({ blockId: block.id })}><Plus className="mr-2 h-4 w-4" />Novo exercicio</Button>
+                      <Button variant="outline" onClick={() => setCreateLibraryBlockId(block.id)}><Plus className="mr-2 h-4 w-4" />Criar exercício</Button>
                       <Button variant="ghost" onClick={() => setPickerBlockId(block.id)}><Plus className="mr-2 h-4 w-4" />Usar da biblioteca</Button>
                     </div>
                   )}
@@ -655,12 +635,20 @@ export default function StudentProfile() {
       />
 
       <ExerciseEditorDialog
-        open={editorState !== null}
+        open={createLibraryBlockId !== null}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) setEditorState(null);
+          if (!nextOpen) setCreateLibraryBlockId(null);
         }}
-        exercise={editingExercise}
-        onSave={saveExercise}
+        onSave={async ({ exercise, videoFile, removeVideo }) => {
+          if (!createLibraryBlockId) return;
+          const createdExercise = await addExerciseLibraryItem({
+            ...exercise,
+            videoFile,
+            removeVideo,
+          });
+          addExerciseToBlock(createLibraryBlockId, createdExercise);
+          setCreateLibraryBlockId(null);
+        }}
       />
 
       <ExerciseLibraryPickerDialog

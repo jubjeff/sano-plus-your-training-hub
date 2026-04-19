@@ -1,47 +1,71 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Copy, Dumbbell, Edit, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Dumbbell, Edit, Plus, Search, Trash2, Video } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
-import { Workout } from "@/types";
+import { ExerciseLibraryItem, Workout } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import WorkoutFormDialog from "@/components/WorkoutFormDialog";
+import ExerciseEditorDialog from "@/components/ExerciseEditorDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MUSCLE_CATEGORIES, MUSCLE_GROUP_OPTIONS } from "@/lib/exercise-options";
-import { collectUniqueExercisesFromWorkouts, getExerciseDescription } from "@/lib/exercise-utils";
+import {
+  EXERCISE_CATEGORIES,
+  EXERCISE_DIFFICULTY_OPTIONS,
+  EXERCISE_EQUIPMENT_SUGGESTIONS,
+  EXERCISE_MOVEMENT_OPTIONS,
+  MUSCLE_GROUP_OPTIONS,
+} from "@/lib/exercise-options";
+import { matchesExerciseQuery } from "@/lib/exercise-utils";
 import { formatDate } from "@/lib/format";
 
 const ALL = "all";
 
 export default function WorkoutLibrary() {
-  const { workouts, deleteWorkout, duplicateWorkout } = useStore();
+  const {
+    workouts,
+    exerciseLibrary,
+    deleteWorkout,
+    duplicateWorkout,
+    addExerciseLibraryItem,
+    updateExerciseLibraryItem,
+    setExerciseLibraryItemActive,
+  } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [exerciseSearch, setExerciseSearch] = useState("");
   const [exerciseCategory, setExerciseCategory] = useState(ALL);
   const [exercisePrimary, setExercisePrimary] = useState(ALL);
+  const [exerciseEquipment, setExerciseEquipment] = useState(ALL);
+  const [exerciseDifficulty, setExerciseDifficulty] = useState(ALL);
+  const [exerciseMovement, setExerciseMovement] = useState(ALL);
   const [formOpen, setFormOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | undefined>();
+  const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<ExerciseLibraryItem | undefined>();
 
   const filteredWorkouts = workouts.filter((workout) =>
     search ? workout.name.toLowerCase().includes(search.toLowerCase()) : true,
   );
 
-  const libraryExercises = useMemo(() => collectUniqueExercisesFromWorkouts(workouts), [workouts]);
-
   const filteredExercises = useMemo(
     () =>
-      libraryExercises.filter((exercise) => {
-        const matchesSearch =
-          !exerciseSearch ||
-          exercise.name.toLowerCase().includes(exerciseSearch.toLowerCase()) ||
-          getExerciseDescription(exercise).toLowerCase().includes(exerciseSearch.toLowerCase());
-        const matchesCategory = exerciseCategory === ALL || exercise.muscleCategory === exerciseCategory;
+      exerciseLibrary.filter((exercise) => {
+        const matchesCategory = exerciseCategory === ALL || exercise.category === exerciseCategory;
         const matchesPrimary = exercisePrimary === ALL || exercise.muscleGroupPrimary === exercisePrimary;
-        return matchesSearch && matchesCategory && matchesPrimary;
+        const matchesEquipment = exerciseEquipment === ALL || exercise.equipment === exerciseEquipment;
+        const matchesDifficulty = exerciseDifficulty === ALL || exercise.difficultyLevel === exerciseDifficulty;
+        const matchesMovement = exerciseMovement === ALL || exercise.movementType === exerciseMovement;
+        return (
+          matchesCategory &&
+          matchesPrimary &&
+          matchesEquipment &&
+          matchesDifficulty &&
+          matchesMovement &&
+          matchesExerciseQuery(exercise, exerciseSearch)
+        );
       }),
-    [exerciseCategory, exercisePrimary, exerciseSearch, libraryExercises],
+    [exerciseCategory, exerciseDifficulty, exerciseEquipment, exerciseLibrary, exerciseMovement, exercisePrimary, exerciseSearch],
   );
 
   const openEdit = (workout: Workout) => {
@@ -54,6 +78,16 @@ export default function WorkoutLibrary() {
     setFormOpen(true);
   };
 
+  const openNewExercise = () => {
+    setEditingExercise(undefined);
+    setExerciseDialogOpen(true);
+  };
+
+  const openEditExercise = (exercise: ExerciseLibraryItem) => {
+    setEditingExercise(exercise);
+    setExerciseDialogOpen(true);
+  };
+
   return (
     <div className="page-shell">
       <section className="section-shell overflow-hidden">
@@ -62,15 +96,36 @@ export default function WorkoutLibrary() {
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
               Biblioteca
             </span>
-            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Treinos reutilizáveis com estrutura didática</h1>
+            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Treinos reutilizáveis e catálogo global de exercícios</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Mantenha treinos prontos para importar e um catálogo manual de exercícios com mídia, musculatura e contexto para o aluno.
+              O Sano+ agora usa uma biblioteca oficial de exercícios compartilhada entre todos os professores, pronta para busca, filtros e evolução gradual com vídeos.
             </p>
           </div>
-          <Button className="w-full sm:w-auto sm:min-w-40" onClick={openNew}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo treino
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={openNewExercise}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo exercício
+            </Button>
+            <Button className="w-full sm:w-auto sm:min-w-40" onClick={openNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo treino
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="section-shell p-5">
+          <p className="text-sm text-muted-foreground">Treinos reutilizáveis</p>
+          <p className="mt-2 font-display text-3xl font-semibold">{workouts.length}</p>
+        </div>
+        <div className="section-shell p-5">
+          <p className="text-sm text-muted-foreground">Exercícios globais</p>
+          <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.length}</p>
+        </div>
+        <div className="section-shell p-5">
+          <p className="text-sm text-muted-foreground">Exercícios com vídeo</p>
+          <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.filter((item) => item.videoUrl).length}</p>
         </div>
       </section>
 
@@ -151,30 +206,61 @@ export default function WorkoutLibrary() {
       <section className="section-shell p-5 lg:p-6">
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold tracking-tight">Catálogo manual de exercícios</h2>
-            <p className="text-sm text-muted-foreground">Exercícios já cadastrados nos treinos, prontos para filtrar e reutilizar.</p>
+            <h2 className="font-display text-2xl font-bold tracking-tight">Biblioteca global de exercícios</h2>
+            <p className="text-sm text-muted-foreground">Base central do Sano+ com filtros, vídeo opcional e ficha técnica padronizada.</p>
           </div>
+          <Button onClick={openNewExercise}>
+            <Plus className="mr-2 h-4 w-4" />
+            Cadastrar exercício
+          </Button>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_240px]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px] xl:grid-cols-[minmax(0,1fr)_220px_220px_220px_220px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={exerciseSearch} onChange={(event) => setExerciseSearch(event.target.value)} placeholder="Buscar exercício..." className="pl-9" />
           </div>
           <Select value={exerciseCategory} onValueChange={setExerciseCategory}>
-            <SelectTrigger><SelectValue placeholder="Categoria geral" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todas as categorias</SelectItem>
-              {MUSCLE_CATEGORIES.map((item) => (
+              {EXERCISE_CATEGORIES.map((item) => (
                 <SelectItem key={item} value={item}>{item}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={exercisePrimary} onValueChange={setExercisePrimary}>
-            <SelectTrigger><SelectValue placeholder="Musculatura principal" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Grupo principal" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Todas as musculaturas</SelectItem>
+              <SelectItem value={ALL}>Todos os grupos</SelectItem>
               {MUSCLE_GROUP_OPTIONS.map((item) => (
+                <SelectItem key={item} value={item}>{item}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={exerciseEquipment} onValueChange={setExerciseEquipment}>
+            <SelectTrigger><SelectValue placeholder="Equipamento" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos os equipamentos</SelectItem>
+              {EXERCISE_EQUIPMENT_SUGGESTIONS.map((item) => (
+                <SelectItem key={item} value={item}>{item}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={exerciseDifficulty} onValueChange={setExerciseDifficulty}>
+            <SelectTrigger><SelectValue placeholder="Nível" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos os níveis</SelectItem>
+              {EXERCISE_DIFFICULTY_OPTIONS.map((item) => (
+                <SelectItem key={item} value={item}>{item}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={exerciseMovement} onValueChange={setExerciseMovement}>
+            <SelectTrigger><SelectValue placeholder="Movimento" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos os movimentos</SelectItem>
+              {EXERCISE_MOVEMENT_OPTIONS.map((item) => (
                 <SelectItem key={item} value={item}>{item}</SelectItem>
               ))}
             </SelectContent>
@@ -191,16 +277,44 @@ export default function WorkoutLibrary() {
               <article key={exercise.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold">{exercise.name}</h3>
-                    {getExerciseDescription(exercise) && <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{getExerciseDescription(exercise)}</p>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold">{exercise.name}</h3>
+                      <Badge variant={exercise.isActive ? "outline" : "secondary"}>{exercise.isActive ? "Ativo" : "Inativo"}</Badge>
+                      {exercise.videoUrl && (
+                        <Badge variant="outline" className="gap-1">
+                          <Video className="h-3 w-3" />
+                          MP4
+                        </Badge>
+                      )}
+                    </div>
+                    {exercise.description && <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{exercise.description}</p>}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {exercise.muscleCategory && <Badge variant="outline">{exercise.muscleCategory}</Badge>}
+                      <Badge variant="outline">{exercise.category}</Badge>
                       {exercise.muscleGroupPrimary && <Badge variant="secondary" className="bg-primary/10 text-primary">{exercise.muscleGroupPrimary}</Badge>}
                       {(exercise.muscleGroupsSecondary ?? []).slice(0, 2).map((item) => <Badge key={`${exercise.id}-${item}`} variant="outline">{item}</Badge>)}
                       {exercise.equipment && <Badge variant="outline">{exercise.equipment}</Badge>}
-                      {(exercise.videoFileUrl || exercise.videoStorageKey) && <Badge variant="outline">MP4</Badge>}
-                      {exercise.youtubeEmbedUrl && <Badge variant="outline">YouTube</Badge>}
+                      {exercise.difficultyLevel && <Badge variant="outline">{exercise.difficultyLevel}</Badge>}
+                      {exercise.movementType && <Badge variant="outline">{exercise.movementType}</Badge>}
                     </div>
+                    <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                      <div>
+                        <p className="font-medium text-foreground">Execução</p>
+                        <p className="line-clamp-2">{exercise.executionInstructions || "Sem instruções detalhadas."}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">Erros comuns</p>
+                        <p className="line-clamp-2">{exercise.commonMistakes || "Sem erros comuns cadastrados."}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditExercise(exercise)}>
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setExerciseLibraryItemActive(exercise.id, !exercise.isActive)}>
+                      {exercise.isActive ? "Inativar" : "Ativar"}
+                    </Button>
                   </div>
                 </div>
               </article>
@@ -210,6 +324,28 @@ export default function WorkoutLibrary() {
       </section>
 
       <WorkoutFormDialog open={formOpen} onOpenChange={setFormOpen} workout={editingWorkout} />
+
+      <ExerciseEditorDialog
+        open={exerciseDialogOpen}
+        onOpenChange={setExerciseDialogOpen}
+        exercise={editingExercise}
+        onSave={async ({ exercise, videoFile, removeVideo }) => {
+          if (editingExercise) {
+            await updateExerciseLibraryItem(editingExercise.id, {
+              ...exercise,
+              videoFile,
+              removeVideo,
+            });
+            return;
+          }
+
+          await addExerciseLibraryItem({
+            ...exercise,
+            videoFile,
+            removeVideo,
+          });
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, Plus, Save, Trash2 } from "lucide-react";
-import { Exercise, WorkoutBlock } from "@/types";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ExerciseLibraryItem, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import ExerciseEditorDialog from "@/components/ExerciseEditorDialog";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/hooks/use-store";
+import { createExerciseAssignmentFromLibrary, resolveExerciseFromLibrary } from "@/lib/exercise-utils";
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -18,14 +19,19 @@ function generateId() {
 export default function WorkoutEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { workouts, updateWorkout } = useStore();
+  const { workouts, updateWorkout, addExerciseLibraryItem, exerciseLibrary } = useStore();
   const workout = useMemo(() => workouts.find((item) => item.id === id), [id, workouts]);
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
   const [notes, setNotes] = useState("");
   const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
-  const [editorState, setEditorState] = useState<{ blockId: string; exerciseId?: string } | null>(null);
+  const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
+
+  const exerciseLibraryMap = useMemo(
+    () => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])),
+    [exerciseLibrary],
+  );
 
   useEffect(() => {
     if (!workout) return;
@@ -34,13 +40,6 @@ export default function WorkoutEditor() {
     setNotes(workout.notes);
     setBlocks(JSON.parse(JSON.stringify(workout.blocks)));
   }, [workout]);
-
-  const editingExercise = useMemo(() => {
-    if (!editorState?.exerciseId) return undefined;
-    return blocks
-      .find((block) => block.id === editorState.blockId)
-      ?.exercises.find((exercise) => exercise.id === editorState.exerciseId);
-  }, [blocks, editorState]);
 
   if (!workout) {
     return (
@@ -52,10 +51,6 @@ export default function WorkoutEditor() {
     );
   }
 
-  const updateBlockName = (blockId: string, value: string) => {
-    setBlocks((current) => current.map((block) => (block.id === blockId ? { ...block, name: value } : block)));
-  };
-
   const addBlock = () => {
     const letter = String.fromCharCode(65 + blocks.length);
     setBlocks((current) => [...current, { id: generateId(), name: `Treino ${letter}`, exercises: [] }]);
@@ -65,9 +60,10 @@ export default function WorkoutEditor() {
     setBlocks((current) => current.filter((block) => block.id !== blockId));
   };
 
-  const addExerciseToBlock = (blockId: string, exercise: Exercise) => {
+  const addExerciseToBlock = (blockId: string, exercise: ExerciseLibraryItem) => {
+    const assignment = createExerciseAssignmentFromLibrary(exercise);
     setBlocks((current) =>
-      current.map((block) => (block.id === blockId ? { ...block, exercises: [...block.exercises, exercise] } : block)),
+      current.map((block) => (block.id === blockId ? { ...block, exercises: [...block.exercises, assignment] } : block)),
     );
   };
 
@@ -79,7 +75,7 @@ export default function WorkoutEditor() {
     );
   };
 
-  const updateExercise = (blockId: string, exerciseId: string, data: Partial<Exercise>) => {
+  const updateExercise = (blockId: string, exerciseId: string, data: Record<string, unknown>) => {
     setBlocks((current) =>
       current.map((block) =>
         block.id === blockId
@@ -87,24 +83,6 @@ export default function WorkoutEditor() {
           : block,
       ),
     );
-  };
-
-  const saveExercise = (exercise: Exercise) => {
-    if (!editorState) return;
-
-    setBlocks((current) =>
-      current.map((block) => {
-        if (block.id !== editorState.blockId) return block;
-        if (!editorState.exerciseId) {
-          return { ...block, exercises: [...block.exercises, exercise] };
-        }
-        return {
-          ...block,
-          exercises: block.exercises.map((item) => (item.id === editorState.exerciseId ? exercise : item)),
-        };
-      }),
-    );
-    setEditorState(null);
   };
 
   const handleSave = () => {
@@ -125,8 +103,8 @@ export default function WorkoutEditor() {
             <div className="space-y-3">
               <span className="inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">Editor de treino</span>
               <div>
-                <h1 className="font-display text-3xl font-semibold tracking-tight">Ajuste o treino com contexto real</h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Monte exercícios manualmente, organize a musculatura e mantenha a biblioteca pronta para reutilização.</p>
+                <h1 className="font-display text-3xl font-semibold tracking-tight">Monte o treino com a biblioteca global</h1>
+                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Use o catálogo oficial do Sano+ para manter a prescrição padronizada, clara e fácil de atualizar.</p>
               </div>
             </div>
             <Button className="min-w-40" onClick={handleSave}>
@@ -156,7 +134,7 @@ export default function WorkoutEditor() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-xl font-semibold">Blocos do treino</h2>
-                <p className="text-sm text-muted-foreground">Estruture sessões reutilizáveis com leitura rápida e mídia didática.</p>
+                <p className="text-sm text-muted-foreground">Cada bloco consome exercícios da biblioteca global e mantém a prescrição separada da ficha técnica.</p>
               </div>
               <Button variant="outline" onClick={addBlock}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -169,7 +147,7 @@ export default function WorkoutEditor() {
                 <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">{blockIndex + 1}</div>
-                    <Input value={block.name} onChange={(event) => updateBlockName(block.id, event.target.value)} className="h-10 min-w-0 sm:w-72" />
+                    <Input value={block.name} onChange={(event) => setBlocks((current) => current.map((item) => (item.id === block.id ? { ...item, name: event.target.value } : item)))} className="h-10 min-w-0 sm:w-72" />
                   </div>
                   <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeBlock(block.id)}>
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -180,56 +158,53 @@ export default function WorkoutEditor() {
                 <div className="mt-4 space-y-3">
                   {block.exercises.length === 0 && (
                     <div className="rounded-[20px] border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-                      Nenhum exercício neste bloco. Crie manualmente ou reutilize um da biblioteca.
+                      Nenhum exercício neste bloco. Adicione um item da biblioteca ou cadastre um novo exercício global.
                     </div>
                   )}
 
-                  {block.exercises.map((exercise, exerciseIndex) => (
-                    <div key={exercise.id} className="rounded-[20px] border border-border/60 bg-card/60 p-4">
-                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-muted-foreground">{exerciseIndex + 1}.</span>
-                            <h3 className="truncate text-base font-semibold">{exercise.name || "Exercício sem nome"}</h3>
+                  {block.exercises.map((exercise, exerciseIndex) => {
+                    const resolvedExercise = resolveExerciseFromLibrary(exercise, exerciseLibraryMap);
+                    return (
+                      <div key={exercise.id} className="rounded-[20px] border border-border/60 bg-card/60 p-4">
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-semibold text-muted-foreground">{exerciseIndex + 1}.</span>
+                              <h3 className="truncate text-base font-semibold">{resolvedExercise.name || "Exercício sem nome"}</h3>
+                            </div>
+                            {resolvedExercise.description && <p className="mt-2 text-sm text-muted-foreground">{resolvedExercise.description}</p>}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {resolvedExercise.category && <Badge variant="outline">{resolvedExercise.category}</Badge>}
+                              {resolvedExercise.muscleGroupPrimary && <Badge variant="secondary" className="bg-primary/10 text-primary">{resolvedExercise.muscleGroupPrimary}</Badge>}
+                              {(resolvedExercise.muscleGroupsSecondary ?? []).slice(0, 3).map((item) => (
+                                <Badge key={`${exercise.id}-${item}`} variant="outline">{item}</Badge>
+                              ))}
+                              {resolvedExercise.equipment && <Badge variant="outline">{resolvedExercise.equipment}</Badge>}
+                              {resolvedExercise.difficultyLevel && <Badge variant="outline">{resolvedExercise.difficultyLevel}</Badge>}
+                              {resolvedExercise.videoUrl && <Badge variant="outline">MP4</Badge>}
+                            </div>
                           </div>
-                          {exercise.description && <p className="mt-2 text-sm text-muted-foreground">{exercise.description}</p>}
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {exercise.muscleCategory && <Badge variant="outline">{exercise.muscleCategory}</Badge>}
-                            {exercise.muscleGroupPrimary && <Badge variant="secondary" className="bg-primary/10 text-primary">{exercise.muscleGroupPrimary}</Badge>}
-                            {(exercise.muscleGroupsSecondary ?? []).slice(0, 3).map((item) => (
-                              <Badge key={`${exercise.id}-${item}`} variant="outline">{item}</Badge>
-                            ))}
-                            {exercise.equipment && <Badge variant="outline">{exercise.equipment}</Badge>}
-                            {(exercise.videoFileUrl || exercise.videoStorageKey) && <Badge variant="outline">MP4</Badge>}
-                            {exercise.youtubeEmbedUrl && <Badge variant="outline">YouTube</Badge>}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => setEditorState({ blockId: block.id, exerciseId: exercise.id })}>
-                            <Edit className="mr-1 h-4 w-4" />
-                            Editar
-                          </Button>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => removeExercise(block.id, exercise.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </div>
 
-                      <div className="grid gap-3 md:grid-cols-5">
-                        <div className="space-y-2"><Label>Séries</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} /></div>
-                        <div className="space-y-2"><Label>Repetições</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} /></div>
-                        <div className="space-y-2"><Label>Carga</Label><Input value={exercise.load} onChange={(event) => updateExercise(block.id, exercise.id, { load: event.target.value })} /></div>
-                        <div className="space-y-2"><Label>Descanso</Label><Input value={exercise.rest} onChange={(event) => updateExercise(block.id, exercise.id, { rest: event.target.value })} /></div>
-                        <div className="space-y-2"><Label>Observações</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} /></div>
+                        <div className="grid gap-3 md:grid-cols-5">
+                          <div className="space-y-2"><Label>Séries</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} /></div>
+                          <div className="space-y-2"><Label>Repetições</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} /></div>
+                          <div className="space-y-2"><Label>Carga</Label><Input value={exercise.load} onChange={(event) => updateExercise(block.id, exercise.id, { load: event.target.value })} /></div>
+                          <div className="space-y-2"><Label>Descanso</Label><Input value={exercise.rest} onChange={(event) => updateExercise(block.id, exercise.id, { rest: event.target.value })} /></div>
+                          <div className="space-y-2"><Label>Observações</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} /></div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => setEditorState({ blockId: block.id })}>
+                  <Button variant="outline" onClick={() => setCreateLibraryBlockId(block.id)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Novo exercício
+                    Criar exercício
                   </Button>
                   <Button variant="ghost" onClick={() => setPickerBlockId(block.id)}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -243,12 +218,20 @@ export default function WorkoutEditor() {
       </section>
 
       <ExerciseEditorDialog
-        open={editorState !== null}
+        open={createLibraryBlockId !== null}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) setEditorState(null);
+          if (!nextOpen) setCreateLibraryBlockId(null);
         }}
-        exercise={editingExercise}
-        onSave={saveExercise}
+        onSave={async ({ exercise, videoFile, removeVideo }) => {
+          if (!createLibraryBlockId) return;
+          const createdExercise = await addExerciseLibraryItem({
+            ...exercise,
+            videoFile,
+            removeVideo,
+          });
+          addExerciseToBlock(createLibraryBlockId, createdExercise);
+          setCreateLibraryBlockId(null);
+        }}
       />
 
       <ExerciseLibraryPickerDialog
