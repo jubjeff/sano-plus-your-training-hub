@@ -1,3 +1,13 @@
+import type {
+  ExerciseBodyRegion,
+  ExerciseCategory,
+  ExerciseDifficultyLevel,
+  ExerciseMovementType,
+  ExerciseType,
+} from "@/types";
+
+export const EXERCISE_CATEGORIES: ExerciseCategory[] = ["Musculação", "Mobilidade", "Alongamento", "Cardio"];
+
 export const MUSCLE_CATEGORIES = [
   "Peito",
   "Costas",
@@ -12,7 +22,8 @@ export const MUSCLE_CATEGORIES = [
   "Panturrilhas",
   "Lombar",
   "Corpo inteiro",
-  "Mobilidade / alongamento",
+  "Mobilidade",
+  "Alongamento",
   "Cardiorrespiratório",
 ] as const;
 
@@ -39,21 +50,64 @@ export const MUSCLE_GROUP_OPTIONS = [
   "Adutores",
   "Panturrilhas",
   "Tibial anterior",
+  "Flexores do quadril",
+  "Manguito rotador",
   "Core",
   "Corpo inteiro",
   "Mobilidade",
   "Cardiorrespiratório",
 ] as const;
 
+export const EXERCISE_MOVEMENT_OPTIONS: ExerciseMovementType[] = [
+  "Empurrar",
+  "Puxar",
+  "Agachar",
+  "Levantar",
+  "Estabilizar",
+  "Rotacionar",
+  "Locomover",
+  "Isométrico",
+  "Mobilidade",
+  "Alongamento",
+  "Cardio",
+];
+
+export const EXERCISE_BODY_REGION_OPTIONS: ExerciseBodyRegion[] = [
+  "Membros superiores",
+  "Membros inferiores",
+  "Tronco",
+  "Corpo inteiro",
+];
+
+export const EXERCISE_DIFFICULTY_OPTIONS: ExerciseDifficultyLevel[] = ["Iniciante", "Intermediário", "Avançado"];
+
+export const EXERCISE_TYPE_OPTIONS: ExerciseType[] = [
+  "Força",
+  "Hipertrofia",
+  "Resistência",
+  "Técnica",
+  "Ativação",
+  "Mobilidade",
+  "Alongamento",
+  "Condicionamento",
+];
+
 export const EXERCISE_EQUIPMENT_SUGGESTIONS = [
-  "Peso corporal",
-  "Halteres",
   "Barra",
-  "Cabo",
+  "Halteres",
   "Máquina",
+  "Cabo",
   "Kettlebell",
-  "Faixa elástica",
   "Banco",
-  "Bola suíça",
+  "Smith",
+  "Peso corporal",
+  "Miniband",
+  "Elástico",
+  "Bola",
+  "Corda",
+  "Esteira",
+  "Bicicleta",
+  "Escada",
   "TRX",
+  "Sem equipamento",
 ] as const;

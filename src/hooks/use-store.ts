@@ -3,11 +3,12 @@ import { useAuth } from "@/auth/use-auth";
 import { store as localStore } from "@/lib/store";
 import { supabaseStore } from "@/lib/supabase-store";
 import { hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
-import type { Student, Workout, StudentCheckIn, CoachAlert } from "@/types";
+import type { Student, Workout, StudentCheckIn, CoachAlert, ExerciseLibraryItem } from "@/types";
 
 interface StoreSnapshot {
   students: Student[];
   workouts: Workout[];
+  exerciseLibrary: ExerciseLibraryItem[];
   checkIns: StudentCheckIn[];
   alerts: CoachAlert[];
 }
@@ -30,6 +31,7 @@ function getSnapshot(): StoreSnapshot {
   const activeStore = getActiveStore();
   const nextStudents = activeStore.getStudents();
   const nextWorkouts = activeStore.getWorkouts();
+  const nextExerciseLibrary = activeStore.getExerciseLibrary();
   const nextCheckIns = activeStore.getCheckIns();
   const nextAlerts = activeStore.getAlerts();
 
@@ -37,6 +39,7 @@ function getSnapshot(): StoreSnapshot {
     cachedSnapshot &&
     cachedSnapshot.students === nextStudents &&
     cachedSnapshot.workouts === nextWorkouts &&
+    cachedSnapshot.exerciseLibrary === nextExerciseLibrary &&
     cachedSnapshot.checkIns === nextCheckIns &&
     cachedSnapshot.alerts === nextAlerts
   ) {
@@ -46,6 +49,7 @@ function getSnapshot(): StoreSnapshot {
   cachedSnapshot = {
     students: nextStudents,
     workouts: nextWorkouts,
+    exerciseLibrary: nextExerciseLibrary,
     checkIns: nextCheckIns,
     alerts: nextAlerts,
   };
@@ -98,6 +102,10 @@ export function useStore() {
     markCoachAlertRead: activeStore.markCoachAlertRead.bind(activeStore),
     setStudentLifecycle: activeStore.setStudentLifecycle.bind(activeStore),
     deleteStudent: activeStore.deleteStudent.bind(activeStore),
+    getExerciseLibraryItem: activeStore.getExerciseLibraryItem.bind(activeStore),
+    addExerciseLibraryItem: activeStore.addExerciseLibraryItem.bind(activeStore),
+    updateExerciseLibraryItem: activeStore.updateExerciseLibraryItem.bind(activeStore),
+    setExerciseLibraryItemActive: activeStore.setExerciseLibraryItemActive.bind(activeStore),
     importWorkoutToStudent: activeStore.importWorkoutToStudent.bind(activeStore),
     getWorkout: activeStore.getWorkout.bind(activeStore),
     addWorkout: activeStore.addWorkout.bind(activeStore),

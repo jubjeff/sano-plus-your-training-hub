@@ -1,9 +1,11 @@
 import { buildCoachAlertDrafts, createDefaultWorkoutPlan, getBlockDisplayLabel, getNextSuggestedBlock, getStudentWorkoutPlan, normalizeWorkoutBlocks } from "@/lib/training-management";
 import { isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { normalizeEmail } from "@/lib/auth-validators";
+import { MAX_EXERCISE_VIDEO_DURATION_SECONDS, validateExerciseVideoFile } from "@/lib/exercise-media";
 import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
-import type { CoachAlert, Student, StudentCheckIn, Workout, WorkoutBlock, WorkoutPlan } from "@/types";
+import { createEmptyExerciseLibraryItem, stampExerciseLibraryUpdate } from "@/lib/exercise-utils";
+import type { CoachAlert, ExerciseLibraryItem, Student, StudentCheckIn, Workout, WorkoutBlock, WorkoutPlan } from "@/types";
 
 type Listener = () => void;
 
@@ -70,6 +72,37 @@ type WorkoutPlanRow = {
   created_at: string;
   updated_at: string;
   blocks: unknown;
+};
+
+type ExerciseLibraryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  category: ExerciseLibraryItem["category"];
+  muscle_category: string | null;
+  muscle_group_primary: string | null;
+  muscle_groups_secondary: string[] | null;
+  movement_type: ExerciseLibraryItem["movementType"] | null;
+  body_region: ExerciseLibraryItem["bodyRegion"] | null;
+  equipment: string | null;
+  difficulty_level: ExerciseLibraryItem["difficultyLevel"] | null;
+  exercise_type: ExerciseLibraryItem["exerciseType"] | null;
+  description: string | null;
+  execution_instructions: string | null;
+  breathing_tips: string | null;
+  posture_tips: string | null;
+  contraindications: string | null;
+  common_mistakes: string | null;
+  video_url: string | null;
+  video_storage_path: string | null;
+  thumbnail_url: string | null;
+  thumbnail_storage_path: string | null;
+  duration_limit_seconds: number | null;
+  is_active: boolean;
+  is_global: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type StudentCheckInRow = {
@@ -196,6 +229,36 @@ async function uploadPaymentProof(studentId: string, file: File) {
   };
 }
 
+async function uploadExerciseVideo(exerciseId: string, file: File) {
+  const validation = await validateExerciseVideoFile(file);
+  if (validation) {
+    throw new Error(validation);
+  }
+
+  const extension = file.name.includes(".") ? file.name.split(".").pop() ?? "mp4" : "mp4";
+  const storagePath = `${exerciseId}/demo.${extension}`;
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.storage.from("exercise-media").upload(storagePath, file, {
+    upsert: true,
+    contentType: file.type,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    storagePath,
+    url: supabase.storage.from("exercise-media").getPublicUrl(storagePath).data.publicUrl,
+  };
+}
+
+async function removeExerciseVideo(storagePath: string | null) {
+  if (!storagePath) return;
+  const supabase = getSupabaseClient();
+  await supabase.storage.from("exercise-media").remove([storagePath]);
+}
+
 function mapWorkoutTemplate(row: WorkoutTemplateRow): Workout {
   return {
     id: row.id,
@@ -204,6 +267,39 @@ function mapWorkoutTemplate(row: WorkoutTemplateRow): Workout {
     notes: row.notes ?? "",
     blocks: asWorkoutBlocks(row.blocks),
     createdAt: row.created_at,
+  };
+}
+
+function mapExerciseLibraryItem(row: ExerciseLibraryRow): ExerciseLibraryItem {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: row.category,
+    muscleCategory: row.muscle_category,
+    muscleGroupPrimary: row.muscle_group_primary,
+    muscleGroupsSecondary: row.muscle_groups_secondary ?? [],
+    movementType: row.movement_type,
+    bodyRegion: row.body_region,
+    equipment: row.equipment,
+    difficultyLevel: row.difficulty_level,
+    exerciseType: row.exercise_type,
+    description: row.description ?? "",
+    executionInstructions: row.execution_instructions ?? "",
+    breathingTips: row.breathing_tips ?? "",
+    postureTips: row.posture_tips ?? "",
+    contraindications: row.contraindications ?? "",
+    commonMistakes: row.common_mistakes ?? "",
+    videoUrl: row.video_url,
+    videoStoragePath: row.video_storage_path,
+    thumbnailUrl: row.thumbnail_url,
+    thumbnailStoragePath: row.thumbnail_storage_path,
+    durationLimitSeconds: row.duration_limit_seconds ?? MAX_EXERCISE_VIDEO_DURATION_SECONDS,
+    isActive: row.is_active,
+    isGlobal: row.is_global,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -349,6 +445,7 @@ function mapStudentCheckIn(row: StudentCheckInRow): StudentCheckIn {
 export class SupabaseStore {
   private students: Student[] = [];
   private workouts: Workout[] = [];
+  private exerciseLibrary: ExerciseLibraryItem[] = [];
   private checkIns: StudentCheckIn[] = [];
   private alerts: CoachAlert[] = [];
   private listeners = new Set<Listener>();
@@ -386,6 +483,7 @@ export class SupabaseStore {
       teacherResult,
       studentsResult,
       workoutsResult,
+      exerciseLibraryResult,
       plansResult,
       checkInsResult,
       alertReadsResult,
@@ -399,6 +497,10 @@ export class SupabaseStore {
         .from("workout_templates")
         .select("id,teacher_id,name,objective,notes,blocks,created_at")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("exercises")
+        .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,body_region,equipment,difficulty_level,exercise_type,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
+        .order("name", { ascending: true }),
       supabase
         .from("student_workout_plans")
         .select("id,teacher_id,student_id,source_workout_template_id,training_structure_type,training_progress_mode,plan_name,is_active,start_date,end_date,next_workout_change_date,current_suggested_block_id,last_completed_block_id,last_completed_at,weekly_goal,created_at,updated_at,blocks"),
@@ -420,6 +522,7 @@ export class SupabaseStore {
       ((studentsResult.data ?? []) as unknown as StudentRow[]).map((row) => mapStudent(row, plansByStudent.get(row.id) ?? null)),
     );
     this.workouts = ((workoutsResult.data ?? []) as unknown as WorkoutTemplateRow[]).map(mapWorkoutTemplate);
+    this.exerciseLibrary = ((exerciseLibraryResult.data ?? []) as unknown as ExerciseLibraryRow[]).map(mapExerciseLibraryItem);
     this.checkIns = ((checkInsResult.data ?? []) as unknown as StudentCheckInRow[]).map(mapStudentCheckIn);
 
     const readsMap = new Map<string, boolean>();
@@ -447,6 +550,14 @@ export class SupabaseStore {
 
   getAlerts() {
     return this.alerts;
+  }
+
+  getExerciseLibrary() {
+    return this.exerciseLibrary;
+  }
+
+  getExerciseLibraryItem(id: string) {
+    return this.exerciseLibrary.find((exercise) => exercise.id === id);
   }
 
   getStudent(id: string) {
@@ -798,6 +909,164 @@ export class SupabaseStore {
   async deleteStudent(id: string) {
     const supabase = getSupabaseClient();
     const { error } = await supabase.from("students").delete().eq("id", id);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await this.refresh();
+  }
+
+  async addExerciseLibraryItem(
+    data: ExerciseLibraryItem & {
+      videoFile?: File | null;
+      removeVideo?: boolean;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+    const teacherId = await this.requireTeacherId();
+    const base = stampExerciseLibraryUpdate({
+      ...createEmptyExerciseLibraryItem(),
+      ...data,
+      createdBy: teacherId,
+    });
+
+    const { data: inserted, error } = await supabase
+      .from("exercises")
+      .insert({
+        name: base.name,
+        slug: base.slug,
+        category: base.category,
+        muscle_category: base.muscleCategory,
+        muscle_group_primary: base.muscleGroupPrimary,
+        muscle_groups_secondary: base.muscleGroupsSecondary,
+        movement_type: base.movementType,
+        body_region: base.bodyRegion,
+        equipment: base.equipment,
+        difficulty_level: base.difficultyLevel,
+        exercise_type: base.exerciseType,
+        description: base.description,
+        execution_instructions: base.executionInstructions,
+        breathing_tips: base.breathingTips,
+        posture_tips: base.postureTips,
+        contraindications: base.contraindications,
+        common_mistakes: base.commonMistakes,
+        duration_limit_seconds: base.durationLimitSeconds ?? MAX_EXERCISE_VIDEO_DURATION_SECONDS,
+        is_active: true,
+        is_global: true,
+        created_by: teacherId,
+      })
+      .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,body_region,equipment,difficulty_level,exercise_type,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
+      .maybeSingle();
+
+    if (error || !inserted) {
+      throw new Error(error?.message ?? "Não foi possível cadastrar o exercício.");
+    }
+
+    if (data.videoFile) {
+      const uploaded = await uploadExerciseVideo(inserted.id, data.videoFile);
+      const { error: updateMediaError } = await supabase
+        .from("exercises")
+        .update({
+          video_url: uploaded.url,
+          video_storage_path: uploaded.storagePath,
+        })
+        .eq("id", inserted.id);
+
+      if (updateMediaError) {
+        throw new Error(updateMediaError.message);
+      }
+    }
+
+    await this.refresh();
+    const created = this.getExerciseLibraryItem(inserted.id);
+    if (!created) {
+      throw new Error("Exercício criado, mas não foi possível recarregar a biblioteca.");
+    }
+
+    return created;
+  }
+
+  async updateExerciseLibraryItem(
+    id: string,
+    data: Partial<ExerciseLibraryItem> & {
+      videoFile?: File | null;
+      removeVideo?: boolean;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+    const current = this.getExerciseLibraryItem(id);
+    if (!current) {
+      throw new Error("Exercício não encontrado.");
+    }
+
+    let nextVideoUrl = current.videoUrl ?? null;
+    let nextVideoStoragePath = current.videoStoragePath ?? null;
+
+    if (data.removeVideo) {
+      await removeExerciseVideo(nextVideoStoragePath);
+      nextVideoUrl = null;
+      nextVideoStoragePath = null;
+    } else if (data.videoFile) {
+      const uploaded = await uploadExerciseVideo(id, data.videoFile);
+      nextVideoUrl = uploaded.url;
+      nextVideoStoragePath = uploaded.storagePath;
+    }
+
+    const base = stampExerciseLibraryUpdate({
+      ...current,
+      ...data,
+      id,
+      videoUrl: nextVideoUrl,
+      videoStoragePath: nextVideoStoragePath,
+      muscleGroupsSecondary: [...(data.muscleGroupsSecondary ?? current.muscleGroupsSecondary)],
+    });
+
+    const { error } = await supabase
+      .from("exercises")
+      .update({
+        name: base.name,
+        slug: base.slug,
+        category: base.category,
+        muscle_category: base.muscleCategory,
+        muscle_group_primary: base.muscleGroupPrimary,
+        muscle_groups_secondary: base.muscleGroupsSecondary,
+        movement_type: base.movementType,
+        body_region: base.bodyRegion,
+        equipment: base.equipment,
+        difficulty_level: base.difficultyLevel,
+        exercise_type: base.exerciseType,
+        description: base.description,
+        execution_instructions: base.executionInstructions,
+        breathing_tips: base.breathingTips,
+        posture_tips: base.postureTips,
+        contraindications: base.contraindications,
+        common_mistakes: base.commonMistakes,
+        video_url: nextVideoUrl,
+        video_storage_path: nextVideoStoragePath,
+        thumbnail_url: base.thumbnailUrl ?? null,
+        thumbnail_storage_path: base.thumbnailStoragePath ?? null,
+        duration_limit_seconds: base.durationLimitSeconds ?? MAX_EXERCISE_VIDEO_DURATION_SECONDS,
+        is_active: base.isActive,
+      })
+      .eq("id", id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await this.refresh();
+    return this.getExerciseLibraryItem(id);
+  }
+
+  async setExerciseLibraryItemActive(id: string, isActive: boolean) {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from("exercises")
+      .update({
+        is_active: isActive,
+      })
+      .eq("id", id);
+
     if (error) {
       throw new Error(error.message);
     }

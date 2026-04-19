@@ -1,15 +1,9 @@
-const YOUTUBE_PATTERNS = [
-  /(?:youtube\.com\/watch\?v=)([\w-]{11})/i,
-  /(?:youtu\.be\/)([\w-]{11})/i,
-  /(?:youtube\.com\/embed\/)([\w-]{11})/i,
-  /(?:youtube\.com\/shorts\/)([\w-]{11})/i,
-];
+export const MAX_EXERCISE_VIDEO_SIZE_MB = 12;
+export const MAX_EXERCISE_VIDEO_DURATION_SECONDS = 6;
+const MAX_EXERCISE_VIDEO_SIZE_BYTES = MAX_EXERCISE_VIDEO_SIZE_MB * 1024 * 1024;
 
 const EXERCISE_MEDIA_DB = "sano-plus-media";
 const EXERCISE_MEDIA_STORE = "exercise-videos";
-
-export const MAX_EXERCISE_VIDEO_SIZE_MB = 50;
-const MAX_EXERCISE_VIDEO_SIZE_BYTES = MAX_EXERCISE_VIDEO_SIZE_MB * 1024 * 1024;
 
 function canUseIndexedDb() {
   return typeof window !== "undefined" && "indexedDB" in window;
@@ -18,7 +12,7 @@ function canUseIndexedDb() {
 function openExerciseMediaDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!canUseIndexedDb()) {
-      reject(new Error("IndexedDB indisponivel."));
+      reject(new Error("IndexedDB indisponível."));
       return;
     }
 
@@ -40,41 +34,43 @@ function generateVideoStorageKey() {
   return `exercise-video-${Math.random().toString(36).substring(2, 10)}-${Date.now()}`;
 }
 
-export function validateExerciseVideoFile(file: File) {
+function readVideoDuration(file: File) {
+  return new Promise<number>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      URL.revokeObjectURL(url);
+      resolve(duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Não foi possível ler a duração do vídeo."));
+    };
+    video.src = url;
+  });
+}
+
+export async function validateExerciseVideoFile(file: File) {
   if (!file.name.toLowerCase().endsWith(".mp4") && file.type !== "video/mp4") {
-    return "Envie um arquivo MP4 valido.";
+    return "Envie um arquivo MP4 válido.";
   }
 
   if (file.size > MAX_EXERCISE_VIDEO_SIZE_BYTES) {
-    return `O video deve ter no maximo ${MAX_EXERCISE_VIDEO_SIZE_MB} MB.`;
+    return `O vídeo deve ter no máximo ${MAX_EXERCISE_VIDEO_SIZE_MB} MB.`;
+  }
+
+  try {
+    const duration = await readVideoDuration(file);
+    if (duration > MAX_EXERCISE_VIDEO_DURATION_SECONDS) {
+      return `O vídeo deve ter no máximo ${MAX_EXERCISE_VIDEO_DURATION_SECONDS} segundos.`;
+    }
+  } catch (error) {
+    return error instanceof Error ? error.message : "Não foi possível validar o vídeo.";
   }
 
   return null;
-}
-
-export function getYoutubeVideoId(url: string) {
-  const normalized = url.trim();
-  if (!normalized) return null;
-
-  for (const pattern of YOUTUBE_PATTERNS) {
-    const match = normalized.match(pattern);
-    if (match?.[1]) return match[1];
-  }
-
-  return null;
-}
-
-export function normalizeYoutubeUrl(url: string) {
-  const videoId = getYoutubeVideoId(url);
-  if (!videoId) return null;
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
-export function getYoutubeEmbedUrl(url?: string | null) {
-  if (!url) return null;
-  const videoId = getYoutubeVideoId(url);
-  if (!videoId) return null;
-  return `https://www.youtube.com/embed/${videoId}`;
 }
 
 export function createVideoPreviewUrl(file: File) {
@@ -91,7 +87,7 @@ export async function persistExerciseVideoFile(file: File, existingKey?: string 
     const request = store.put(file, storageKey);
 
     request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error("Falha ao salvar o video."));
+    request.onerror = () => reject(request.error ?? new Error("Falha ao salvar o vídeo."));
   });
 
   return storageKey;
@@ -115,7 +111,7 @@ export async function loadPersistedExerciseVideo(storageKey?: string | null) {
       resolve(URL.createObjectURL(file));
     };
 
-    request.onerror = () => reject(request.error ?? new Error("Falha ao carregar o video."));
+    request.onerror = () => reject(request.error ?? new Error("Falha ao carregar o vídeo."));
   });
 }
 
@@ -129,6 +125,6 @@ export async function removePersistedExerciseVideo(storageKey?: string | null) {
     const request = store.delete(storageKey);
 
     request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error ?? new Error("Falha ao remover o video."));
+    request.onerror = () => reject(request.error ?? new Error("Falha ao remover o vídeo."));
   });
 }

@@ -7,28 +7,88 @@ export type TrainingProgressMode = "fixed_schedule" | "sequential_progression";
 export type WorkoutBlockType = "standard" | "rest" | "cardio" | "mobility" | "recovery";
 export type StudentEngagementStatus = "active" | "attention" | "disengaged";
 export type CoachAlertType = "no_check_in" | "below_goal" | "payment_blocked";
+export type ExerciseCategory = "Musculação" | "Mobilidade" | "Alongamento" | "Cardio";
+export type ExerciseBodyRegion = "Membros superiores" | "Membros inferiores" | "Tronco" | "Corpo inteiro";
+export type ExerciseMovementType =
+  | "Empurrar"
+  | "Puxar"
+  | "Agachar"
+  | "Levantar"
+  | "Estabilizar"
+  | "Rotacionar"
+  | "Locomover"
+  | "Isométrico"
+  | "Mobilidade"
+  | "Alongamento"
+  | "Cardio";
+export type ExerciseDifficultyLevel = "Iniciante" | "Intermediário" | "Avançado";
+export type ExerciseType = "Força" | "Hipertrofia" | "Resistência" | "Técnica" | "Ativação" | "Mobilidade" | "Alongamento" | "Condicionamento";
 
 export interface Exercise {
   id: string;
+  libraryExerciseId?: string | null;
   sourceExerciseId?: string | null;
   name: string;
+  slug?: string | null;
+  category?: ExerciseCategory | null;
   description?: string;
+  executionInstructions?: string;
+  breathingTips?: string;
+  postureTips?: string;
+  contraindications?: string;
+  commonMistakes?: string;
   sets: number;
   reps: string;
   load: string;
   studentLoad?: string | null;
   rest: string;
   notes: string;
+  bodyRegion?: ExerciseBodyRegion | null;
+  movementType?: ExerciseMovementType | null;
+  difficultyLevel?: ExerciseDifficultyLevel | null;
+  exerciseType?: ExerciseType | null;
   equipment?: string | null;
   muscleCategory?: string | null;
   muscleGroupPrimary?: string | null;
   muscleGroupsSecondary?: string[];
-  videoFileUrl?: string | null;
-  videoStorageKey?: string | null;
-  youtubeUrl?: string | null;
-  youtubeEmbedUrl?: string | null;
+  videoUrl?: string | null;
+  videoStoragePath?: string | null;
+  thumbnailUrl?: string | null;
+  thumbnailStoragePath?: string | null;
+  durationLimitSeconds?: number | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ExerciseLibraryItem {
+  id: string;
+  name: string;
+  slug: string;
+  category: ExerciseCategory;
+  muscleCategory?: string | null;
+  muscleGroupPrimary?: string | null;
+  muscleGroupsSecondary: string[];
+  movementType?: ExerciseMovementType | null;
+  bodyRegion?: ExerciseBodyRegion | null;
+  equipment?: string | null;
+  difficultyLevel?: ExerciseDifficultyLevel | null;
+  exerciseType?: ExerciseType | null;
+  description: string;
+  executionInstructions: string;
+  breathingTips: string;
+  postureTips: string;
+  contraindications: string;
+  commonMistakes: string;
+  videoUrl?: string | null;
+  videoStoragePath?: string | null;
+  thumbnailUrl?: string | null;
+  thumbnailStoragePath?: string | null;
+  durationLimitSeconds?: number | null;
+  isActive: boolean;
+  isGlobal: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WorkoutBlock {

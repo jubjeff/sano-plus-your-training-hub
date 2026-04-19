@@ -1,8 +1,9 @@
 import { normalizeEmail } from "@/lib/auth-validators";
+import { EXERCISE_LIBRARY_SEED } from "@/lib/exercise-library-seed";
 import { loadPersistedExerciseVideo } from "@/lib/exercise-media";
 import { persistPaymentProofFile, loadPaymentProofFile, removePaymentProofFile } from "@/lib/payment-proof";
 import { loadPersistedProfileImage, persistProfileImageFile } from "@/lib/profile-media";
-import { createEmptyExercise } from "@/lib/exercise-utils";
+import { createEmptyExerciseLibraryItem, stampExerciseLibraryUpdate } from "@/lib/exercise-utils";
 import {
   buildCoachAlertDrafts,
   createDefaultWorkoutPlan,
@@ -13,11 +14,12 @@ import {
   normalizeWorkoutBlocks,
 } from "@/lib/training-management";
 import { isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
-import type { CoachAlert, Student, StudentCheckIn, Workout, WorkoutBlock, WorkoutPlan } from "@/types";
+import type { CoachAlert, Exercise, ExerciseLibraryItem, Student, StudentCheckIn, Workout, WorkoutBlock, WorkoutPlan } from "@/types";
 
 type PersistedState = {
   students: Student[];
   workouts: Workout[];
+  exerciseLibrary: ExerciseLibraryItem[];
   checkIns: StudentCheckIn[];
   alerts: CoachAlert[];
 };
@@ -63,9 +65,41 @@ const daysFromNow = (days: number) => {
   return date.toISOString().split("T")[0];
 };
 
-function buildExercise(overrides: Partial<ReturnType<typeof createEmptyExercise>>) {
+function buildExercise(overrides: Partial<Exercise>) {
+  const timestamp = nowIso();
   return {
-    ...createEmptyExercise(),
+    id: generateId(),
+    libraryExerciseId: null,
+    name: "",
+    slug: null,
+    category: "Musculação",
+    description: "",
+    executionInstructions: "",
+    breathingTips: "",
+    postureTips: "",
+    contraindications: "",
+    commonMistakes: "",
+    sets: 3,
+    reps: "12",
+    load: "",
+    studentLoad: null,
+    rest: "60s",
+    notes: "",
+    bodyRegion: null,
+    movementType: null,
+    difficultyLevel: "Iniciante",
+    exerciseType: "Hipertrofia",
+    equipment: "",
+    muscleCategory: null,
+    muscleGroupPrimary: null,
+    muscleGroupsSecondary: [],
+    videoUrl: null,
+    videoStoragePath: null,
+    thumbnailUrl: null,
+    thumbnailStoragePath: null,
+    durationLimitSeconds: null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
     ...overrides,
   };
 }
@@ -393,6 +427,7 @@ function loadPersistedState() {
     return {
       students: Array.isArray(parsed.students) ? parsed.students.map(normalizeStudent) : [],
       workouts: Array.isArray(parsed.workouts) ? (parsed.workouts as Workout[]) : [],
+      exerciseLibrary: Array.isArray(parsed.exerciseLibrary) ? (parsed.exerciseLibrary as ExerciseLibraryItem[]) : [],
       checkIns: Array.isArray(parsed.checkIns) ? parsed.checkIns.map(normalizeCheckIn) : [],
       alerts: Array.isArray(parsed.alerts) ? (parsed.alerts as CoachAlert[]) : [],
     };
@@ -401,9 +436,15 @@ function loadPersistedState() {
   }
 }
 
-function persistState(students: Student[], workouts: Workout[], checkIns: StudentCheckIn[], alerts: CoachAlert[]) {
+function persistState(
+  students: Student[],
+  workouts: Workout[],
+  exerciseLibrary: ExerciseLibraryItem[],
+  checkIns: StudentCheckIn[],
+  alerts: CoachAlert[],
+) {
   if (!canUseBrowserStorage()) return;
-  window.localStorage.setItem(STORE_STORAGE_KEY, JSON.stringify({ students, workouts, checkIns, alerts }));
+  window.localStorage.setItem(STORE_STORAGE_KEY, JSON.stringify({ students, workouts, exerciseLibrary, checkIns, alerts }));
 }
 
 async function hydrateBlockVideos(blocks: WorkoutBlock[]) {
@@ -414,11 +455,11 @@ async function hydrateBlockVideos(blocks: WorkoutBlock[]) {
         block.exercises.map(async (exercise) => ({
           ...exercise,
           muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])],
-          videoFileUrl:
-            exercise.videoStorageKey
-              ? await loadPersistedExerciseVideo(exercise.videoStorageKey).catch(() => null)
-              : exercise.videoFileUrl && !exercise.videoFileUrl.startsWith("blob:")
-              ? exercise.videoFileUrl
+          videoUrl:
+            exercise.videoStoragePath
+              ? await loadPersistedExerciseVideo(exercise.videoStoragePath).catch(() => null)
+              : exercise.videoUrl && !exercise.videoUrl.startsWith("blob:")
+              ? exercise.videoUrl
               : null,
         })),
       ),
@@ -431,6 +472,7 @@ type Listener = () => void;
 class Store {
   private students: Student[] = loadPersistedState()?.students ?? [...initialStudents];
   private workouts: Workout[] = loadPersistedState()?.workouts ?? [...initialWorkouts];
+  private exerciseLibrary: ExerciseLibraryItem[] = loadPersistedState()?.exerciseLibrary ?? [...EXERCISE_LIBRARY_SEED];
   private checkIns: StudentCheckIn[] = loadPersistedState()?.checkIns ?? [...initialCheckIns];
   private alerts: CoachAlert[] = loadPersistedState()?.alerts ?? [];
   private listeners: Set<Listener> = new Set();
@@ -447,7 +489,7 @@ class Store {
 
   private notify() {
     this.syncCoachAlerts();
-    persistState(this.students, this.workouts, this.checkIns, this.alerts);
+    persistState(this.students, this.workouts, this.exerciseLibrary, this.checkIns, this.alerts);
     this.listeners.forEach((listener) => listener());
   }
 
@@ -466,7 +508,7 @@ class Store {
   }
 
   private async hydrateMedia() {
-    const [students, workouts] = await Promise.all([
+    const [students, workouts, exerciseLibrary] = await Promise.all([
       Promise.all(
         this.students.map(async (student) => ({
           ...student,
@@ -495,10 +537,20 @@ class Store {
           blocks: await hydrateBlockVideos(workout.blocks),
         })),
       ),
+      Promise.all(
+        this.exerciseLibrary.map(async (exercise) => ({
+          ...exercise,
+          videoUrl:
+            exercise.videoStoragePath
+              ? await loadPersistedExerciseVideo(exercise.videoStoragePath).catch(() => exercise.videoUrl ?? null)
+              : exercise.videoUrl ?? null,
+        })),
+      ),
     ]);
 
     this.students = students;
     this.workouts = workouts;
+    this.exerciseLibrary = exerciseLibrary;
     this.notify();
   }
 
@@ -512,6 +564,14 @@ class Store {
 
   getAlerts() {
     return this.alerts;
+  }
+
+  getExerciseLibrary() {
+    return this.exerciseLibrary;
+  }
+
+  getExerciseLibraryItem(id: string) {
+    return this.exerciseLibrary.find((exercise) => exercise.id === id);
   }
 
   getStudent(id: string) {
@@ -945,6 +1005,61 @@ class Store {
         updatedAt: workoutUpdatedAt,
       },
     });
+  }
+
+  addExerciseLibraryItem(data: ExerciseLibraryItem & {
+    videoFile?: File | null;
+    removeVideo?: boolean;
+  }) {
+    const timestamp = nowIso();
+    const item = stampExerciseLibraryUpdate({
+      ...createEmptyExerciseLibraryItem(),
+        ...data,
+        id: generateId(),
+      createdBy: "seed-coach",
+      isActive: true,
+      isGlobal: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    this.exerciseLibrary = [item, ...this.exerciseLibrary];
+    this.notify();
+    return item;
+  }
+
+  updateExerciseLibraryItem(
+    id: string,
+    data: Partial<ExerciseLibraryItem> & {
+      videoFile?: File | null;
+      removeVideo?: boolean;
+    },
+  ) {
+    const currentItem = this.exerciseLibrary.find((exercise) => exercise.id === id);
+    if (!currentItem) {
+      throw new Error("Exercício não encontrado.");
+    }
+
+    const nextItem = stampExerciseLibraryUpdate({
+      ...currentItem,
+      ...data,
+      id,
+      muscleGroupsSecondary: [...(data.muscleGroupsSecondary ?? currentItem.muscleGroupsSecondary)],
+      videoUrl: data.removeVideo ? null : data.videoUrl ?? currentItem.videoUrl ?? null,
+      videoStoragePath: data.removeVideo ? null : data.videoStoragePath ?? currentItem.videoStoragePath ?? null,
+    });
+
+    this.exerciseLibrary = this.exerciseLibrary.map((exercise) => (exercise.id === id ? nextItem : exercise));
+    this.notify();
+    return nextItem;
+  }
+
+  setExerciseLibraryItemActive(id: string, isActive: boolean) {
+    const timestamp = nowIso();
+    this.exerciseLibrary = this.exerciseLibrary.map((exercise) =>
+      exercise.id === id ? { ...exercise, isActive, updatedAt: timestamp } : exercise,
+    );
+    this.notify();
   }
 
   getWorkouts() {
