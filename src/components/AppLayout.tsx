@@ -75,11 +75,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-svh w-[min(286px,calc(100vw-1rem))] min-h-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:static lg:w-[286px] lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-40 flex h-svh w-[min(286px,calc(100vw-1rem))] min-h-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:static lg:w-[292px] lg:translate-x-0 xl:w-[304px] ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-sidebar-border px-6 py-6">
+        <div className="border-b border-sidebar-border px-5 py-5 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between">
             <span className="font-display text-2xl font-bold tracking-tight text-sidebar-accent-foreground">
               Sano<span className="text-sidebar-primary">+</span>
@@ -110,7 +110,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-5">
+        <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -143,7 +143,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </>
           ) : null}
 
-          <div className="mx-3 mt-5 rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 p-4">
+          <div className="mx-3 mt-4 rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 p-4 sm:mt-5">
             <div className="flex items-center gap-2 text-sidebar-accent-foreground">
               <Sparkles className="h-4 w-4 text-sidebar-primary" />
               <span className="text-sm font-semibold">Visão operacional</span>
@@ -154,7 +154,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
 
-        <div className="mt-auto shrink-0 space-y-1 border-t border-sidebar-border p-4">
+        <div className="mt-auto shrink-0 space-y-1.5 border-t border-sidebar-border p-3 sm:p-4">
           <button
             type="button"
             onClick={handleLogout}
@@ -167,7 +167,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-20 flex min-h-20 flex-wrap items-center gap-3 border-b border-border/60 bg-background/75 px-3 py-3 backdrop-blur sm:px-4 lg:flex-nowrap lg:px-8">
+        <header className="sticky top-0 z-20 flex min-h-[4.75rem] flex-wrap items-center gap-2.5 border-b border-border/60 bg-background/75 px-3 py-3 backdrop-blur sm:min-h-20 sm:px-4 lg:flex-nowrap lg:gap-4 lg:px-6 xl:px-8">
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-2xl border border-border/60 bg-card/70 p-2.5 hover:bg-muted lg:hidden"
@@ -177,7 +177,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary">Sano+ workspace</p>
-            <h1 className="truncate font-display text-lg font-semibold text-foreground">{title}</h1>
+            <h1 className="truncate font-display text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
           </div>
 
           <button
@@ -191,7 +191,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => navigate("/perfil")}
-            className={`min-w-0 max-w-full flex items-center gap-3 rounded-[24px] border border-border/60 bg-card/70 px-3 py-2 text-left shadow-sm transition-colors hover:bg-card ${
+            className={`min-w-0 max-w-full flex items-center gap-2.5 rounded-[24px] border border-border/60 bg-card/70 px-3 py-2 text-left shadow-sm transition-colors hover:bg-card sm:gap-3 sm:px-3.5 ${
               location.pathname === "/perfil" ? "ring-1 ring-primary/30" : ""
             }`}
           >
@@ -208,7 +208,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 xl:p-8 2xl:px-10 2xl:py-8">{children}</main>
       </div>
     </div>
   );

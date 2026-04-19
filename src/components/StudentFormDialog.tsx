@@ -200,7 +200,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
           <DialogTitle className="font-display">{isEditing ? "Editar aluno" : "Novo aluno"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-col">
-        <DialogBody className="space-y-4">
+        <DialogBody className="space-y-4 sm:space-y-5">
           <ProfileImageField
             previewUrl={photoPreviewUrl}
             onFileChange={handlePhotoChange}
@@ -216,7 +216,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
             {errors.fullName ? <p className="text-xs font-medium text-destructive">{errors.fullName}</p> : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <Label>E-mail</Label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -229,7 +229,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <Label>Data de nascimento</Label>
               <Input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />

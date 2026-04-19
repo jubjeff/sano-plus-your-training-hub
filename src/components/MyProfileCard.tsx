@@ -184,7 +184,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
 
   return (
     <section className="section-shell overflow-hidden">
-      <div className="flex flex-col gap-6 p-6 lg:p-8">
+      <div className="flex flex-col gap-5 p-4 sm:gap-6 sm:p-5 lg:p-6 xl:p-8">
         {showHeader ? (
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
@@ -247,7 +247,7 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
         )}
 
         {shouldShowUpgradeCta ? (
-          <div id="profile-upgrade-cta" className="rounded-[28px] border border-primary/25 bg-primary/10 p-5 scroll-mt-24">
+          <div id="profile-upgrade-cta" className="scroll-mt-24 rounded-[28px] border border-primary/25 bg-primary/10 p-4 sm:p-5 lg:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-2xl">
                 <Badge variant="outline" className="border-primary/30 bg-background/70 text-primary">
@@ -268,8 +268,8 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
           </div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-          <div className="rounded-[28px] border border-border/60 bg-background/70 p-5">
+        <div className="grid gap-5 xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:gap-6">
+          <div className="rounded-[28px] border border-border/60 bg-background/70 p-4 sm:p-5">
             <ProfileImageField
               previewUrl={effectiveAvatar}
               onFileChange={handleAvatarChange}
@@ -297,8 +297,8 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="rounded-[28px] border border-border/60 bg-background/70 p-5">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={handleSubmit} className="rounded-[28px] border border-border/60 bg-background/70 p-4 sm:p-5">
+            <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="profile-fullName">Nome completo</Label>
                 <Input

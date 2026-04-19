@@ -64,8 +64,8 @@ export default function ExerciseLibraryPickerDialog({ open, onOpenChange, onSele
         </DialogHeader>
 
         <DialogBody>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-            <aside className="space-y-4 rounded-[24px] border border-border/60 bg-background/60 p-4">
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)]">
+            <aside className="space-y-4 rounded-[24px] border border-border/60 bg-background/60 p-4 sm:p-5">
               <div className="space-y-2">
                 <Label htmlFor="exercise-library-search">Buscar exercício</Label>
                 <div className="relative">
@@ -155,10 +155,10 @@ export default function ExerciseLibraryPickerDialog({ open, onOpenChange, onSele
                   </p>
                 </div>
               ) : (
-                <ScrollArea className="h-[min(60vh,32rem)] pr-3">
+                <ScrollArea className="h-[min(60vh,32rem)] pr-2 sm:pr-3">
                   <div className="grid gap-3">
                     {filteredExercises.map((exercise) => (
-                      <article key={exercise.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4">
+                      <article key={exercise.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4 sm:p-5">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">

@@ -94,14 +94,14 @@ export default function WorkoutEditor() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="page-shell">
       <button onClick={() => navigate("/biblioteca")} className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="h-4 w-4" />
         Voltar para a biblioteca
       </button>
 
       <section className="overflow-hidden rounded-[30px] border border-border/60 bg-card/75 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.85)] backdrop-blur">
-        <div className="border-b border-border/60 bg-gradient-to-r from-primary/14 via-primary/6 to-transparent p-6 lg:p-8">
+        <div className="border-b border-border/60 bg-gradient-to-r from-primary/14 via-primary/6 to-transparent p-5 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
               <span className="inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">Editor de treino</span>
@@ -117,8 +117,8 @@ export default function WorkoutEditor() {
           </div>
         </div>
 
-        <div className="grid gap-6 p-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:p-8">
-          <aside className="space-y-4 rounded-[24px] border border-border/60 bg-background/60 p-5">
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] lg:gap-6 lg:p-8">
+          <aside className="space-y-4 rounded-[24px] border border-border/60 bg-background/60 p-4 sm:p-5">
             <div className="space-y-2">
               <Label htmlFor="workout-name">Nome do treino</Label>
               <Input id="workout-name" value={name} onChange={(event) => setName(event.target.value)} />
@@ -133,8 +133,8 @@ export default function WorkoutEditor() {
             </div>
           </aside>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4 sm:space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-display text-xl font-semibold">Blocos do treino</h2>
                 <p className="text-sm text-muted-foreground">Cada bloco consome exercicios da biblioteca global e mantem a prescricao separada da ficha tecnica.</p>
@@ -146,7 +146,7 @@ export default function WorkoutEditor() {
             </div>
 
             {blocks.map((block, blockIndex) => (
-              <article key={block.id} className="rounded-[24px] border border-border/60 bg-background/70 p-5 shadow-sm">
+              <article key={block.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">{blockIndex + 1}</div>
@@ -192,7 +192,7 @@ export default function WorkoutEditor() {
                           </Button>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-5">
+                        <div className="grid gap-3 sm:gap-4 md:grid-cols-5">
                           <div className="space-y-2"><Label>Series</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} /></div>
                           <div className="space-y-2"><Label>Repeticoes</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} /></div>
                           <div className="space-y-2"><Label>Carga</Label><Input value={exercise.load} onChange={(event) => updateExercise(block.id, exercise.id, { load: event.target.value })} /></div>

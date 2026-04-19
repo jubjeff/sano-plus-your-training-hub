@@ -81,7 +81,7 @@ export default function Dashboard() {
       ) : null}
 
       <section className="section-shell overflow-hidden">
-        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:p-8">
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:gap-6 lg:p-8">
           <div className="space-y-4">
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
               Dashboard
@@ -124,8 +124,8 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="section-shell p-6 lg:p-7">
+      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr] xl:gap-6">
+        <section className="section-shell p-5 sm:p-6 lg:p-7">
           <div className="mb-5 flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-warning" />
             <h2 className="font-display text-xl font-semibold">Trocas de treino</h2>
@@ -159,7 +159,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        <section className="section-shell p-6 lg:p-7">
+        <section className="section-shell p-5 sm:p-6 lg:p-7">
           <div className="mb-5 flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
             <h2 className="font-display text-xl font-semibold">Novos alunos</h2>
@@ -189,8 +189,8 @@ export default function Dashboard() {
         </section>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <section className="section-shell p-6 lg:p-7">
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr] xl:gap-6">
+        <section className="section-shell p-5 sm:p-6 lg:p-7">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Dumbbell className="h-5 w-5 text-primary" />
@@ -238,7 +238,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="section-shell p-6 lg:p-7">
+        <section className="section-shell p-5 sm:p-6 lg:p-7">
           <div className="mb-5 flex items-center gap-2">
             <BellRing className="h-5 w-5 text-warning" />
             <div>

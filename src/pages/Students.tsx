@@ -56,7 +56,7 @@ export default function Students() {
         <p className="text-sm text-muted-foreground">{students.length} alunos cadastrados</p>
       </div>
 
-      <section className="section-shell p-5 lg:p-6">
+      <section className="section-shell p-4 sm:p-5 lg:p-6">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -67,7 +67,7 @@ export default function Students() {
               className="h-11 rounded-2xl border-border/70 bg-background/70 pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-1 rounded-2xl border border-border/60 bg-muted/40 p-1">
+          <div className="flex flex-wrap gap-1 rounded-2xl border border-border/60 bg-muted/40 p-1 sm:max-w-full">
             {filters.map((item) => (
               <button
                 key={item.key}
@@ -85,7 +85,7 @@ export default function Students() {
       </section>
 
       {filtered.length === 0 ? (
-        <div className="section-shell py-16 text-center text-muted-foreground">
+        <div className="section-shell py-14 text-center text-muted-foreground sm:py-16">
           <Users className="mx-auto mb-3 h-12 w-12 opacity-40" />
           <p>Nenhum aluno encontrado</p>
         </div>
@@ -95,7 +95,7 @@ export default function Students() {
             <div
               key={student.id}
               onClick={() => navigate(`/alunos/${student.id}`)}
-              className="section-shell group cursor-pointer p-5 transition-all hover:border-primary/30"
+              className="section-shell group cursor-pointer p-4 transition-all hover:border-primary/30 sm:p-5"
             >
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-primary/12 text-lg font-bold text-primary">

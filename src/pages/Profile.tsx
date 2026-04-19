@@ -5,9 +5,9 @@ export default function Profile() {
   const { user } = useAuth();
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell">
       {user?.role === "coach" && user.teacherHasActiveAccess === false ? (
-        <section className="section-shell border-warning/30 bg-warning/10 p-5">
+        <section className="section-shell border-warning/30 bg-warning/10 p-4 sm:p-5 lg:p-6">
           <p className="text-sm font-semibold text-foreground">Acesso principal bloqueado</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {user.teacherAccessMessage || "Seu período de teste expirou. Faça upgrade para o plano Pro para continuar."}
@@ -16,7 +16,7 @@ export default function Profile() {
       ) : null}
 
       <section className="section-shell overflow-hidden">
-        <div className="p-6 lg:p-8">
+        <div className="p-5 sm:p-6 lg:p-8">
           <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             Meu Perfil
           </span>

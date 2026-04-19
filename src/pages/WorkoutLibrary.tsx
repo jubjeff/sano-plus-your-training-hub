@@ -120,15 +120,15 @@ export default function WorkoutLibrary() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="section-shell p-5">
+        <div className="section-shell p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Treinos reutilizaveis</p>
           <p className="mt-2 font-display text-3xl font-semibold">{workouts.length}</p>
         </div>
-        <div className="section-shell p-5">
+        <div className="section-shell p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Exercicios globais</p>
           <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.length}</p>
         </div>
-        <div className="section-shell p-5">
+        <div className="section-shell p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Exercicios com video</p>
           <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.filter((item) => item.videoUrl).length}</p>
         </div>
@@ -139,7 +139,7 @@ export default function WorkoutLibrary() {
         <p className="text-sm text-muted-foreground">{workouts.length} treinos salvos</p>
       </div>
 
-      <section className="section-shell p-5 lg:p-6">
+      <section className="section-shell p-4 sm:p-5 lg:p-6">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -208,7 +208,7 @@ export default function WorkoutLibrary() {
         </div>
       )}
 
-      <section className="section-shell p-5 lg:p-6">
+      <section className="section-shell p-4 sm:p-5 lg:p-6">
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold tracking-tight">Biblioteca global de exercicios</h2>
@@ -222,7 +222,7 @@ export default function WorkoutLibrary() {
           ) : null}
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px] xl:grid-cols-[minmax(0,1fr)_220px_220px_220px_220px]">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px] xl:grid-cols-[minmax(0,1fr)_220px_220px_220px_220px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={exerciseSearch} onChange={(event) => setExerciseSearch(event.target.value)} placeholder="Buscar exercicio..." className="pl-9" />
@@ -281,7 +281,7 @@ export default function WorkoutLibrary() {
         ) : (
           <div className="mt-5 grid gap-3 xl:grid-cols-2">
             {filteredExercises.map((exercise) => (
-              <article key={exercise.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4">
+              <article key={exercise.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
