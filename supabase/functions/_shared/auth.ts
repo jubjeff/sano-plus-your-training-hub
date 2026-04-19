@@ -1,5 +1,5 @@
 import { EdgeHttpError } from "./http.ts";
-import { createServiceRoleClient } from "./supabase.ts";
+import { createServiceRoleClient, createUserScopedClient } from "./supabase.ts";
 
 type AuthenticatedFunctionContext = {
   authHeader: string;
@@ -21,16 +21,18 @@ export async function requireAuthenticatedUser(request: Request): Promise<Authen
   }
 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const normalizedAuthHeader = `Bearer ${token}`;
   const serviceRoleClient = createServiceRoleClient();
 
   if (!token) {
     throw new EdgeHttpError("invalid_authorization", "Token de acesso invalido.", 401);
   }
 
+  const userScopedClient = createUserScopedClient(normalizedAuthHeader);
   const {
     data: { user },
     error: authError,
-  } = await serviceRoleClient.auth.getUser(token);
+  } = await userScopedClient.auth.getUser();
 
   if (authError || !user) {
     throw new EdgeHttpError("invalid_session", authError?.message ?? "Sessao invalida ou expirada.", 401);
@@ -50,7 +52,7 @@ export async function requireAuthenticatedUser(request: Request): Promise<Authen
   }
 
   return {
-    authHeader,
+    authHeader: normalizedAuthHeader,
     user: {
       id: user.id,
       email: user.email ?? null,
