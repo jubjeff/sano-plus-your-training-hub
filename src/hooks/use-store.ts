@@ -56,6 +56,7 @@ function getSnapshot(): StoreSnapshot {
 export function useStore() {
   const { user } = useAuth();
   const snapshot = useSyncExternalStore(subscribe, getSnapshot);
+  const isSupabase = hasSupabaseRuntimeConfig();
 
   useEffect(() => {
     void getActiveStore().refresh?.();
@@ -63,10 +64,15 @@ export function useStore() {
 
   const activeStore = getActiveStore();
   const isCoach = user?.role === "coach";
-  const coachScopedStudents = isCoach ? snapshot.students.filter((student) => student.coachId === user.id || student.coachId === user.teacherId) : snapshot.students;
+  const coachScopedStudents =
+    isCoach && !isSupabase
+      ? snapshot.students.filter((student) => student.coachId === user.id || student.coachId === user.teacherId)
+      : snapshot.students;
   const coachStudentIds = new Set(coachScopedStudents.map((student) => student.id));
-  const coachScopedCheckIns = isCoach ? snapshot.checkIns.filter((checkIn) => coachStudentIds.has(checkIn.studentId)) : snapshot.checkIns;
-  const coachScopedAlerts = isCoach ? snapshot.alerts.filter((alert) => coachStudentIds.has(alert.studentId)) : snapshot.alerts;
+  const coachScopedCheckIns =
+    isCoach && !isSupabase ? snapshot.checkIns.filter((checkIn) => coachStudentIds.has(checkIn.studentId)) : snapshot.checkIns;
+  const coachScopedAlerts =
+    isCoach && !isSupabase ? snapshot.alerts.filter((alert) => coachStudentIds.has(alert.studentId)) : snapshot.alerts;
 
   return {
     ...snapshot,

@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function StudentFormDialog({ open, onOpenChange, student }: Props) {
-  const { user, issueStudentTemporaryAccess } = useAuth();
+  const { user, issueStudentTemporaryAccess, refreshUser } = useAuth();
   const { addStudent, updateStudent, refresh } = useStore();
   const isEditing = Boolean(student);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -155,6 +155,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
             })();
 
         if (hasSupabaseRuntimeConfig()) {
+          await refreshUser();
           await refresh?.();
 
           if (photoFile) {
