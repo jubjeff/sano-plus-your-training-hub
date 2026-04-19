@@ -16,11 +16,7 @@ import {
   EXERCISE_CATEGORIES,
   EXERCISE_DIFFICULTY_OPTIONS,
   EXERCISE_EQUIPMENT_SUGGESTIONS,
-  EXERCISE_LATERALITY_OPTIONS,
-  EXERCISE_MECHANICAL_TYPE_OPTIONS,
-  EXERCISE_MOVEMENT_CATEGORY_OPTIONS,
   EXERCISE_MOVEMENT_OPTIONS,
-  EXERCISE_MOVEMENT_PLANE_OPTIONS,
   EXERCISE_TYPE_OPTIONS,
   MUSCLE_CATEGORIES,
   MUSCLE_GROUP_OPTIONS,
@@ -59,7 +55,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
     setSubmitting(false);
     setForm(
       exercise
-        ? { ...exercise, muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])], aliases: [...(exercise.aliases ?? [])] }
+        ? { ...exercise, muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])] }
         : createEmptyExerciseLibraryItem(),
     );
   }, [exercise, open]);
@@ -73,7 +69,6 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
   }, [generatedPreviewUrl]);
 
   const selectedSecondaryGroups = useMemo(() => new Set(form.muscleGroupsSecondary ?? []), [form.muscleGroupsSecondary]);
-  const aliasesValue = (form.aliases ?? []).join(", ");
 
   const updateForm = (data: Partial<ExerciseLibraryItem>) => {
     setForm((current) => ({ ...current, ...data }));
@@ -145,7 +140,6 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
       commonMistakes: form.commonMistakes.trim(),
       equipment: form.equipment?.trim() ?? "",
       muscleGroupsSecondary: (form.muscleGroupsSecondary ?? []).filter((item) => item !== form.muscleGroupPrimary),
-      aliases: (form.aliases ?? []).map((item) => item.trim()).filter(Boolean),
       durationLimitSeconds: MAX_EXERCISE_VIDEO_DURATION_SECONDS,
     });
 
@@ -182,16 +176,6 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="exercise-name">Nome do exercício</Label>
               <Input id="exercise-name" value={form.name} onChange={(event) => updateForm({ name: event.target.value })} placeholder="Ex.: Supino inclinado com halteres" />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="exercise-aliases">Aliases</Label>
-              <Input
-                id="exercise-aliases"
-                value={aliasesValue}
-                onChange={(event) => updateForm({ aliases: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })}
-                placeholder="Ex.: Supino reto com barra, Bench press"
-              />
             </div>
 
             <div className="space-y-2">
@@ -251,18 +235,6 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
             </div>
 
             <div className="space-y-2">
-              <Label>Categoria do movimento</Label>
-              <Select value={form.movementCategory ?? ""} onValueChange={(value) => updateForm({ movementCategory: value as ExerciseLibraryItem["movementCategory"] })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {EXERCISE_MOVEMENT_CATEGORY_OPTIONS.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label>Região corporal</Label>
               <Select value={form.bodyRegion ?? ""} onValueChange={(value) => updateForm({ bodyRegion: value as ExerciseLibraryItem["bodyRegion"] })}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -307,42 +279,6 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {EXERCISE_TYPE_OPTIONS.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tipo mecânico</Label>
-              <Select value={form.mechanicalType ?? ""} onValueChange={(value) => updateForm({ mechanicalType: value as ExerciseLibraryItem["mechanicalType"] })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {EXERCISE_MECHANICAL_TYPE_OPTIONS.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Lateralidade</Label>
-              <Select value={form.laterality ?? ""} onValueChange={(value) => updateForm({ laterality: value as ExerciseLibraryItem["laterality"] })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {EXERCISE_LATERALITY_OPTIONS.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Plano de movimento</Label>
-              <Select value={form.movementPlane ?? ""} onValueChange={(value) => updateForm({ movementPlane: value as ExerciseLibraryItem["movementPlane"] })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {EXERCISE_MOVEMENT_PLANE_OPTIONS.map((item) => (
                     <SelectItem key={item} value={item}>{item}</SelectItem>
                   ))}
                 </SelectContent>

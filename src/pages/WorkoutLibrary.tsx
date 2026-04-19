@@ -302,14 +302,7 @@ export default function WorkoutLibrary() {
                       {exercise.equipment && <Badge variant="outline">{exercise.equipment}</Badge>}
                       {exercise.difficultyLevel && <Badge variant="outline">{exercise.difficultyLevel}</Badge>}
                       {exercise.movementType && <Badge variant="outline">{exercise.movementType}</Badge>}
-                      {exercise.movementCategory && <Badge variant="outline">{exercise.movementCategory}</Badge>}
-                      {exercise.mechanicalType && <Badge variant="outline">{exercise.mechanicalType}</Badge>}
-                      {exercise.laterality && <Badge variant="outline">{exercise.laterality}</Badge>}
-                      {exercise.movementPlane && <Badge variant="outline">{exercise.movementPlane}</Badge>}
                     </div>
-                    {(exercise.aliases ?? []).length > 0 && (
-                      <p className="mt-3 text-xs text-muted-foreground">Aliases: {exercise.aliases.join(", ")}</p>
-                    )}
                     <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                       <div>
                         <p className="font-medium text-foreground">Execucao</p>
