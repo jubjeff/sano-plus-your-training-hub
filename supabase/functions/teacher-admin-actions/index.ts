@@ -91,12 +91,122 @@ function buildStudentAccessLink(request: Request, email: string) {
   return url.toString();
 }
 
-async function requireTeacherId(serviceRoleClient: ReturnType<typeof createServiceRoleClient>, userId: string) {
-  const { data, error } = await serviceRoleClient
+async function lookupTeacherId(serviceRoleClient: ReturnType<typeof createServiceRoleClient>, userId: string) {
+  return serviceRoleClient
     .from("teachers")
     .select("id")
     .eq("user_id", userId)
     .maybeSingle();
+}
+
+async function bootstrapTeacherAccount(
+  serviceRoleClient: ReturnType<typeof createServiceRoleClient>,
+  userId: string,
+) {
+  const { data: profile, error: profileError } = await serviceRoleClient
+    .from("profiles")
+    .select("id, role, cpf")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile?.id) {
+    throw new EdgeHttpError("teacher_profile_not_found", "Perfil do professor autenticado nao encontrado.", 404, {
+      reason: profileError?.message ?? null,
+      userId,
+    });
+  }
+
+  if (String(profile.role ?? "").toLowerCase() !== "professor") {
+    throw new EdgeHttpError("invalid_teacher_role", "O usuario autenticado nao possui papel de professor.", 403, {
+      userId,
+      role: profile.role ?? null,
+    });
+  }
+
+  const { data: authUserData, error: authUserError } = await serviceRoleClient.auth.admin.getUserById(userId);
+  if (authUserError || !authUserData.user) {
+    throw new EdgeHttpError("teacher_auth_lookup_failed", "Nao foi possivel carregar os metadados do professor autenticado.", 500, {
+      reason: authUserError?.message ?? null,
+      userId,
+    });
+  }
+
+  const metadata = (authUserData.user.user_metadata ?? {}) as Record<string, unknown>;
+  const selectedPlan = String(metadata.selected_plan ?? "basic").trim().toLowerCase() || "basic";
+  const mockPaymentConfirmed = Boolean(metadata.mockProPaymentConfirmed ?? metadata.mock_pro_payment_confirmed);
+  const cpf = String(profile.cpf ?? metadata.cpf ?? "").trim();
+
+  const { data: teacher, error: teacherError } = await serviceRoleClient
+    .from("teachers")
+    .upsert(
+      {
+        user_id: userId,
+        onboarding_completed: true,
+        metadata: {
+          selected_plan: selectedPlan,
+          bootstrap_source: "teacher_admin_actions",
+        },
+      },
+      { onConflict: "user_id" },
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (teacherError || !teacher?.id) {
+    throw new EdgeHttpError("teacher_upsert_failed", "Nao foi possivel preparar o cadastro do professor autenticado.", 500, {
+      reason: teacherError?.message ?? null,
+      userId,
+    });
+  }
+
+  const { data: existingSubscription, error: subscriptionLookupError } = await serviceRoleClient
+    .from("teacher_subscriptions")
+    .select("id")
+    .eq("teacher_id", teacher.id)
+    .maybeSingle();
+
+  if (subscriptionLookupError) {
+    throw new EdgeHttpError("teacher_subscription_lookup_failed", "Nao foi possivel verificar a assinatura do professor autenticado.", 500, {
+      reason: subscriptionLookupError.message,
+      teacherId: teacher.id,
+    });
+  }
+
+  if (!existingSubscription?.id) {
+    const { error: provisionError } = await serviceRoleClient.rpc("create_teacher_subscription_from_selection", {
+      p_teacher_id: teacher.id,
+      p_cpf: cpf,
+      p_selected_plan: selectedPlan,
+      p_mock_payment_confirmed: selectedPlan === "pro" ? mockPaymentConfirmed : false,
+      p_origin: "edge:teacher_admin_actions_bootstrap",
+    });
+
+    if (provisionError) {
+      throw new EdgeHttpError("teacher_subscription_bootstrap_failed", "Nao foi possivel criar a assinatura/base de acesso do professor autenticado.", 500, {
+        reason: provisionError.message,
+        teacherId: teacher.id,
+        selectedPlan,
+      });
+    }
+  }
+
+  return teacher.id as string;
+}
+
+async function requireTeacherId(
+  serviceRoleClient: ReturnType<typeof createServiceRoleClient>,
+  userId: string,
+) {
+  let { data, error } = await lookupTeacherId(serviceRoleClient, userId);
+
+  if (!data?.id) {
+    const teacherId = await bootstrapTeacherAccount(serviceRoleClient, userId);
+    ({ data, error } = await lookupTeacherId(serviceRoleClient, userId));
+
+    if (!data?.id && teacherId) {
+      data = { id: teacherId };
+    }
+  }
 
   if (error || !data?.id) {
     throw new EdgeHttpError("teacher_not_found", "Professor autenticado nao encontrado.", 404, {
