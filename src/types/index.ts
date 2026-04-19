@@ -10,6 +10,7 @@ export type CoachAlertType = "no_check_in" | "below_goal" | "payment_blocked";
 
 export interface Exercise {
   id: string;
+  sourceExerciseId?: string | null;
   name: string;
   description?: string;
   sets: number;
@@ -32,6 +33,7 @@ export interface Exercise {
 
 export interface WorkoutBlock {
   id: string;
+  sourceBlockId?: string | null;
   name: string;
   blockType?: WorkoutBlockType;
   blockLabel?: string | null;
@@ -56,6 +58,7 @@ export interface Workout {
 export interface WorkoutPlan {
   id: string;
   studentId: string;
+  sourceWorkoutTemplateId?: string | null;
   trainingStructureType: TrainingStructureType;
   trainingProgressMode: TrainingProgressMode;
   planName: string;

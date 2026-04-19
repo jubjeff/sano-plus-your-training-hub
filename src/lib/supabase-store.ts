@@ -55,6 +55,7 @@ type WorkoutPlanRow = {
   id: string;
   teacher_id: string;
   student_id: string;
+  source_workout_template_id: string | null;
   training_structure_type: WorkoutPlan["trainingStructureType"];
   training_progress_mode: WorkoutPlan["trainingProgressMode"];
   plan_name: string;
@@ -210,6 +211,7 @@ function mapWorkoutPlan(row: WorkoutPlanRow): WorkoutPlan {
   return {
     id: row.id,
     studentId: row.student_id,
+    sourceWorkoutTemplateId: row.source_workout_template_id,
     trainingStructureType: row.training_structure_type,
     trainingProgressMode: row.training_progress_mode,
     planName: row.plan_name,
@@ -225,6 +227,51 @@ function mapWorkoutPlan(row: WorkoutPlanRow): WorkoutPlan {
     updatedAt: row.updated_at,
     blocks: normalizeWorkoutBlocks(asWorkoutBlocks(row.blocks), row.training_structure_type),
   };
+}
+
+function mapLinkedBlockId(currentBlocks: WorkoutBlock[], nextBlocks: WorkoutBlock[], currentBlockId?: string | null) {
+  if (!currentBlockId) {
+    return null;
+  }
+
+  const currentBlock = currentBlocks.find((block) => block.id === currentBlockId);
+  if (!currentBlock) {
+    return null;
+  }
+
+  const sourceBlockId = currentBlock.sourceBlockId ?? currentBlock.id;
+  return nextBlocks.find((block) => (block.sourceBlockId ?? block.id) === sourceBlockId)?.id ?? null;
+}
+
+function cloneTemplateBlocksForStudent(templateBlocks: WorkoutBlock[], currentBlocks: WorkoutBlock[] = []) {
+  const currentBlocksBySource = new Map(
+    currentBlocks.map((block) => [block.sourceBlockId ?? block.id, block]),
+  );
+
+  return templateBlocks.map((block) => {
+    const currentBlock = currentBlocksBySource.get(block.id);
+    const currentExercisesBySource = new Map(
+      (currentBlock?.exercises ?? []).map((exercise) => [exercise.sourceExerciseId ?? exercise.id, exercise]),
+    );
+
+    return {
+      ...block,
+      id: currentBlock?.id ?? generateId(),
+      sourceBlockId: block.id,
+      exercises: block.exercises.map((exercise) => {
+        const currentExercise = currentExercisesBySource.get(exercise.id);
+        return {
+          ...exercise,
+          id: currentExercise?.id ?? generateId(),
+          sourceExerciseId: exercise.id,
+          studentLoad: currentExercise?.studentLoad ?? exercise.studentLoad ?? null,
+          createdAt: currentExercise?.createdAt ?? exercise.createdAt ?? nowIso(),
+          updatedAt: nowIso(),
+          muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])],
+        };
+      }),
+    };
+  });
 }
 
 async function mapStudent(row: StudentRow, plan?: WorkoutPlanRow | null): Promise<Student> {
@@ -354,7 +401,7 @@ export class SupabaseStore {
         .order("created_at", { ascending: false }),
       supabase
         .from("student_workout_plans")
-        .select("id,teacher_id,student_id,training_structure_type,training_progress_mode,plan_name,is_active,start_date,end_date,next_workout_change_date,current_suggested_block_id,last_completed_block_id,last_completed_at,weekly_goal,created_at,updated_at,blocks"),
+        .select("id,teacher_id,student_id,source_workout_template_id,training_structure_type,training_progress_mode,plan_name,is_active,start_date,end_date,next_workout_change_date,current_suggested_block_id,last_completed_block_id,last_completed_at,weekly_goal,created_at,updated_at,blocks"),
       supabase
         .from("student_check_ins")
         .select("id,teacher_id,student_id,workout_plan_id,workout_block_id,training_structure_type,training_progress_mode,block_label,checked_in_at,check_in_date,created_at,source,duration_minutes,notes")
@@ -440,6 +487,7 @@ export class SupabaseStore {
     const payload = {
       teacher_id: teacherId,
       student_id: student.id,
+      source_workout_template_id: currentPlan.sourceWorkoutTemplateId ?? null,
       training_structure_type: currentPlan.trainingStructureType,
       training_progress_mode: currentPlan.trainingProgressMode,
       plan_name: currentPlan.planName,
@@ -761,29 +809,21 @@ export class SupabaseStore {
     const workout = this.workouts.find((item) => item.id === workoutId);
     if (!workout) return;
 
-    const newBlocks = workout.blocks.map((block) => ({
-      ...block,
-      id: generateId(),
-      exercises: block.exercises.map((exercise) => ({
-        ...exercise,
-        id: generateId(),
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-        muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])],
-      })),
-    }));
-
     const student = this.getStudent(studentId);
     if (!student) return;
     const currentPlan = getStudentWorkoutPlan(student);
+    const newBlocks = cloneTemplateBlocksForStudent(workout.blocks, currentPlan.blocks);
+    const normalizedBlocks = normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType);
 
     await this.updateStudent(studentId, {
-      workout: newBlocks,
+      workout: normalizedBlocks,
       workoutUpdatedAt: todayIso(),
       workoutPlan: {
         ...currentPlan,
-        blocks: normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType),
-        currentSuggestedBlockId: normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType).find((block) => !block.isRestDay)?.id ?? null,
+        sourceWorkoutTemplateId: workout.id,
+        planName: workout.name,
+        blocks: normalizedBlocks,
+        currentSuggestedBlockId: normalizedBlocks.find((block) => !block.isRestDay)?.id ?? null,
         updatedAt: nowIso(),
       },
     });
@@ -822,6 +862,18 @@ export class SupabaseStore {
 
   async updateWorkout(id: string, data: Partial<Workout>) {
     const supabase = getSupabaseClient();
+    const teacherId = await this.requireTeacherId();
+    const currentWorkout = this.getWorkout(id);
+    if (!currentWorkout) {
+      throw new Error("Treino nao encontrado.");
+    }
+
+    const nextWorkout = {
+      ...currentWorkout,
+      ...data,
+      blocks: data.blocks ?? currentWorkout.blocks,
+    };
+
     const { error } = await supabase
       .from("workout_templates")
       .update({
@@ -835,6 +887,52 @@ export class SupabaseStore {
     if (error) {
       throw new Error(error.message);
     }
+
+    const linkedStudents = this.students.filter((student) => getStudentWorkoutPlan(student).sourceWorkoutTemplateId === id);
+    const workoutUpdatedAt = todayIso();
+
+    await Promise.all(
+      linkedStudents.map(async (student) => {
+        const currentPlan = getStudentWorkoutPlan(student);
+        const syncedBlocks = normalizeWorkoutBlocks(
+          cloneTemplateBlocksForStudent(nextWorkout.blocks, currentPlan.blocks),
+          currentPlan.trainingStructureType,
+        );
+        const nextLastCompletedBlockId = mapLinkedBlockId(currentPlan.blocks, syncedBlocks, currentPlan.lastCompletedBlockId);
+        const nextCurrentSuggestedBlockId =
+          mapLinkedBlockId(currentPlan.blocks, syncedBlocks, currentPlan.currentSuggestedBlockId) ??
+          syncedBlocks.find((block) => !block.isRestDay)?.id ??
+          null;
+
+        const { error: planUpdateError } = await supabase
+          .from("student_workout_plans")
+          .update({
+            source_workout_template_id: id,
+            plan_name: nextWorkout.name,
+            current_suggested_block_id: nextCurrentSuggestedBlockId,
+            last_completed_block_id: nextLastCompletedBlockId,
+            blocks: syncedBlocks,
+          })
+          .eq("id", currentPlan.id)
+          .eq("teacher_id", teacherId);
+
+        if (planUpdateError) {
+          throw new Error(planUpdateError.message);
+        }
+
+        const { error: studentUpdateError } = await supabase
+          .from("students")
+          .update({
+            workout_updated_at: workoutUpdatedAt,
+          })
+          .eq("id", student.id)
+          .eq("teacher_id", teacherId);
+
+        if (studentUpdateError) {
+          throw new Error(studentUpdateError.message);
+        }
+      }),
+    );
 
     await this.refresh();
   }

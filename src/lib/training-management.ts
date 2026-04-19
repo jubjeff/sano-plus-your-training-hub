@@ -106,6 +106,7 @@ export function createDefaultWorkoutPlan(
   return {
     id: overrides?.id ?? createPlanId(student.id),
     studentId: student.id,
+    sourceWorkoutTemplateId: overrides?.sourceWorkoutTemplateId ?? null,
     trainingStructureType,
     trainingProgressMode,
     planName: overrides?.planName ?? "Plano principal",

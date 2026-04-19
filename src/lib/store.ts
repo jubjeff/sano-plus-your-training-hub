@@ -78,6 +78,51 @@ function syncLegacyWorkoutFromPlan(workoutPlan: WorkoutPlan | null | undefined, 
   return legacyWorkout;
 }
 
+function mapLinkedBlockId(currentBlocks: WorkoutBlock[], nextBlocks: WorkoutBlock[], currentBlockId?: string | null) {
+  if (!currentBlockId) {
+    return null;
+  }
+
+  const currentBlock = currentBlocks.find((block) => block.id === currentBlockId);
+  if (!currentBlock) {
+    return null;
+  }
+
+  const sourceBlockId = currentBlock.sourceBlockId ?? currentBlock.id;
+  return nextBlocks.find((block) => (block.sourceBlockId ?? block.id) === sourceBlockId)?.id ?? null;
+}
+
+function cloneTemplateBlocksForStudent(templateBlocks: WorkoutBlock[], currentBlocks: WorkoutBlock[] = []) {
+  const currentBlocksBySource = new Map(
+    currentBlocks.map((block) => [block.sourceBlockId ?? block.id, block]),
+  );
+
+  return templateBlocks.map((block) => {
+    const currentBlock = currentBlocksBySource.get(block.id);
+    const currentExercisesBySource = new Map(
+      (currentBlock?.exercises ?? []).map((exercise) => [exercise.sourceExerciseId ?? exercise.id, exercise]),
+    );
+
+    return {
+      ...block,
+      id: currentBlock?.id ?? generateId(),
+      sourceBlockId: block.id,
+      exercises: block.exercises.map((exercise) => {
+        const currentExercise = currentExercisesBySource.get(exercise.id);
+        return {
+          ...exercise,
+          id: currentExercise?.id ?? generateId(),
+          sourceExerciseId: exercise.id,
+          studentLoad: currentExercise?.studentLoad ?? exercise.studentLoad ?? null,
+          createdAt: currentExercise?.createdAt ?? exercise.createdAt ?? nowIso(),
+          updatedAt: nowIso(),
+          muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])],
+        };
+      }),
+    };
+  });
+}
+
 const STORE_STORAGE_KEY = "sano-plus-store";
 
 const initialStudents: Student[] = [
@@ -881,30 +926,22 @@ class Store {
     const workout = this.workouts.find((item) => item.id === workoutId);
     if (!workout) return;
 
-    const newBlocks = workout.blocks.map((block) => ({
-      ...block,
-      id: generateId(),
-      exercises: block.exercises.map((exercise) => ({
-        ...exercise,
-        id: generateId(),
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-        muscleGroupsSecondary: [...(exercise.muscleGroupsSecondary ?? [])],
-      })),
-    }));
-
     const student = this.students.find((item) => item.id === studentId);
     if (!student) return;
     const currentPlan = getStudentWorkoutPlan(student);
+    const newBlocks = cloneTemplateBlocksForStudent(workout.blocks, currentPlan.blocks);
+    const normalizedBlocks = normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType);
     const workoutUpdatedAt = todayIso();
 
     void this.updateStudent(studentId, {
-      workout: newBlocks,
+      workout: normalizedBlocks,
       workoutUpdatedAt,
       workoutPlan: {
         ...currentPlan,
-        blocks: normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType),
-        currentSuggestedBlockId: normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType).find((block) => !block.isRestDay)?.id ?? null,
+        sourceWorkoutTemplateId: workout.id,
+        planName: workout.name,
+        blocks: normalizedBlocks,
+        currentSuggestedBlockId: normalizedBlocks.find((block) => !block.isRestDay)?.id ?? null,
         updatedAt: workoutUpdatedAt,
       },
     });
@@ -926,7 +963,51 @@ class Store {
   }
 
   updateWorkout(id: string, data: Partial<Workout>) {
-    this.workouts = this.workouts.map((workout) => (workout.id === id ? { ...workout, ...data } : workout));
+    const currentWorkout = this.workouts.find((workout) => workout.id === id);
+    if (!currentWorkout) {
+      return;
+    }
+
+    const nextWorkout = { ...currentWorkout, ...data, blocks: data.blocks ?? currentWorkout.blocks };
+
+    this.workouts = this.workouts.map((workout) => (workout.id === id ? nextWorkout : workout));
+    const workoutUpdatedAt = todayIso();
+    const updateTimestamp = nowIso();
+
+    this.students = this.students.map((student) => {
+      const currentPlan = getStudentWorkoutPlan(student);
+      if (currentPlan.sourceWorkoutTemplateId !== id) {
+        return student;
+      }
+
+      const syncedBlocks = normalizeWorkoutBlocks(
+        cloneTemplateBlocksForStudent(nextWorkout.blocks, currentPlan.blocks),
+        currentPlan.trainingStructureType,
+      );
+      const nextLastCompletedBlockId = mapLinkedBlockId(currentPlan.blocks, syncedBlocks, currentPlan.lastCompletedBlockId);
+      const nextCurrentSuggestedBlockId =
+        mapLinkedBlockId(currentPlan.blocks, syncedBlocks, currentPlan.currentSuggestedBlockId) ??
+        syncedBlocks.find((block) => !block.isRestDay)?.id ??
+        null;
+      const nextPlan = {
+        ...currentPlan,
+        planName: nextWorkout.name,
+        sourceWorkoutTemplateId: id,
+        blocks: syncedBlocks,
+        lastCompletedBlockId: nextLastCompletedBlockId,
+        currentSuggestedBlockId: nextCurrentSuggestedBlockId,
+        updatedAt: updateTimestamp,
+      };
+
+      return {
+        ...student,
+        workoutPlan: nextPlan,
+        workout: nextPlan.blocks,
+        workoutUpdatedAt,
+        updatedAt: updateTimestamp,
+      };
+    });
+
     this.notify();
   }
 
