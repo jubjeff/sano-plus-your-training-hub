@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Copy, Dumbbell, Edit, Plus, Search, Trash2, Video } from "lucide-react";
+import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import { ExerciseLibraryItem, Workout } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { formatDate } from "@/lib/format";
 const ALL = "all";
 
 export default function WorkoutLibrary() {
+  const { user } = useAuth();
   const {
     workouts,
     exerciseLibrary,
@@ -43,6 +45,7 @@ export default function WorkoutLibrary() {
   const [editingWorkout, setEditingWorkout] = useState<Workout | undefined>();
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<ExerciseLibraryItem | undefined>();
+  const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
 
   const filteredWorkouts = workouts.filter((workout) =>
     search ? workout.name.toLowerCase().includes(search.toLowerCase()) : true,
@@ -96,16 +99,18 @@ export default function WorkoutLibrary() {
             <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
               Biblioteca
             </span>
-            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Treinos reutilizáveis e catálogo global de exercícios</h1>
+            <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Treinos reutilizaveis e catalogo global de exercicios</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              O Sano+ agora usa uma biblioteca oficial de exercícios compartilhada entre todos os professores, pronta para busca, filtros e evolução gradual com vídeos.
+              O Sano+ usa uma biblioteca oficial de exercicios compartilhada entre todos os professores, pronta para busca, filtros e evolucao gradual com videos.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={openNewExercise}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo exercício
-            </Button>
+            {canManageExerciseLibrary ? (
+              <Button variant="outline" className="w-full sm:w-auto" onClick={openNewExercise}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo exercicio
+              </Button>
+            ) : null}
             <Button className="w-full sm:w-auto sm:min-w-40" onClick={openNew}>
               <Plus className="mr-2 h-4 w-4" />
               Novo treino
@@ -116,15 +121,15 @@ export default function WorkoutLibrary() {
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="section-shell p-5">
-          <p className="text-sm text-muted-foreground">Treinos reutilizáveis</p>
+          <p className="text-sm text-muted-foreground">Treinos reutilizaveis</p>
           <p className="mt-2 font-display text-3xl font-semibold">{workouts.length}</p>
         </div>
         <div className="section-shell p-5">
-          <p className="text-sm text-muted-foreground">Exercícios globais</p>
+          <p className="text-sm text-muted-foreground">Exercicios globais</p>
           <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.length}</p>
         </div>
         <div className="section-shell p-5">
-          <p className="text-sm text-muted-foreground">Exercícios com vídeo</p>
+          <p className="text-sm text-muted-foreground">Exercicios com video</p>
           <p className="mt-2 font-display text-3xl font-semibold">{exerciseLibrary.filter((item) => item.videoUrl).length}</p>
         </div>
       </section>
@@ -206,19 +211,21 @@ export default function WorkoutLibrary() {
       <section className="section-shell p-5 lg:p-6">
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="font-display text-2xl font-bold tracking-tight">Biblioteca global de exercícios</h2>
-            <p className="text-sm text-muted-foreground">Base central do Sano+ com filtros, vídeo opcional e ficha técnica padronizada.</p>
+            <h2 className="font-display text-2xl font-bold tracking-tight">Biblioteca global de exercicios</h2>
+            <p className="text-sm text-muted-foreground">Base central do Sano+ com filtros, video opcional e ficha tecnica padronizada.</p>
           </div>
-          <Button onClick={openNewExercise}>
-            <Plus className="mr-2 h-4 w-4" />
-            Cadastrar exercício
-          </Button>
+          {canManageExerciseLibrary ? (
+            <Button onClick={openNewExercise}>
+              <Plus className="mr-2 h-4 w-4" />
+              Cadastrar exercicio
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px] xl:grid-cols-[minmax(0,1fr)_220px_220px_220px_220px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={exerciseSearch} onChange={(event) => setExerciseSearch(event.target.value)} placeholder="Buscar exercício..." className="pl-9" />
+            <Input value={exerciseSearch} onChange={(event) => setExerciseSearch(event.target.value)} placeholder="Buscar exercicio..." className="pl-9" />
           </div>
           <Select value={exerciseCategory} onValueChange={setExerciseCategory}>
             <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
@@ -248,9 +255,9 @@ export default function WorkoutLibrary() {
             </SelectContent>
           </Select>
           <Select value={exerciseDifficulty} onValueChange={setExerciseDifficulty}>
-            <SelectTrigger><SelectValue placeholder="Nível" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Nivel" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Todos os níveis</SelectItem>
+              <SelectItem value={ALL}>Todos os niveis</SelectItem>
               {EXERCISE_DIFFICULTY_OPTIONS.map((item) => (
                 <SelectItem key={item} value={item}>{item}</SelectItem>
               ))}
@@ -269,7 +276,7 @@ export default function WorkoutLibrary() {
 
         {filteredExercises.length === 0 ? (
           <div className="mt-5 rounded-[24px] border border-dashed border-border/60 px-4 py-12 text-center text-muted-foreground">
-            Nenhum exercício encontrado com os filtros atuais.
+            Nenhum exercicio encontrado com os filtros atuais.
           </div>
         ) : (
           <div className="mt-5 grid gap-3 xl:grid-cols-2">
@@ -298,8 +305,8 @@ export default function WorkoutLibrary() {
                     </div>
                     <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                       <div>
-                        <p className="font-medium text-foreground">Execução</p>
-                        <p className="line-clamp-2">{exercise.executionInstructions || "Sem instruções detalhadas."}</p>
+                        <p className="font-medium text-foreground">Execucao</p>
+                        <p className="line-clamp-2">{exercise.executionInstructions || "Sem instrucoes detalhadas."}</p>
                       </div>
                       <div>
                         <p className="font-medium text-foreground">Erros comuns</p>
@@ -308,14 +315,16 @@ export default function WorkoutLibrary() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditExercise(exercise)}>
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setExerciseLibraryItemActive(exercise.id, !exercise.isActive)}>
-                      {exercise.isActive ? "Inativar" : "Ativar"}
-                    </Button>
-                  </div>
+                  {canManageExerciseLibrary ? (
+                    <div className="flex flex-col gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditExercise(exercise)}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setExerciseLibraryItemActive(exercise.id, !exercise.isActive)}>
+                        {exercise.isActive ? "Inativar" : "Ativar"}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -325,27 +334,29 @@ export default function WorkoutLibrary() {
 
       <WorkoutFormDialog open={formOpen} onOpenChange={setFormOpen} workout={editingWorkout} />
 
-      <ExerciseEditorDialog
-        open={exerciseDialogOpen}
-        onOpenChange={setExerciseDialogOpen}
-        exercise={editingExercise}
-        onSave={async ({ exercise, videoFile, removeVideo }) => {
-          if (editingExercise) {
-            await updateExerciseLibraryItem(editingExercise.id, {
+      {canManageExerciseLibrary ? (
+        <ExerciseEditorDialog
+          open={exerciseDialogOpen}
+          onOpenChange={setExerciseDialogOpen}
+          exercise={editingExercise}
+          onSave={async ({ exercise, videoFile, removeVideo }) => {
+            if (editingExercise) {
+              await updateExerciseLibraryItem(editingExercise.id, {
+                ...exercise,
+                videoFile,
+                removeVideo,
+              });
+              return;
+            }
+
+            await addExerciseLibraryItem({
               ...exercise,
               videoFile,
               removeVideo,
             });
-            return;
-          }
-
-          await addExerciseLibraryItem({
-            ...exercise,
-            videoFile,
-            removeVideo,
-          });
-        }}
-      />
+          }}
+        />
+      ) : null}
     </div>
   );
 }

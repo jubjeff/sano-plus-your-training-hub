@@ -1,4 +1,5 @@
 export type SupabaseProfileRole = "professor" | "aluno";
+export type SupabasePlatformRole = "default" | "dev_admin";
 
 export interface SupabaseProfileRecord {
   id: string;
@@ -10,6 +11,7 @@ export interface SupabaseProfileRecord {
   phone: string | null;
   notes: string | null;
   role: SupabaseProfileRole | null;
+  platform_role: SupabasePlatformRole | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +31,7 @@ export interface SupabaseDatabasePlaceholder {
           phone?: string | null;
           notes?: string | null;
           role?: SupabaseProfileRole | null;
+          platform_role?: SupabasePlatformRole | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -41,6 +44,7 @@ export interface SupabaseDatabasePlaceholder {
           phone?: string | null;
           notes?: string | null;
           role?: SupabaseProfileRole | null;
+          platform_role?: SupabasePlatformRole | null;
           updated_at?: string;
         };
       };

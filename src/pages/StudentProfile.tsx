@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
+import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 import type { ExerciseLibraryItem, WorkoutBlock } from "@/types";
@@ -27,6 +28,7 @@ function generateId() {
 }
 
 export default function StudentProfile() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { students, checkIns, updateStudent, setStudentLifecycle, getStudentCheckIns, approveProofOfPayment, markPaymentReceived, updatePaymentDueDate, refresh, exerciseLibrary, addExerciseLibraryItem } = useStore();
@@ -43,6 +45,7 @@ export default function StudentProfile() {
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
   const [paymentDueDateDraft, setPaymentDueDateDraft] = useState("");
+  const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
   const exerciseLibraryMap = useMemo(() => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])), [exerciseLibrary]);
 
   const studentCheckIns = useMemo(() => (student ? getStudentCheckIns(student.id) : []), [getStudentCheckIns, student]);

@@ -6,6 +6,7 @@ export type TeacherSubscriptionStatus = "trialing" | "active" | "expired" | "blo
 export interface AuthUser {
   id: string;
   role: AuthRole;
+  platformRole?: "default" | "dev_admin" | null;
   linkedStudentId?: string | null;
   accountStatus: AuthAccountStatus;
   mustChangePassword: boolean;

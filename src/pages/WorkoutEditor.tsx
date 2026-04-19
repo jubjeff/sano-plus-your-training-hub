@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { useAuth } from "@/auth/use-auth";
 import { ExerciseLibraryItem, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ function generateId() {
 }
 
 export default function WorkoutEditor() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { workouts, updateWorkout, addExerciseLibraryItem, exerciseLibrary } = useStore();
@@ -27,6 +29,7 @@ export default function WorkoutEditor() {
   const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
+  const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
 
   const exerciseLibraryMap = useMemo(
     () => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])),
@@ -44,8 +47,8 @@ export default function WorkoutEditor() {
   if (!workout) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-card/60 p-10 text-center">
-        <h1 className="font-display text-2xl font-semibold">Treino não encontrado</h1>
-        <p className="max-w-md text-sm text-muted-foreground">O treino selecionado não existe mais ou ainda não foi carregado nesta sessão.</p>
+        <h1 className="font-display text-2xl font-semibold">Treino nao encontrado</h1>
+        <p className="max-w-md text-sm text-muted-foreground">O treino selecionado nao existe mais ou ainda nao foi carregado nesta sessao.</p>
         <Button variant="outline" onClick={() => navigate("/biblioteca")}>Voltar para a biblioteca</Button>
       </div>
     );
@@ -104,7 +107,7 @@ export default function WorkoutEditor() {
               <span className="inline-flex w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">Editor de treino</span>
               <div>
                 <h1 className="font-display text-3xl font-semibold tracking-tight">Monte o treino com a biblioteca global</h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Use o catálogo oficial do Sano+ para manter a prescrição padronizada, clara e fácil de atualizar.</p>
+                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Use o catalogo oficial do Sano+ para manter a prescricao padronizada, clara e facil de atualizar.</p>
               </div>
             </div>
             <Button className="min-w-40" onClick={handleSave}>
@@ -125,8 +128,8 @@ export default function WorkoutEditor() {
               <Input id="workout-objective" value={objective} onChange={(event) => setObjective(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="workout-notes">Notas estratégicas</Label>
-              <Textarea id="workout-notes" rows={8} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Contexto, foco do treino, limitações e critérios de progressão." />
+              <Label htmlFor="workout-notes">Notas estrategicas</Label>
+              <Textarea id="workout-notes" rows={8} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Contexto, foco do treino, limitacoes e criterios de progressao." />
             </div>
           </aside>
 
@@ -134,7 +137,7 @@ export default function WorkoutEditor() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-xl font-semibold">Blocos do treino</h2>
-                <p className="text-sm text-muted-foreground">Cada bloco consome exercícios da biblioteca global e mantém a prescrição separada da ficha técnica.</p>
+                <p className="text-sm text-muted-foreground">Cada bloco consome exercicios da biblioteca global e mantem a prescricao separada da ficha tecnica.</p>
               </div>
               <Button variant="outline" onClick={addBlock}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -158,7 +161,7 @@ export default function WorkoutEditor() {
                 <div className="mt-4 space-y-3">
                   {block.exercises.length === 0 && (
                     <div className="rounded-[20px] border border-dashed border-border/60 px-4 py-10 text-center text-sm text-muted-foreground">
-                      Nenhum exercício neste bloco. Adicione um item da biblioteca ou cadastre um novo exercício global.
+                      Nenhum exercicio neste bloco. Adicione um item da biblioteca ou cadastre um novo exercicio global.
                     </div>
                   )}
 
@@ -170,7 +173,7 @@ export default function WorkoutEditor() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-semibold text-muted-foreground">{exerciseIndex + 1}.</span>
-                              <h3 className="truncate text-base font-semibold">{resolvedExercise.name || "Exercício sem nome"}</h3>
+                              <h3 className="truncate text-base font-semibold">{resolvedExercise.name || "Exercicio sem nome"}</h3>
                             </div>
                             {resolvedExercise.description && <p className="mt-2 text-sm text-muted-foreground">{resolvedExercise.description}</p>}
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -190,11 +193,11 @@ export default function WorkoutEditor() {
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-5">
-                          <div className="space-y-2"><Label>Séries</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} /></div>
-                          <div className="space-y-2"><Label>Repetições</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} /></div>
+                          <div className="space-y-2"><Label>Series</Label><Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} /></div>
+                          <div className="space-y-2"><Label>Repeticoes</Label><Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} /></div>
                           <div className="space-y-2"><Label>Carga</Label><Input value={exercise.load} onChange={(event) => updateExercise(block.id, exercise.id, { load: event.target.value })} /></div>
                           <div className="space-y-2"><Label>Descanso</Label><Input value={exercise.rest} onChange={(event) => updateExercise(block.id, exercise.id, { rest: event.target.value })} /></div>
-                          <div className="space-y-2"><Label>Observações</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} /></div>
+                          <div className="space-y-2"><Label>Observacoes</Label><Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} /></div>
                         </div>
                       </div>
                     );
@@ -202,10 +205,12 @@ export default function WorkoutEditor() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => setCreateLibraryBlockId(block.id)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Criar exercício
-                  </Button>
+                  {canManageExerciseLibrary ? (
+                    <Button variant="outline" onClick={() => setCreateLibraryBlockId(block.id)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar exercicio
+                    </Button>
+                  ) : null}
                   <Button variant="ghost" onClick={() => setPickerBlockId(block.id)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Usar da biblioteca
@@ -217,22 +222,24 @@ export default function WorkoutEditor() {
         </div>
       </section>
 
-      <ExerciseEditorDialog
-        open={createLibraryBlockId !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setCreateLibraryBlockId(null);
-        }}
-        onSave={async ({ exercise, videoFile, removeVideo }) => {
-          if (!createLibraryBlockId) return;
-          const createdExercise = await addExerciseLibraryItem({
-            ...exercise,
-            videoFile,
-            removeVideo,
-          });
-          addExerciseToBlock(createLibraryBlockId, createdExercise);
-          setCreateLibraryBlockId(null);
-        }}
-      />
+      {canManageExerciseLibrary ? (
+        <ExerciseEditorDialog
+          open={createLibraryBlockId !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setCreateLibraryBlockId(null);
+          }}
+          onSave={async ({ exercise, videoFile, removeVideo }) => {
+            if (!createLibraryBlockId) return;
+            const createdExercise = await addExerciseLibraryItem({
+              ...exercise,
+              videoFile,
+              removeVideo,
+            });
+            addExerciseToBlock(createLibraryBlockId, createdExercise);
+            setCreateLibraryBlockId(null);
+          }}
+        />
+      ) : null}
 
       <ExerciseLibraryPickerDialog
         open={pickerBlockId !== null}

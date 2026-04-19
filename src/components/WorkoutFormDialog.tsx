@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import { ExerciseLibraryItem, Workout, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props) {
+  const { user } = useAuth();
   const { addWorkout, updateWorkout, addExerciseLibraryItem, exerciseLibrary } = useStore();
   const isEditing = !!workout;
   const [name, setName] = useState("");
@@ -31,6 +33,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
   const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
+  const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
 
   const exerciseLibraryMap = useMemo(
     () => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])),
@@ -119,7 +122,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
             </div>
 
             <div className="space-y-2">
-              <Label>Observações</Label>
+              <Label>Observacoes</Label>
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
             </div>
 
@@ -149,7 +152,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
                   <div className="space-y-3 p-4">
                     {block.exercises.length === 0 && (
                       <div className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-                        Nenhum exercício neste bloco ainda.
+                        Nenhum exercicio neste bloco ainda.
                       </div>
                     )}
 
@@ -161,7 +164,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-semibold text-muted-foreground">{index + 1}.</span>
-                                <h3 className="truncate text-sm font-semibold">{resolvedExercise.name || "Exercício sem nome"}</h3>
+                                <h3 className="truncate text-sm font-semibold">{resolvedExercise.name || "Exercicio sem nome"}</h3>
                               </div>
                               {resolvedExercise.description && <p className="mt-2 text-sm text-muted-foreground">{resolvedExercise.description}</p>}
 
@@ -185,11 +188,11 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
 
                           <div className="mt-4 grid gap-3 md:grid-cols-5">
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Séries</Label>
+                              <Label className="text-xs">Series</Label>
                               <Input type="number" value={exercise.sets} onChange={(event) => updateExercise(block.id, exercise.id, { sets: Number(event.target.value) || 0 })} />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Repetições</Label>
+                              <Label className="text-xs">Repeticoes</Label>
                               <Input value={exercise.reps} onChange={(event) => updateExercise(block.id, exercise.id, { reps: event.target.value })} />
                             </div>
                             <div className="space-y-1.5">
@@ -201,7 +204,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
                               <Input value={exercise.rest} onChange={(event) => updateExercise(block.id, exercise.id, { rest: event.target.value })} />
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-xs">Observações</Label>
+                              <Label className="text-xs">Observacoes</Label>
                               <Input value={exercise.notes} onChange={(event) => updateExercise(block.id, exercise.id, { notes: event.target.value })} />
                             </div>
                           </div>
@@ -210,10 +213,12 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
                     })}
 
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setCreateLibraryBlockId(block.id)}>
-                        <Plus className="mr-1 h-4 w-4" />
-                        Criar exercício
-                      </Button>
+                      {canManageExerciseLibrary ? (
+                        <Button type="button" variant="outline" size="sm" onClick={() => setCreateLibraryBlockId(block.id)}>
+                          <Plus className="mr-1 h-4 w-4" />
+                          Criar exercicio
+                        </Button>
+                      ) : null}
                       <Button type="button" variant="ghost" size="sm" onClick={() => setPickerBlockId(block.id)}>
                         <Plus className="mr-1 h-4 w-4" />
                         Usar da biblioteca
@@ -234,22 +239,24 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
         </form>
       </DialogContent>
 
-      <ExerciseEditorDialog
-        open={createLibraryBlockId !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setCreateLibraryBlockId(null);
-        }}
-        onSave={async ({ exercise, videoFile, removeVideo }) => {
-          if (!createLibraryBlockId) return;
-          const createdExercise = await addExerciseLibraryItem({
-            ...exercise,
-            videoFile,
-            removeVideo,
-          });
-          addExerciseToBlock(createLibraryBlockId, createdExercise);
-          setCreateLibraryBlockId(null);
-        }}
-      />
+      {canManageExerciseLibrary ? (
+        <ExerciseEditorDialog
+          open={createLibraryBlockId !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setCreateLibraryBlockId(null);
+          }}
+          onSave={async ({ exercise, videoFile, removeVideo }) => {
+            if (!createLibraryBlockId) return;
+            const createdExercise = await addExerciseLibraryItem({
+              ...exercise,
+              videoFile,
+              removeVideo,
+            });
+            addExerciseToBlock(createLibraryBlockId, createdExercise);
+            setCreateLibraryBlockId(null);
+          }}
+        />
+      ) : null}
 
       <ExerciseLibraryPickerDialog
         open={pickerBlockId !== null}

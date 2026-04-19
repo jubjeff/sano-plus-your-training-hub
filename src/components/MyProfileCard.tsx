@@ -194,6 +194,12 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                   <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                   Dados protegidos
                 </Badge>
+                {user.platformRole === "dev_admin" ? (
+                  <Badge className="border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 hover:bg-emerald-400/12">
+                    <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                    Admin da plataforma
+                  </Badge>
+                ) : null}
               </div>
               <div>
                 <h2 className="font-display text-2xl font-semibold text-foreground">Seus dados na conta Sano+</h2>
@@ -218,6 +224,12 @@ export default function MyProfileCard({ showHeader = true }: { showHeader?: bool
                 <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                 CPF protegido
               </Badge>
+              {user.platformRole === "dev_admin" ? (
+                <Badge className="border border-emerald-400/30 bg-emerald-400/12 text-emerald-100 hover:bg-emerald-400/12">
+                  <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                  Admin da plataforma
+                </Badge>
+              ) : null}
               {isCoachAccount && isProPlan ? (
                 <Badge className="border border-amber-400/30 bg-amber-400/12 text-amber-100 hover:bg-amber-400/12">
                   <Crown className="mr-1 h-3.5 w-3.5" />

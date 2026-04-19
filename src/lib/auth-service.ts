@@ -47,6 +47,7 @@ type SupabaseProfileRow = {
   phone?: string | null;
   notes?: string | null;
   role?: string | null;
+  platform_role?: "default" | "dev_admin" | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -179,6 +180,7 @@ function mapAuthUserToProfile(user: AuthUser): DatabaseUserProfile {
     phone: user.phone ?? null,
     notes: user.notes ?? null,
     role: mapAuthRoleToSupabaseProfileRole(user.role),
+    platformRole: user.platformRole ?? "default",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -208,6 +210,7 @@ function createFallbackCoachUser(input: RegisterInput): StoredAuthUser {
   return {
     id: userId,
     role: "coach",
+    platformRole: "default",
     linkedStudentId: null,
     accountStatus: "active",
     mustChangePassword: false,
@@ -405,6 +408,7 @@ function buildSupabaseProfilePayload(
     phone: overrides.phone ?? currentProfile?.phone ?? getNullableMetadataString(metadata, "phone"),
     notes: overrides.notes ?? currentProfile?.notes ?? getNullableMetadataString(metadata, "notes"),
     role: overrides.role ?? currentProfile?.role ?? resolveSupabaseProfileRole(metadata.role),
+    platform_role: overrides.platform_role ?? currentProfile?.platform_role ?? "default",
   };
 }
 
@@ -482,7 +486,7 @@ async function fetchSupabaseProfile(userId: string) {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,platform_role,created_at,updated_at")
       .eq("id", userId)
       .maybeSingle();
 
@@ -513,7 +517,7 @@ async function ensureSupabaseProfile(user: User) {
     const { data, error } = await supabase
       .from("profiles")
       .upsert(payload, { onConflict: "id" })
-      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+      .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,platform_role,created_at,updated_at")
       .maybeSingle();
 
     if (error) {
@@ -549,7 +553,7 @@ async function updateSupabaseProfile(user: User, changes: Partial<SupabaseProfil
     .from("profiles")
     .update(changes)
     .eq("id", user.id)
-    .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,created_at,updated_at")
+    .select("id,email,full_name,avatar_url,cpf,birth_date,phone,notes,role,platform_role,created_at,updated_at")
     .maybeSingle();
 
   if (error) {
@@ -652,6 +656,7 @@ function mapSupabaseUserToFallbackAuthUser(user: User, profile: SupabaseProfileR
   return {
     id: user.id,
     role: "coach",
+    platformRole: profile?.platform_role ?? "default",
     linkedStudentId: null,
     accountStatus: "active",
     mustChangePassword: false,
@@ -701,6 +706,7 @@ async function mapSupabaseUserToAuthUser(user: User, profileOverride?: SupabaseP
     return {
       id: user.id,
       role: "student",
+      platformRole: profile?.platform_role ?? null,
       linkedStudentId: student.id,
       accountStatus: student.status === "active" ? "active" : "inactive",
       mustChangePassword: student.must_change_password,
@@ -738,6 +744,7 @@ async function mapSupabaseUserToAuthUser(user: User, profileOverride?: SupabaseP
   return {
     id: user.id,
     role: "coach",
+    platformRole: profile?.platform_role ?? "default",
     linkedStudentId: null,
     accountStatus: teacherAccess?.has_active_access === false ? "inactive" : "active",
     mustChangePassword: false,

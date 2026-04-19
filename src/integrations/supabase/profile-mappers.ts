@@ -37,6 +37,7 @@ export function mapSupabaseProfileRecord(record: SupabaseProfileRecord): Databas
     phone: record.phone,
     notes: record.notes,
     role: record.role,
+    platformRole: record.platform_role,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
