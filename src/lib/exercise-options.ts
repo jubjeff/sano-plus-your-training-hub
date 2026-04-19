@@ -97,6 +97,7 @@ export const EXERCISE_EQUIPMENT_SUGGESTIONS = [
   "Barra",
   "Barra fixa",
   "Barra T",
+  "Bastão",
   "Halteres",
   "Máquina",
   "Cabo",
