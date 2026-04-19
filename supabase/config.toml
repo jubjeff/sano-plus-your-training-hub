@@ -1,7 +1,7 @@
 project_id = "sano-plus-app"
 
 [functions.teacher-admin-actions]
-verify_jwt = true
+verify_jwt = false
 
 [functions.automation-dispatch]
 verify_jwt = false
