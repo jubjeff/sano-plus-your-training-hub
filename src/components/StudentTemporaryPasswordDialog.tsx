@@ -2,6 +2,7 @@ import { Copy, ExternalLink, KeyRound, MailCheck, MessageCircleMore } from "luci
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { buildStudentAccessCopyText, buildStudentAccessWhatsappMessage, buildStudentAccessWhatsappUrl } from "@/lib/student-temporary-access";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 
@@ -106,15 +107,26 @@ export default function StudentTemporaryPasswordDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <Button type="button" variant="outline" onClick={copyPassword}>
               <Copy className="h-4 w-4" />
               Copiar senha
             </Button>
-            <Button type="button" variant="outline" onClick={copyWhatsappMessage}>
-              <Copy className="h-4 w-4" />
-              Copiar mensagem
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={copyWhatsappMessage}
+                  className="h-11 w-11 shrink-0 rounded-2xl border border-border/60 bg-background/60 text-muted-foreground hover:bg-background hover:text-foreground"
+                  aria-label="Copiar mensagem"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar mensagem</TooltipContent>
+            </Tooltip>
             <Button type="button" onClick={copyAccessData}>
               <Copy className="h-4 w-4" />
               Copiar dados de acesso
