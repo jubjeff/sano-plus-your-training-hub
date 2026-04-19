@@ -2,6 +2,7 @@ type EdgeRuntimeEnv = {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceRoleKey: string;
+  appUrl: string | null;
   resendApiKey: string | null;
   resendFromEmail: string | null;
   resendFromName: string | null;
@@ -45,6 +46,7 @@ export function getEdgeRuntimeEnv(): EdgeRuntimeEnv {
     supabaseUrl: requireEnv("SUPABASE_URL"),
     supabaseAnonKey: requireEnv("SUPABASE_ANON_KEY"),
     supabaseServiceRoleKey: requireFirstEnv(["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"]),
+    appUrl: readOptionalEnv("APP_URL"),
     resendApiKey: readOptionalEnv("RESEND_API_KEY"),
     resendFromEmail: readOptionalEnv("RESEND_FROM_EMAIL"),
     resendFromName: readOptionalEnv("RESEND_FROM_NAME"),

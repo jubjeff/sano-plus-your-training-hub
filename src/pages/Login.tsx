@@ -18,7 +18,9 @@ export default function Login() {
   const params = new URLSearchParams(location.search);
   const registeredEmail = params.get("registered")?.trim() ?? "";
   const resetStatus = params.get("reset")?.trim() ?? "";
-  const [form, setForm] = useState({ email: "", password: "" });
+  const accessMode = params.get("access")?.trim() ?? "";
+  const invitedEmail = params.get("email")?.trim() ?? "";
+  const [form, setForm] = useState({ email: invitedEmail, password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,6 +83,12 @@ export default function Login() {
       {resetStatus === "success" ? (
         <div className="rounded-[24px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
           Sua senha foi redefinida com sucesso. Entre com a nova senha para continuar.
+        </div>
+      ) : null}
+
+      {accessMode === "student-first-login" ? (
+        <div className="rounded-[24px] border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          Entre com o e-mail e a senha provisoria recebidos. No primeiro acesso, voce sera direcionado para criar uma nova senha antes de entrar na area do aluno.
         </div>
       ) : null}
 

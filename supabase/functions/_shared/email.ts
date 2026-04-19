@@ -9,9 +9,10 @@ type SendTransactionalEmailInput = {
 };
 
 export type EmailDeliveryResult = {
-  status: "sent" | "skipped";
+  status: "sent" | "skipped" | "failed";
   provider: "resend" | "none";
   message: string;
+  details?: string | null;
 };
 
 function escapeHtml(value: string) {
@@ -53,7 +54,7 @@ async function sendWithResend(input: SendTransactionalEmailInput): Promise<Email
     const raw = await response.text().catch(() => "");
     throw new EdgeHttpError(
       "student_access_email_failed",
-      "A conta do aluno foi criada, mas o envio do e-mail com a senha provisoria falhou.",
+      "A conta foi criada, mas o envio do e-mail com a senha provisoria falhou.",
       502,
       {
         provider: "resend",
@@ -73,33 +74,52 @@ async function sendWithResend(input: SendTransactionalEmailInput): Promise<Email
 export async function sendStudentTemporaryAccessEmail(params: {
   studentName: string;
   email: string;
+  accessLink: string;
   temporaryPassword: string;
 }) {
   const safeStudentName = escapeHtml(params.studentName);
   const safeEmail = escapeHtml(params.email);
+  const safeAccessLink = escapeHtml(params.accessLink);
   const safePassword = escapeHtml(params.temporaryPassword);
 
-  return sendWithResend({
-    to: params.email,
-    subject: "Seu acesso inicial ao Sano+",
-    text:
-      `Ola, ${params.studentName}.\n\n` +
-      `Seu acesso inicial ao Sano+ foi criado.\n` +
-      `E-mail: ${params.email}\n` +
-      `Senha provisoria: ${params.temporaryPassword}\n\n` +
-      `No primeiro acesso, sera obrigatorio criar uma nova senha.\n`,
-    html:
-      `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">` +
-      `<h2 style="margin-bottom:16px">Seu acesso inicial ao Sano+</h2>` +
-      `<p>Ola, <strong>${safeStudentName}</strong>.</p>` +
-      `<p>Seu acesso inicial ao Sano+ foi criado com sucesso.</p>` +
-      `<div style="margin:20px 0;padding:16px;border:1px solid #dbe4f0;border-radius:12px;background:#f8fafc">` +
-      `<p style="margin:0 0 8px 0"><strong>E-mail:</strong> ${safeEmail}</p>` +
-      `<p style="margin:0"><strong>Senha provisoria:</strong> <span style="font-family:monospace">${safePassword}</span></p>` +
-      `</div>` +
-      `<p>No primeiro acesso, sera obrigatorio criar uma nova senha antes de entrar na plataforma.</p>` +
-      `</div>`,
-  });
+  try {
+    return await sendWithResend({
+      to: params.email,
+      subject: "Seu acesso inicial ao Sano+",
+      text:
+        `Ola, ${params.studentName}.\n\n` +
+        `Seu acesso inicial ao Sano+ foi criado.\n` +
+        `Link de acesso: ${params.accessLink}\n` +
+        `E-mail: ${params.email}\n` +
+        `Senha provisoria: ${params.temporaryPassword}\n\n` +
+        `No primeiro acesso, sera obrigatorio criar uma nova senha.\n`,
+      html:
+        `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">` +
+        `<h2 style="margin-bottom:16px">Seu acesso inicial ao Sano+</h2>` +
+        `<p>Ola, <strong>${safeStudentName}</strong>.</p>` +
+        `<p>Seu acesso inicial ao Sano+ foi criado com sucesso.</p>` +
+        `<div style="margin:20px 0;padding:16px;border:1px solid #dbe4f0;border-radius:12px;background:#f8fafc">` +
+        `<p style="margin:0 0 8px 0"><strong>Link de acesso:</strong> <a href="${safeAccessLink}">${safeAccessLink}</a></p>` +
+        `<p style="margin:0 0 8px 0"><strong>E-mail:</strong> ${safeEmail}</p>` +
+        `<p style="margin:0"><strong>Senha provisoria:</strong> <span style="font-family:monospace">${safePassword}</span></p>` +
+        `</div>` +
+        `<p>No primeiro acesso, sera obrigatorio criar uma nova senha antes de entrar na plataforma.</p>` +
+        `</div>`,
+    });
+  } catch (error) {
+    const details = error instanceof EdgeHttpError ? error.details : null;
+    const responseStatus =
+      details && typeof details === "object" && "responseStatus" in details ? String(details.responseStatus ?? "") : null;
+    const responseBody =
+      details && typeof details === "object" && "responseBody" in details ? String(details.responseBody ?? "") : null;
+
+    return {
+      status: "failed",
+      provider: "resend",
+      message: "A conta foi criada, mas o envio do e-mail falhou.",
+      details: [responseStatus, responseBody].filter(Boolean).join(" - ") || (error instanceof Error ? error.message : null),
+    };
+  }
 }
 
 export async function sendPasswordResetEmail(params: {

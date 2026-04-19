@@ -47,6 +47,11 @@ function normalizeOptionalString(value: unknown) {
   return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeOptionalPhone(value: unknown) {
+  const normalized = String(value ?? "").replace(/\D/g, "");
+  return normalized.length > 0 ? normalized : null;
+}
+
 function generateTemporaryPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
   return Array.from({ length: 14 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
@@ -56,6 +61,34 @@ function addDays(date: string, days: number) {
   const next = new Date(`${date}T00:00:00.000Z`);
   next.setUTCDate(next.getUTCDate() + days);
   return next.toISOString().slice(0, 10);
+}
+
+function resolveAppOrigin(request: Request) {
+  const originCandidates = [
+    Deno.env.get("APP_URL")?.trim() ?? null,
+    request.headers.get("origin")?.trim() ?? null,
+    request.headers.get("referer")?.trim() ?? null,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of originCandidates) {
+    try {
+      const url = new URL(candidate);
+      if (url.protocol === "https:" || url.hostname === "localhost") {
+        return url.origin;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return "https://sanoplus.online";
+}
+
+function buildStudentAccessLink(request: Request, email: string) {
+  const url = new URL("/", resolveAppOrigin(request));
+  url.searchParams.set("access", "student-first-login");
+  url.searchParams.set("email", email);
+  return url.toString();
 }
 
 async function requireTeacherId(serviceRoleClient: ReturnType<typeof createServiceRoleClient>, userId: string) {
@@ -139,7 +172,7 @@ function normalizeCreateStudentPayload(payload: Record<string, unknown>) {
   return {
     fullName,
     email,
-    phone: normalizeOptionalString(payload.phone),
+    phone: normalizeOptionalPhone(payload.phone),
     birthDate: normalizeOptionalString(payload.birthDate),
     goal: normalizeOptionalString(payload.goal) ?? "",
     notes: normalizeOptionalString(payload.notes),
@@ -148,6 +181,7 @@ function normalizeCreateStudentPayload(payload: Record<string, unknown>) {
 }
 
 async function createStudentWithTemporaryPassword(
+  request: Request,
   serviceRoleClient: ReturnType<typeof createServiceRoleClient>,
   teacherId: string,
   payload: Record<string, unknown>,
@@ -157,6 +191,7 @@ async function createStudentWithTemporaryPassword(
 
   const temporaryPassword = generateTemporaryPassword();
   const generatedAt = nowIso();
+  const accessLink = buildStudentAccessLink(request, input.email);
   let authUserId: string | null = null;
   let studentId: string | null = null;
 
@@ -238,6 +273,7 @@ async function createStudentWithTemporaryPassword(
     const emailDelivery = await sendStudentTemporaryAccessEmail({
       studentName: insertedStudent.full_name as string,
       email: insertedStudent.email as string,
+      accessLink,
       temporaryPassword,
     });
 
@@ -245,8 +281,10 @@ async function createStudentWithTemporaryPassword(
       studentId,
       studentName: insertedStudent.full_name as string,
       email: insertedStudent.email as string,
+      phone: input.phone,
       temporaryPassword,
       generatedAt,
+      accessLink,
       emailDelivery,
     };
   } catch (error) {
@@ -257,6 +295,7 @@ async function createStudentWithTemporaryPassword(
 }
 
 async function resetStudentTemporaryAccess(
+  request: Request,
   serviceRoleClient: ReturnType<typeof createServiceRoleClient>,
   teacherId: string,
   payload: Record<string, unknown>,
@@ -268,7 +307,7 @@ async function resetStudentTemporaryAccess(
 
   const { data: student, error: studentError } = await serviceRoleClient
     .from("students")
-    .select("id, teacher_id, auth_user_id, full_name, email")
+    .select("id, teacher_id, auth_user_id, full_name, email, phone")
     .eq("id", studentId)
     .eq("teacher_id", teacherId)
     .maybeSingle();
@@ -286,6 +325,7 @@ async function resetStudentTemporaryAccess(
 
   const temporaryPassword = generateTemporaryPassword();
   const generatedAt = nowIso();
+  const accessLink = buildStudentAccessLink(request, String(student.email));
   let authUserId = (student.auth_user_id as string | null) ?? null;
 
   if (authUserId) {
@@ -344,6 +384,7 @@ async function resetStudentTemporaryAccess(
   const emailDelivery = await sendStudentTemporaryAccessEmail({
     studentName: String(student.full_name),
     email: String(student.email),
+    accessLink,
     temporaryPassword,
   });
 
@@ -351,8 +392,10 @@ async function resetStudentTemporaryAccess(
     studentId: student.id as string,
     studentName: String(student.full_name),
     email: String(student.email),
+    phone: normalizeOptionalPhone(student.phone),
     temporaryPassword,
     generatedAt,
+    accessLink,
     emailDelivery,
   };
 }
@@ -389,7 +432,7 @@ async function setStudentStatus(
       ? student.must_change_password
         ? "temporary_password_pending"
         : "active"
-      : "pre_registered"
+      : "inactive"
     : "inactive";
 
   const { data, error } = await serviceRoleClient
@@ -490,10 +533,10 @@ Deno.serve(async (request) => {
 
     switch (body.action) {
       case "create_student_with_temporary_password":
-        data = await createStudentWithTemporaryPassword(serviceRoleClient, teacherId, body.payload);
+        data = await createStudentWithTemporaryPassword(request, serviceRoleClient, teacherId, body.payload);
         break;
       case "reset_student_temporary_access":
-        data = await resetStudentTemporaryAccess(serviceRoleClient, teacherId, body.payload);
+        data = await resetStudentTemporaryAccess(request, serviceRoleClient, teacherId, body.payload);
         break;
       case "set_student_status":
         data = await setStudentStatus(serviceRoleClient, teacherId, body.payload);

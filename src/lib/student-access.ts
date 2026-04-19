@@ -28,8 +28,6 @@ export function normalizeStudentPayload(data: z.infer<typeof studentFormSchema>)
 
 export function getStudentAccessStatusLabel(status: StudentAccessStatus) {
   switch (status) {
-    case "pre_registered":
-      return "Sem acesso";
     case "temporary_password_pending":
       return "Primeiro acesso pendente";
     case "active":
@@ -43,8 +41,6 @@ export function getStudentAccessStatusLabel(status: StudentAccessStatus) {
 
 export function getStudentAccessTone(status: StudentAccessStatus) {
   switch (status) {
-    case "pre_registered":
-      return "bg-muted text-muted-foreground";
     case "temporary_password_pending":
       return "bg-warning/15 text-warning";
     case "active":

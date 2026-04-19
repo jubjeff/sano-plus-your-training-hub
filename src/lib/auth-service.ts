@@ -4,6 +4,7 @@ import { createProfilePreviewUrl, loadPersistedProfileImage, loadPersistedProfil
 import { store } from "@/lib/store";
 import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import { EDGE_FUNCTION_NAMES, invokeSupabaseEdgeFunction } from "@/integrations/supabase";
+import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 import { mapAuthRoleToSupabaseProfileRole, mapSupabaseProfileRoleToAuthRole } from "@/integrations/supabase/profile-mappers";
 import type { User } from "@supabase/supabase-js";
 import type {
@@ -77,7 +78,7 @@ type SupabaseStudentAccessRow = {
   birth_date: string | null;
   notes: string | null;
   status: "active" | "inactive";
-  access_status: "pre_registered" | "temporary_password_pending" | "active" | "inactive";
+  access_status: "temporary_password_pending" | "active" | "inactive";
   temporary_password_generated_at: string | null;
   first_access_completed_at: string | null;
   last_login_at: string | null;
@@ -1160,13 +1161,7 @@ export const authService = {
         ok: true;
         requestId: string;
         data: {
-          result: {
-            studentId: string;
-            studentName: string;
-            email: string;
-            temporaryPassword: string;
-            generatedAt: string;
-          };
+          result: StudentTemporaryAccessResult;
         };
       }>(EDGE_FUNCTION_NAMES.teacherAdminActions, {
         body: {
@@ -1240,14 +1235,21 @@ export const authService = {
       store.provisionStudentAccess(studentId, studentUser.id, timestamp);
     }
 
-    return {
-      studentId,
-      studentName: student.fullName,
-      email: normalizeEmail(student.email),
-      temporaryPassword,
-      generatedAt: timestamp,
-    };
-  },
+      return {
+        studentId,
+        studentName: student.fullName,
+        email: normalizeEmail(student.email),
+        phone: student.phone || null,
+        temporaryPassword,
+        generatedAt: timestamp,
+        accessLink: buildAppUrl(`/?access=student-first-login&email=${encodeURIComponent(normalizeEmail(student.email))}`),
+        emailDelivery: {
+          status: "skipped" as const,
+          provider: "none" as const,
+          message: "Envio automatico indisponivel no modo local.",
+        },
+      };
+    },
 
   async completeFirstAccess(input: CompleteFirstAccessInput) {
     assertStrongPassword(input.password);

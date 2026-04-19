@@ -91,7 +91,7 @@ const initialStudents: Student[] = [
     birthDate: "1994-05-12",
     goal: "Hipertrofia",
     notes: "Lesao no ombro esquerdo. Evitar supino reto pesado nas proximas semanas.",
-    accessStatus: "pre_registered",
+    accessStatus: "inactive",
     studentStatus: "active",
     temporaryPasswordGeneratedAt: null,
     firstAccessCompletedAt: null,
@@ -296,7 +296,7 @@ function normalizeStudent(student: PersistedStudentLike): Student {
     profilePhotoStorageKey: student.profilePhotoStorageKey ?? null,
     goal: student.goal ?? student.objective ?? "",
     notes: student.notes ?? "",
-    accessStatus: student.accessStatus ?? (student.active === false ? "inactive" : "pre_registered"),
+    accessStatus: student.accessStatus ?? (student.active === false ? "inactive" : "temporary_password_pending"),
     studentStatus: student.studentStatus ?? (student.active === false ? "inactive" : "active"),
     temporaryPasswordGeneratedAt: student.temporaryPasswordGeneratedAt ?? null,
     firstAccessCompletedAt: student.firstAccessCompletedAt ?? null,
@@ -527,7 +527,7 @@ class Store {
       profilePhotoUrl,
       goal: data.goal,
       notes: data.notes,
-      accessStatus: "pre_registered",
+      accessStatus: "inactive",
       studentStatus: "active",
       temporaryPasswordGeneratedAt: null,
       firstAccessCompletedAt: null,
@@ -859,7 +859,7 @@ class Store {
           ? student.firstAccessCompletedAt
             ? "active"
             : "temporary_password_pending"
-          : "pre_registered"
+          : "inactive"
         : "inactive";
       return {
         ...student,

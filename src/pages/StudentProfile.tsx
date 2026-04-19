@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
+import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 import type { Exercise, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { getStudentAccessStatusLabel, getStudentAccessTone } from "@/lib/student
 import { getAttendanceSummary, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getProofStatusLabel, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { getAllowedProgressModes, getEngagementLabel, getEngagementTone, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan, normalizeProgressMode } from "@/lib/training-management";
 import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
+import { toast } from "@/components/ui/sonner";
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -30,11 +32,7 @@ export default function StudentProfile() {
   const student = students.find((item) => item.id === id);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [temporaryDialog, setTemporaryDialog] = useState<{ open: boolean; email: string; password: string }>({
-    open: false,
-    email: "",
-    password: "",
-  });
+  const [temporaryAccess, setTemporaryAccess] = useState<StudentTemporaryAccessResult | null>(null);
   const [editingWorkout, setEditingWorkout] = useState(false);
   const [workoutDraft, setWorkoutDraft] = useState<WorkoutBlock[]>([]);
   const [trainingStructureDraft, setTrainingStructureDraft] = useState<"weekly" | "abcde">("weekly");
@@ -177,9 +175,11 @@ export default function StudentProfile() {
   const handleTemporaryAccess = async () => {
     const result = await teacherAdminActionsService.resetStudentTemporaryAccess(student.id);
     await refresh?.();
-    setTemporaryDialog({ open: true, email: result.email, password: result.temporaryPassword });
+    setTemporaryAccess(result);
     if (result.emailDelivery?.status === "sent") {
       toast.success("Nova senha provisoria enviada ao aluno por e-mail.");
+    } else if (result.emailDelivery?.status === "failed") {
+      toast.error("A senha provisoria foi atualizada, mas o envio automatico do e-mail falhou.");
     } else if (result.emailDelivery?.status === "skipped") {
       toast.message(result.emailDelivery.message);
     }
@@ -270,10 +270,10 @@ export default function StudentProfile() {
                 Editar aluno
               </Button>
 
-              {(student.accessStatus === "pre_registered" || student.accessStatus === "inactive") ? (
+              {student.accessStatus === "inactive" ? (
                 <Button variant="outline" onClick={handleTemporaryAccess}>
                   <KeyRound className="mr-2 h-4 w-4" />
-                  Gerar senha provisoria
+                  Gerar novo acesso
                 </Button>
               ) : null}
 
@@ -638,11 +638,20 @@ export default function StudentProfile() {
       <StudentFormDialog open={editOpen} onOpenChange={setEditOpen} student={student} />
       <ImportWorkoutDialog open={importOpen} onOpenChange={setImportOpen} studentId={student.id} />
       <StudentTemporaryPasswordDialog
-        open={temporaryDialog.open}
-        onOpenChange={(open) => setTemporaryDialog((current) => ({ ...current, open }))}
-        email={temporaryDialog.email}
-        studentName={student.fullName}
-        temporaryPassword={temporaryDialog.password}
+        open={temporaryAccess !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTemporaryAccess(null);
+          }
+        }}
+        studentId={temporaryAccess?.studentId || ""}
+        studentName={temporaryAccess?.studentName || student.fullName}
+        email={temporaryAccess?.email || student.email}
+        phone={temporaryAccess?.phone || student.phone}
+        temporaryPassword={temporaryAccess?.temporaryPassword || ""}
+        generatedAt={temporaryAccess?.generatedAt || ""}
+        accessLink={temporaryAccess?.accessLink || ""}
+        emailDelivery={temporaryAccess?.emailDelivery}
       />
 
       <ExerciseEditorDialog

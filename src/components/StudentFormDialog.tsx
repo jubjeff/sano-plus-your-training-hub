@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
+import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 import { hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
 import type { Student } from "@/types";
 import StudentTemporaryPasswordDialog from "@/components/StudentTemporaryPasswordDialog";
@@ -31,7 +32,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
-  const [temporaryAccess, setTemporaryAccess] = useState<{ studentName: string; email: string; temporaryPassword: string } | null>(null);
+  const [temporaryAccess, setTemporaryAccess] = useState<StudentTemporaryAccessResult | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -168,12 +169,13 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
         }
 
         setTemporaryAccess({
-          studentName: access.studentName,
-          email: access.email,
-          temporaryPassword: access.temporaryPassword,
+          ...access,
         });
         if (access.emailDelivery?.status === "sent") {
           toast.success("Aluno criado com senha provisoria e e-mail enviado.");
+        } else if (access.emailDelivery?.status === "failed") {
+          toast.success("Aluno criado com senha provisoria.");
+          toast.error("O e-mail automatico falhou, mas os dados de acesso estao disponiveis no popup.");
         } else if (access.emailDelivery?.status === "skipped") {
           toast.success("Aluno criado com senha provisoria.");
           toast.message(access.emailDelivery.message);
@@ -269,7 +271,7 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Salvando..." : isEditing ? "Salvar" : "Pre-cadastrar"}
+              {isSubmitting ? "Salvando..." : isEditing ? "Salvar" : "Criar aluno"}
             </Button>
           </DialogFooter>
         </form>
@@ -279,9 +281,14 @@ export default function StudentFormDialog({ open, onOpenChange, student }: Props
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setTemporaryAccess(null);
         }}
-        email={temporaryAccess?.email || ""}
+        studentId={temporaryAccess?.studentId || ""}
         studentName={temporaryAccess?.studentName || ""}
+        email={temporaryAccess?.email || ""}
+        phone={temporaryAccess?.phone || ""}
         temporaryPassword={temporaryAccess?.temporaryPassword || ""}
+        generatedAt={temporaryAccess?.generatedAt || ""}
+        accessLink={temporaryAccess?.accessLink || ""}
+        emailDelivery={temporaryAccess?.emailDelivery}
       />
     </Dialog>
   );

@@ -87,12 +87,15 @@ export interface StudentTemporaryAccessResult {
   studentId: string;
   studentName: string;
   email: string;
+  phone?: string | null;
   temporaryPassword: string;
   generatedAt: string;
+  accessLink: string;
   emailDelivery?: {
-    status: "sent" | "skipped";
+    status: "sent" | "skipped" | "failed";
     provider: "resend" | "none";
     message: string;
+    details?: string | null;
   };
 }
 

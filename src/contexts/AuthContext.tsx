@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { authService } from "@/lib/auth-service";
 import { getSupabaseClient, hasSupabaseRuntimeConfig } from "@/integrations/supabase/client";
+import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 import type { AuthUser, CompleteFirstAccessInput, ForgotPasswordInput, LoginInput, RegisterInput, ResolvedAuthSession, ResetPasswordInput, UpdateProfileInput } from "@/types/auth";
 import type { DatabaseUserProfile } from "@/types/profile";
 
@@ -16,7 +17,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   requestPasswordReset: (input: ForgotPasswordInput) => Promise<{ token: string; message: string }>;
   resetPassword: (input: ResetPasswordInput) => Promise<AuthUser | null>;
-  issueStudentTemporaryAccess: (studentId: string) => Promise<{ studentId: string; studentName: string; email: string; temporaryPassword: string; generatedAt: string }>;
+  issueStudentTemporaryAccess: (studentId: string) => Promise<StudentTemporaryAccessResult>;
   completeFirstAccess: (input: CompleteFirstAccessInput) => Promise<AuthUser | null>;
   updateProfile: (input: UpdateProfileInput) => Promise<AuthUser | null>;
   refreshUser: () => Promise<void>;

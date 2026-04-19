@@ -1,4 +1,4 @@
-export type StudentAccessStatus = "pre_registered" | "temporary_password_pending" | "active" | "inactive";
+export type StudentAccessStatus = "temporary_password_pending" | "active" | "inactive";
 export type StudentStatus = "active" | "inactive";
 export type ProofOfPaymentStatus = "not_sent" | "submitted" | "approved";
 export type StudentFinancialStatus = "paid" | "due_soon" | "overdue" | "blocked" | "proof_submitted" | "inactive";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MailCheck, Plus, Search, ShieldCheck, UserCheck, UserMinus, Users } from "lucide-react";
+import { MailCheck, Plus, Search, UserCheck, UserMinus, Users } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,6 @@ export default function Students() {
 
   const filters: { key: Filter; label: string; icon: React.ElementType }[] = [
     { key: "all", label: "Todos", icon: Users },
-    { key: "pre_registered", label: "Sem acesso", icon: ShieldCheck },
     { key: "temporary_password_pending", label: "Primeiro acesso pendente", icon: MailCheck },
     { key: "active", label: "Conta ativa", icon: UserCheck },
     { key: "inactive", label: "Inativos", icon: UserMinus },
@@ -42,7 +41,7 @@ export default function Students() {
             </span>
             <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Cadastro controlado e acesso com senha provisoria</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Pre-cadastre alunos, gere acessos temporarios com seguranca e acompanhe quem ainda precisa concluir o primeiro login.
+              Crie contas de aluno com Supabase Auth, envie o acesso inicial por e-mail e acompanhe quem ainda precisa concluir o primeiro login.
             </p>
           </div>
           <Button className="w-full sm:w-auto sm:min-w-40" onClick={() => setFormOpen(true)}>
