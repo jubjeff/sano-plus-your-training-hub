@@ -21,8 +21,36 @@ export type ExerciseMovementType =
   | "Mobilidade"
   | "Alongamento"
   | "Cardio";
+export type ExerciseMovementCategory =
+  | "Empurrar horizontal"
+  | "Empurrar vertical"
+  | "Puxar horizontal"
+  | "Puxar vertical"
+  | "Agachar"
+  | "Avanço"
+  | "Hinge"
+  | "Flexão de cotovelo"
+  | "Extensão de cotovelo"
+  | "Flexão de joelho"
+  | "Extensão de joelho"
+  | "Flexão plantar"
+  | "Flexão de tronco"
+  | "Anti-extensão"
+  | "Rotação de tronco"
+  | "Abdução de quadril"
+  | "Adução de quadril"
+  | "Extensão de quadril"
+  | "Abdução de ombro"
+  | "Flexão de ombro"
+  | "Retração escapular"
+  | "Carregada"
+  | "Potência"
+  | "Locomoção";
 export type ExerciseDifficultyLevel = "Iniciante" | "Intermediário" | "Avançado";
 export type ExerciseType = "Força" | "Hipertrofia" | "Resistência" | "Técnica" | "Ativação" | "Mobilidade" | "Alongamento" | "Condicionamento";
+export type ExerciseMechanicalType = "Composto" | "Isolado";
+export type ExerciseLaterality = "Bilateral" | "Unilateral";
+export type ExerciseMovementPlane = "Sagital" | "Frontal" | "Transversal" | "Multiplanar";
 
 export interface Exercise {
   id: string;
@@ -45,12 +73,17 @@ export interface Exercise {
   notes: string;
   bodyRegion?: ExerciseBodyRegion | null;
   movementType?: ExerciseMovementType | null;
+  movementCategory?: ExerciseMovementCategory | null;
   difficultyLevel?: ExerciseDifficultyLevel | null;
   exerciseType?: ExerciseType | null;
+  mechanicalType?: ExerciseMechanicalType | null;
+  laterality?: ExerciseLaterality | null;
+  movementPlane?: ExerciseMovementPlane | null;
   equipment?: string | null;
   muscleCategory?: string | null;
   muscleGroupPrimary?: string | null;
   muscleGroupsSecondary?: string[];
+  aliases?: string[];
   videoUrl?: string | null;
   videoStoragePath?: string | null;
   thumbnailUrl?: string | null;
@@ -69,10 +102,15 @@ export interface ExerciseLibraryItem {
   muscleGroupPrimary?: string | null;
   muscleGroupsSecondary: string[];
   movementType?: ExerciseMovementType | null;
+  movementCategory?: ExerciseMovementCategory | null;
   bodyRegion?: ExerciseBodyRegion | null;
   equipment?: string | null;
   difficultyLevel?: ExerciseDifficultyLevel | null;
   exerciseType?: ExerciseType | null;
+  mechanicalType?: ExerciseMechanicalType | null;
+  laterality?: ExerciseLaterality | null;
+  movementPlane?: ExerciseMovementPlane | null;
+  aliases: string[];
   description: string;
   executionInstructions: string;
   breathingTips: string;

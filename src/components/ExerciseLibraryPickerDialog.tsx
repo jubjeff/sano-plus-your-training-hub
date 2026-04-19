@@ -177,7 +177,11 @@ export default function ExerciseLibraryPickerDialog({ open, onOpenChange, onSele
                               {exercise.equipment && <Badge variant="outline">{exercise.equipment}</Badge>}
                               {exercise.difficultyLevel && <Badge variant="outline">{exercise.difficultyLevel}</Badge>}
                               {exercise.movementType && <Badge variant="outline">{exercise.movementType}</Badge>}
+                              {exercise.movementCategory && <Badge variant="outline">{exercise.movementCategory}</Badge>}
+                              {exercise.mechanicalType && <Badge variant="outline">{exercise.mechanicalType}</Badge>}
+                              {exercise.laterality && <Badge variant="outline">{exercise.laterality}</Badge>}
                             </div>
+                            {(exercise.aliases ?? []).length > 0 && <p className="mt-2 text-xs text-muted-foreground">Aliases: {exercise.aliases.join(", ")}</p>}
                           </div>
 
                           <Button

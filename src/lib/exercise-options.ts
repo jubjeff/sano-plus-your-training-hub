@@ -2,6 +2,10 @@ import type {
   ExerciseBodyRegion,
   ExerciseCategory,
   ExerciseDifficultyLevel,
+  ExerciseLaterality,
+  ExerciseMechanicalType,
+  ExerciseMovementCategory,
+  ExerciseMovementPlane,
   ExerciseMovementType,
   ExerciseType,
 } from "@/types";
@@ -17,6 +21,7 @@ export const MUSCLE_CATEGORIES = [
   "Antebraço",
   "Abdômen",
   "Glúteos",
+  "Quadríceps e glúteos",
   "Quadríceps",
   "Posterior de coxa",
   "Panturrilhas",
@@ -72,6 +77,33 @@ export const EXERCISE_MOVEMENT_OPTIONS: ExerciseMovementType[] = [
   "Cardio",
 ];
 
+export const EXERCISE_MOVEMENT_CATEGORY_OPTIONS: ExerciseMovementCategory[] = [
+  "Empurrar horizontal",
+  "Empurrar vertical",
+  "Puxar horizontal",
+  "Puxar vertical",
+  "Agachar",
+  "Avanço",
+  "Hinge",
+  "Flexão de cotovelo",
+  "Extensão de cotovelo",
+  "Flexão de joelho",
+  "Extensão de joelho",
+  "Flexão plantar",
+  "Flexão de tronco",
+  "Anti-extensão",
+  "Rotação de tronco",
+  "Abdução de quadril",
+  "Adução de quadril",
+  "Extensão de quadril",
+  "Abdução de ombro",
+  "Flexão de ombro",
+  "Retração escapular",
+  "Carregada",
+  "Potência",
+  "Locomoção",
+];
+
 export const EXERCISE_BODY_REGION_OPTIONS: ExerciseBodyRegion[] = [
   "Membros superiores",
   "Membros inferiores",
@@ -92,14 +124,29 @@ export const EXERCISE_TYPE_OPTIONS: ExerciseType[] = [
   "Condicionamento",
 ];
 
+export const EXERCISE_MECHANICAL_TYPE_OPTIONS: ExerciseMechanicalType[] = ["Composto", "Isolado"];
+
+export const EXERCISE_LATERALITY_OPTIONS: ExerciseLaterality[] = ["Bilateral", "Unilateral"];
+
+export const EXERCISE_MOVEMENT_PLANE_OPTIONS: ExerciseMovementPlane[] = ["Sagital", "Frontal", "Transversal", "Multiplanar"];
+
 export const EXERCISE_EQUIPMENT_SUGGESTIONS = [
   "Barra",
   "Halteres",
   "Máquina",
   "Cabo",
-  "Kettlebell",
   "Banco",
+  "Banco inclinado",
+  "Banco declinado",
+  "Banco Scott",
+  "Kettlebell",
   "Smith",
+  "Leg press",
+  "Hack machine",
+  "Barra fixa",
+  "Paralelas",
+  "Barra T",
+  "Roda abdominal",
   "Peso corporal",
   "Miniband",
   "Elástico",

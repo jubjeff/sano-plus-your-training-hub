@@ -83,10 +83,15 @@ type ExerciseLibraryRow = {
   muscle_group_primary: string | null;
   muscle_groups_secondary: string[] | null;
   movement_type: ExerciseLibraryItem["movementType"] | null;
+  movement_category: ExerciseLibraryItem["movementCategory"] | null;
   body_region: ExerciseLibraryItem["bodyRegion"] | null;
   equipment: string | null;
   difficulty_level: ExerciseLibraryItem["difficultyLevel"] | null;
   exercise_type: ExerciseLibraryItem["exerciseType"] | null;
+  mechanical_type: ExerciseLibraryItem["mechanicalType"] | null;
+  laterality: ExerciseLibraryItem["laterality"] | null;
+  movement_plane: ExerciseLibraryItem["movementPlane"] | null;
+  aliases: string[] | null;
   description: string | null;
   execution_instructions: string | null;
   breathing_tips: string | null;
@@ -280,10 +285,15 @@ function mapExerciseLibraryItem(row: ExerciseLibraryRow): ExerciseLibraryItem {
     muscleGroupPrimary: row.muscle_group_primary,
     muscleGroupsSecondary: row.muscle_groups_secondary ?? [],
     movementType: row.movement_type,
+    movementCategory: row.movement_category,
     bodyRegion: row.body_region,
     equipment: row.equipment,
     difficultyLevel: row.difficulty_level,
     exerciseType: row.exercise_type,
+    mechanicalType: row.mechanical_type,
+    laterality: row.laterality,
+    movementPlane: row.movement_plane,
+    aliases: row.aliases ?? [],
     description: row.description ?? "",
     executionInstructions: row.execution_instructions ?? "",
     breathingTips: row.breathing_tips ?? "",
@@ -499,7 +509,7 @@ export class SupabaseStore {
         .order("created_at", { ascending: false }),
       supabase
         .from("exercises")
-        .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,body_region,equipment,difficulty_level,exercise_type,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
+        .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,movement_category,body_region,equipment,difficulty_level,exercise_type,mechanical_type,laterality,movement_plane,aliases,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
         .order("name", { ascending: true }),
       supabase
         .from("student_workout_plans")
@@ -940,10 +950,15 @@ export class SupabaseStore {
         muscle_group_primary: base.muscleGroupPrimary,
         muscle_groups_secondary: base.muscleGroupsSecondary,
         movement_type: base.movementType,
+        movement_category: base.movementCategory,
         body_region: base.bodyRegion,
         equipment: base.equipment,
         difficulty_level: base.difficultyLevel,
         exercise_type: base.exerciseType,
+        mechanical_type: base.mechanicalType,
+        laterality: base.laterality,
+        movement_plane: base.movementPlane,
+        aliases: base.aliases,
         description: base.description,
         execution_instructions: base.executionInstructions,
         breathing_tips: base.breathingTips,
@@ -955,7 +970,7 @@ export class SupabaseStore {
         is_global: true,
         created_by: teacherId,
       })
-      .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,body_region,equipment,difficulty_level,exercise_type,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
+      .select("id,name,slug,category,muscle_category,muscle_group_primary,muscle_groups_secondary,movement_type,movement_category,body_region,equipment,difficulty_level,exercise_type,mechanical_type,laterality,movement_plane,aliases,description,execution_instructions,breathing_tips,posture_tips,contraindications,common_mistakes,video_url,video_storage_path,thumbnail_url,thumbnail_storage_path,duration_limit_seconds,is_active,is_global,created_by,created_at,updated_at")
       .maybeSingle();
 
     if (error || !inserted) {
@@ -1019,6 +1034,7 @@ export class SupabaseStore {
       videoUrl: nextVideoUrl,
       videoStoragePath: nextVideoStoragePath,
       muscleGroupsSecondary: [...(data.muscleGroupsSecondary ?? current.muscleGroupsSecondary)],
+      aliases: [...(data.aliases ?? current.aliases)],
     });
 
     const { error } = await supabase
@@ -1031,10 +1047,15 @@ export class SupabaseStore {
         muscle_group_primary: base.muscleGroupPrimary,
         muscle_groups_secondary: base.muscleGroupsSecondary,
         movement_type: base.movementType,
+        movement_category: base.movementCategory,
         body_region: base.bodyRegion,
         equipment: base.equipment,
         difficulty_level: base.difficultyLevel,
         exercise_type: base.exerciseType,
+        mechanical_type: base.mechanicalType,
+        laterality: base.laterality,
+        movement_plane: base.movementPlane,
+        aliases: base.aliases,
         description: base.description,
         execution_instructions: base.executionInstructions,
         breathing_tips: base.breathingTips,
