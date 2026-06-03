@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { DollarSign, Dumbbell, LayoutDashboard, LogOut, Menu, Moon, Sparkles, Sun, Users } from "lucide-react";
+import { ClipboardList, DollarSign, Dumbbell, LayoutDashboard, LogOut, Menu, Moon, Sparkles, Sun, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -9,6 +9,7 @@ import { useTheme } from "@/hooks/use-theme";
 const coachNavItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/alunos", label: "Alunos", icon: Users },
+  { to: "/anamneses", label: "Anamneses", icon: ClipboardList },
   { to: "/biblioteca", label: "Biblioteca", icon: Dumbbell },
 ];
 
@@ -39,6 +40,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ? "Gestão de alunos"
     : location.pathname.startsWith("/biblioteca")
     ? "Biblioteca de treinos"
+    : location.pathname.startsWith("/anamneses")
+    ? "Fila de anamneses"
     : "Painel Sano+";
 
   useEffect(() => {

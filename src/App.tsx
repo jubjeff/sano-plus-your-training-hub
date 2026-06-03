@@ -8,6 +8,8 @@ import RoleRoute from "@/guards/role-route";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import Anamnese from "@/pages/Anamnese";
+import AnamnesisQueue from "@/pages/AnamnesisQueue";
 import Dashboard from "@/pages/Dashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import FirstAccessPassword from "@/pages/FirstAccessPassword";
@@ -36,6 +38,7 @@ const App = () => (
           <Route path="/verifique-email" element={<PublicOnlyRoute><VerifyEmail /></PublicOnlyRoute>} />
           <Route path="/esqueci-senha" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
           <Route path="/forgot-password" element={<Navigate to="/esqueci-senha" replace />} />
+          <Route path="/anamnese" element={<Anamnese />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/reset-password" element={<Navigate to="/redefinir-senha" replace />} />
@@ -69,6 +72,10 @@ const App = () => (
           <Route
             path="/biblioteca/:id/editar"
             element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><WorkoutEditor /></AppLayout></RoleRoute></ProtectedRoute>}
+          />
+          <Route
+            path="/anamneses"
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><AnamnesisQueue /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route path="/home" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />

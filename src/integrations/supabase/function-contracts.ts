@@ -1,4 +1,5 @@
 export const EDGE_FUNCTION_NAMES = {
+  anamnesisSubmit: "anamnesis-submit",
   teacherAdminActions: "teacher-admin-actions",
   automationDispatch: "automation-dispatch",
   integrationWebhook: "integration-webhook",

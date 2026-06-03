@@ -6,6 +6,7 @@ type EdgeRuntimeEnv = {
   resendApiKey: string | null;
   resendFromEmail: string | null;
   resendFromName: string | null;
+  coachNotificationEmail: string | null;
   internalAutomationSecret: string | null;
   integrationWebhookSecret: string | null;
   secureOpsSecret: string | null;
@@ -50,6 +51,7 @@ export function getEdgeRuntimeEnv(): EdgeRuntimeEnv {
     resendApiKey: readOptionalEnv("RESEND_API_KEY"),
     resendFromEmail: readOptionalEnv("RESEND_FROM_EMAIL"),
     resendFromName: readOptionalEnv("RESEND_FROM_NAME"),
+    coachNotificationEmail: readOptionalEnv("COACH_NOTIFICATION_EMAIL"),
     internalAutomationSecret: readOptionalEnv("INTERNAL_AUTOMATION_SECRET"),
     integrationWebhookSecret: readOptionalEnv("INTEGRATION_WEBHOOK_SECRET"),
     secureOpsSecret: readOptionalEnv("SECURE_OPS_SECRET"),

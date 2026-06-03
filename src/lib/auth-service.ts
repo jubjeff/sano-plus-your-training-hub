@@ -538,6 +538,10 @@ async function upsertSupabaseProfile(user: User, overrides: Partial<SupabaseProf
   const payload = buildSupabaseProfilePayload(user, currentProfile, overrides);
   const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
   if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("failed to fetch") || msg.includes("networkerror") || msg.includes("network request failed") || msg.includes("load failed")) {
+      throw new AuthServiceError("network_error", "form", "Erro de conexão ao salvar seu perfil. Verifique sua internet e tente novamente.");
+    }
     throw new AuthServiceError("profile_sync_failed", "form", error.message);
   }
 }
@@ -944,6 +948,14 @@ export const authService = {
           "email_rate_limited",
           "form",
           "Você atingiu o limite temporário de envio de e-mails. Aguarde alguns minutos antes de tentar novamente.",
+        );
+      }
+
+      if (normalizedMessage.includes("failed to fetch") || normalizedMessage.includes("networkerror") || normalizedMessage.includes("network request failed") || normalizedMessage.includes("load failed")) {
+        throw new AuthServiceError(
+          "network_error",
+          "form",
+          "Erro de conexão ao criar sua conta. Verifique sua internet e tente novamente.",
         );
       }
 

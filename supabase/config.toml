@@ -1,5 +1,8 @@
 project_id = "sano-plus-app"
 
+[functions.anamnesis-submit]
+verify_jwt = false
+
 [functions.teacher-admin-actions]
 verify_jwt = false
 

@@ -150,3 +150,166 @@ export async function sendPasswordResetEmail(params: {
       `</div>`,
   });
 }
+
+const GOAL_LABELS: Record<string, string> = {
+  hipertrofia: "Hipertrofia",
+  emagrecimento: "Emagrecimento",
+  condicionamento: "Condicionamento",
+  recomposicao: "Recomposicao corporal",
+};
+
+const EXPERIENCE_LABELS: Record<string, string> = {
+  iniciante: "Iniciante",
+  intermediario: "Intermediario",
+  avancado: "Avancado",
+};
+
+const EQUIPMENT_LABELS: Record<string, string> = {
+  "academia_completa": "Academia completa",
+  "halteres_casa": "Halteres em casa",
+  "elasticos": "Elasticos",
+  "sem_equipamento": "Sem equipamento",
+};
+
+const TIME_LABELS: Record<string, string> = {
+  manha: "Manha",
+  tarde: "Tarde",
+  noite: "Noite",
+};
+
+function formatEquipmentList(equipment: string[]): string {
+  if (!equipment || equipment.length === 0) return "Nao informado";
+  return equipment.map((e) => EQUIPMENT_LABELS[e] ?? e).join(", ");
+}
+
+export type AnamnesisEmailData = {
+  fullName: string;
+  email: string;
+  phone: string;
+  age: number;
+  weightKg: number;
+  goal: string;
+  experienceLevel: string;
+  availableDaysPerWeek: number;
+  sessionDuration: string;
+  preferredTime: string;
+  availableEquipment: string[];
+  injuryHistory: string;
+  hasTrainedBefore: boolean;
+  stoppedTrainingDuration?: string | null;
+};
+
+export async function sendAnamnesisWelcomeEmail(params: {
+  fullName: string;
+  email: string;
+}): Promise<EmailDeliveryResult> {
+  const safeName = escapeHtml(params.fullName);
+
+  try {
+    return await sendWithResend({
+      to: params.email,
+      subject: "Anamnese recebida — Sano+",
+      text:
+        `Ola, ${params.fullName}!\n\n` +
+        `Recebemos sua anamnese com sucesso. Nossa equipe vai analisar seus dados e em ate 24 horas voce recebera seu treino personalizado.\n\n` +
+        `Fique de olho no seu e-mail.\n\n` +
+        `Equipe Sano+`,
+      html:
+        `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:600px">` +
+        `<h2 style="margin-bottom:8px;color:#10b981">Anamnese recebida com sucesso!</h2>` +
+        `<p>Ola, <strong>${safeName}</strong>!</p>` +
+        `<p>Recebemos sua anamnese e ja estamos analisando seus dados. Em ate <strong>24 horas</strong> voce recebera seu treino personalizado aqui neste e-mail.</p>` +
+        `<div style="margin:24px 0;padding:16px;border-left:4px solid #10b981;background:#f0fdf4;border-radius:0 12px 12px 0">` +
+        `<p style="margin:0;font-weight:600;color:#065f46">Proximos passos</p>` +
+        `<p style="margin:8px 0 0;color:#047857;font-size:14px">1. Analisamos seu perfil e objetivos<br>2. Montamos seu treino personalizado<br>3. Voce recebe tudo por e-mail para comecar</p>` +
+        `</div>` +
+        `<p style="font-size:14px;color:#475569">Qualquer duvida, responda este e-mail. Estamos aqui para ajudar.</p>` +
+        `<p style="margin-top:24px;font-size:14px;color:#0f172a"><strong>Equipe Sano+</strong></p>` +
+        `</div>`,
+    });
+  } catch (error) {
+    return {
+      status: "failed",
+      provider: "resend",
+      message: "Falha ao enviar e-mail de boas-vindas.",
+      details: error instanceof Error ? error.message : null,
+    };
+  }
+}
+
+export async function sendAnamnesisCoachNotificationEmail(params: {
+  coachEmail: string;
+  coachName?: string | null;
+  data: AnamnesisEmailData;
+  reviewLink: string;
+}): Promise<EmailDeliveryResult> {
+  const d = params.data;
+  const safeName = escapeHtml(d.fullName);
+  const safeEmail = escapeHtml(d.email);
+  const safePhone = escapeHtml(d.phone);
+  const safeInjury = escapeHtml(d.injuryHistory);
+  const safeLink = escapeHtml(params.reviewLink);
+  const goalLabel = GOAL_LABELS[d.goal] ?? d.goal;
+  const expLabel = EXPERIENCE_LABELS[d.experienceLevel] ?? d.experienceLevel;
+  const timeLabel = TIME_LABELS[d.preferredTime] ?? d.preferredTime;
+  const equipmentList = formatEquipmentList(d.availableEquipment);
+  const trainedBefore = d.hasTrainedBefore
+    ? `Sim${d.stoppedTrainingDuration ? ` (parou ha ${escapeHtml(d.stoppedTrainingDuration)})` : ""}`
+    : "Nao";
+
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:8px 12px;font-size:14px;color:#64748b;white-space:nowrap">${label}</td>` +
+    `<td style="padding:8px 12px;font-size:14px;color:#0f172a;font-weight:500">${value}</td></tr>`;
+
+  try {
+    return await sendWithResend({
+      to: params.coachEmail,
+      subject: `Nova anamnese recebida — ${d.fullName}`,
+      text:
+        `Nova anamnese recebida!\n\n` +
+        `Aluno: ${d.fullName}\n` +
+        `E-mail: ${d.email}\n` +
+        `Telefone: ${d.phone}\n` +
+        `Idade: ${d.age} anos | Peso: ${d.weightKg} kg\n` +
+        `Objetivo: ${goalLabel} | Nivel: ${expLabel}\n` +
+        `Dias/semana: ${d.availableDaysPerWeek} | Duracao: ${d.sessionDuration} | Horario: ${timeLabel}\n` +
+        `Equipamentos: ${equipmentList}\n` +
+        `Ja treinou: ${trainedBefore}\n` +
+        `Lesoes/limitacoes: ${d.injuryHistory}\n\n` +
+        `Revise no painel: ${params.reviewLink}\n`,
+      html:
+        `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:600px">` +
+        `<h2 style="margin-bottom:4px;color:#0f172a">Nova anamnese recebida</h2>` +
+        `<p style="margin:0 0 20px;color:#475569;font-size:14px">Um novo aluno preencheu o formulario de anamnese.</p>` +
+        `<table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">` +
+        `<thead><tr style="background:#f8fafc"><th colspan="2" style="padding:10px 12px;text-align:left;font-size:13px;font-weight:700;color:#0f172a;letter-spacing:0.05em">DADOS DO ALUNO</th></tr></thead>` +
+        `<tbody>` +
+        row("Nome", safeName) +
+        row("E-mail", safeEmail) +
+        row("Telefone", safePhone) +
+        row("Idade", `${d.age} anos`) +
+        row("Peso atual", `${d.weightKg} kg`) +
+        `<tr style="background:#f8fafc"><td colspan="2" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0f172a;letter-spacing:0.05em">PERFIL DE TREINO</td></tr>` +
+        row("Objetivo", goalLabel) +
+        row("Nivel", expLabel) +
+        row("Dias/semana", `${d.availableDaysPerWeek} dias`) +
+        row("Duracao da sessao", d.sessionDuration) +
+        row("Horario preferido", timeLabel) +
+        row("Equipamentos", equipmentList) +
+        row("Ja treinou antes?", trainedBefore) +
+        row("Lesoes/limitacoes", safeInjury) +
+        `</tbody></table>` +
+        `<p style="margin:24px 0 8px">` +
+        `<a href="${safeLink}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#10b981;color:#fff;text-decoration:none;font-weight:700;font-size:14px">Ver no painel de anamneses</a>` +
+        `</p>` +
+        `</div>`,
+    });
+  } catch (error) {
+    return {
+      status: "failed",
+      provider: "resend",
+      message: "Falha ao enviar notificacao ao coach.",
+      details: error instanceof Error ? error.message : null,
+    };
+  }
+}
