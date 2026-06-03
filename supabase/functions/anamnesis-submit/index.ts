@@ -17,6 +17,7 @@ import { createServiceRoleClient } from "../_shared/supabase.ts";
 import { getEdgeRuntimeEnv } from "../_shared/env.ts";
 
 type AnamnesisSubmitBody = {
+  teacherId?: string | null;
   fullName: string;
   email: string;
   phone: string;
@@ -31,6 +32,16 @@ type AnamnesisSubmitBody = {
   injuryHistory: string;
   hasTrainedBefore: boolean;
   stoppedTrainingDuration?: string | null;
+  // Fotos posturais
+  fotoFrontalUrl?: string | null;
+  fotoLateralUrl?: string | null;
+  fotoPosteriorUrl?: string | null;
+  // Deep Squat
+  deepSquatScore?: number | null;
+  deepSquatObs?: string | null;
+  deepSquatVideoFrontalUrl?: string | null;
+  deepSquatVideoLateralUrl?: string | null;
+  deepSquatVideoPosteriorUrl?: string | null;
 };
 
 const VALID_GOALS = new Set(["hipertrofia", "emagrecimento", "condicionamento", "recomposicao"]);
@@ -69,7 +80,48 @@ function resolveAppOrigin(request: Request): string {
   return "https://sanoplus.online";
 }
 
-function validateBody(body: AnamnesisSubmitBody): AnamnesisSubmitBody {
+function normalizeFmsScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 3) return null;
+  return n;
+}
+
+function calculateFmsTotal(scores: (number | null)[]): number | null {
+  if (scores.some((s) => s === null)) return null;
+  return (scores as number[]).reduce((sum, s) => sum + s, 0);
+}
+
+async function resolveTeacherNotificationEmail(
+  serviceRoleClient: ReturnType<typeof createServiceRoleClient>,
+  teacherId: string | null | undefined,
+  fallback: string | null,
+): Promise<string | null> {
+  if (!teacherId) return fallback;
+
+  try {
+    const { data: teacher } = await serviceRoleClient
+      .from("teachers")
+      .select("user_id")
+      .eq("id", teacherId)
+      .maybeSingle();
+
+    if (!teacher?.user_id) return fallback;
+
+    const { data: profile } = await serviceRoleClient
+      .from("profiles")
+      .select("email")
+      .eq("id", teacher.user_id)
+      .maybeSingle();
+
+    return (profile?.email as string | null) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function validateBody(body: AnamnesisSubmitBody) {
+  const teacherId = normalizeString(body.teacherId) || null;
   const fullName = normalizeString(body.fullName);
   const email = normalizeEmail(body.email);
   const phone = normalizeString(body.phone).replace(/\D/g, "");
@@ -87,65 +139,59 @@ function validateBody(body: AnamnesisSubmitBody): AnamnesisSubmitBody {
     ? normalizeString(body.stoppedTrainingDuration) || null
     : null;
 
-  if (fullName.length < 3) {
-    throw new EdgeHttpError("invalid_full_name", "Nome completo invalido.", 400);
-  }
-  if (!email.includes("@") || !email.includes(".")) {
-    throw new EdgeHttpError("invalid_email", "E-mail invalido.", 400);
-  }
-  if (phone.length < 10 || phone.length > 13) {
-    throw new EdgeHttpError("invalid_phone", "Telefone invalido. Informe DDD + numero.", 400);
-  }
-  if (!Number.isInteger(age) || age < 10 || age > 100) {
-    throw new EdgeHttpError("invalid_age", "Idade deve ser entre 10 e 100 anos.", 400);
-  }
-  if (isNaN(weightKg) || weightKg <= 0 || weightKg >= 500) {
-    throw new EdgeHttpError("invalid_weight", "Peso invalido.", 400);
-  }
-  if (!VALID_GOALS.has(goal)) {
-    throw new EdgeHttpError("invalid_goal", "Objetivo invalido.", 400);
-  }
-  if (!VALID_LEVELS.has(experienceLevel)) {
-    throw new EdgeHttpError("invalid_experience_level", "Nivel de experiencia invalido.", 400);
-  }
-  if (!Number.isInteger(availableDaysPerWeek) || availableDaysPerWeek < 1 || availableDaysPerWeek > 7) {
-    throw new EdgeHttpError("invalid_days", "Dias por semana deve ser entre 1 e 7.", 400);
-  }
-  if (!VALID_DURATIONS.has(sessionDuration)) {
-    throw new EdgeHttpError("invalid_session_duration", "Duracao de sessao invalida.", 400);
-  }
-  if (!VALID_TIMES.has(preferredTime)) {
-    throw new EdgeHttpError("invalid_preferred_time", "Horario preferido invalido.", 400);
-  }
-  if (availableEquipment.length === 0 || !availableEquipment.every((e) => VALID_EQUIPMENT.has(e))) {
-    throw new EdgeHttpError("invalid_equipment", "Selecione ao menos um equipamento valido.", 400);
-  }
-  if (injuryHistory.length === 0) {
-    throw new EdgeHttpError("invalid_injury_history", "Informe historico de lesoes (ou 'nenhuma').", 400);
-  }
+  // Fotos
+  const fotoFrontalUrl = normalizeString(body.fotoFrontalUrl) || null;
+  const fotoLateralUrl = normalizeString(body.fotoLateralUrl) || null;
+  const fotoPosteriorUrl = normalizeString(body.fotoPosteriorUrl) || null;
+
+  // Deep Squat
+  const deepSquatScore = normalizeFmsScore(body.deepSquatScore);
+  const deepSquatObs = normalizeString(body.deepSquatObs) || null;
+  const deepSquatVideoFrontalUrl = normalizeString(body.deepSquatVideoFrontalUrl) || null;
+  const deepSquatVideoLateralUrl = normalizeString(body.deepSquatVideoLateralUrl) || null;
+  const deepSquatVideoPosteriorUrl = normalizeString(body.deepSquatVideoPosteriorUrl) || null;
+
+  // Score total: apenas deep squat
+  const fmsScoreTotal = deepSquatScore;
+
+  if (fullName.length < 3) throw new EdgeHttpError("invalid_full_name", "Nome completo invalido.", 400);
+  if (!email.includes("@") || !email.includes(".")) throw new EdgeHttpError("invalid_email", "E-mail invalido.", 400);
+  if (phone.length < 10 || phone.length > 13) throw new EdgeHttpError("invalid_phone", "Telefone invalido.", 400);
+  if (!Number.isInteger(age) || age < 10 || age > 100) throw new EdgeHttpError("invalid_age", "Idade invalida.", 400);
+  if (isNaN(weightKg) || weightKg <= 0 || weightKg >= 500) throw new EdgeHttpError("invalid_weight", "Peso invalido.", 400);
+  if (!VALID_GOALS.has(goal)) throw new EdgeHttpError("invalid_goal", "Objetivo invalido.", 400);
+  if (!VALID_LEVELS.has(experienceLevel)) throw new EdgeHttpError("invalid_experience_level", "Nivel invalido.", 400);
+  if (!Number.isInteger(availableDaysPerWeek) || availableDaysPerWeek < 1 || availableDaysPerWeek > 7) throw new EdgeHttpError("invalid_days", "Dias por semana invalido.", 400);
+  if (!VALID_DURATIONS.has(sessionDuration)) throw new EdgeHttpError("invalid_session_duration", "Duracao invalida.", 400);
+  if (!VALID_TIMES.has(preferredTime)) throw new EdgeHttpError("invalid_preferred_time", "Horario invalido.", 400);
+  if (availableEquipment.length === 0 || !availableEquipment.every((e) => VALID_EQUIPMENT.has(e))) throw new EdgeHttpError("invalid_equipment", "Equipamento invalido.", 400);
+  if (injuryHistory.length === 0) throw new EdgeHttpError("invalid_injury_history", "Lesoes/limitacoes obrigatorias.", 400);
+
+  // Fotos obrigatórias
+  if (!fotoFrontalUrl) throw new EdgeHttpError("missing_foto_frontal", "Foto frontal obrigatoria.", 400);
+  if (!fotoLateralUrl) throw new EdgeHttpError("missing_foto_lateral", "Foto lateral obrigatoria.", 400);
+  if (!fotoPosteriorUrl) throw new EdgeHttpError("missing_foto_posterior", "Foto posterior obrigatoria.", 400);
+
+  // Deep Squat obrigatório
+  if (deepSquatScore === null) throw new EdgeHttpError("invalid_deep_squat_score", "Avaliacao de dificuldade do Deep Squat invalida.", 400);
+  if (!deepSquatVideoFrontalUrl) throw new EdgeHttpError("missing_deep_squat_video_frontal", "Video frontal do Deep Squat obrigatorio.", 400);
+  if (!deepSquatVideoLateralUrl) throw new EdgeHttpError("missing_deep_squat_video_lateral", "Video lateral do Deep Squat obrigatorio.", 400);
+  if (!deepSquatVideoPosteriorUrl) throw new EdgeHttpError("missing_deep_squat_video_posterior", "Video posterior do Deep Squat obrigatorio.", 400);
 
   return {
-    fullName,
-    email,
-    phone,
-    age,
-    weightKg,
-    goal,
-    experienceLevel,
-    availableDaysPerWeek,
-    sessionDuration,
-    preferredTime,
-    availableEquipment,
-    injuryHistory,
-    hasTrainedBefore,
-    stoppedTrainingDuration,
+    teacherId,
+    fullName, email, phone, age, weightKg, goal, experienceLevel,
+    availableDaysPerWeek, sessionDuration, preferredTime, availableEquipment,
+    injuryHistory, hasTrainedBefore, stoppedTrainingDuration,
+    fotoFrontalUrl, fotoLateralUrl, fotoPosteriorUrl,
+    deepSquatScore, deepSquatObs,
+    deepSquatVideoFrontalUrl, deepSquatVideoLateralUrl, deepSquatVideoPosteriorUrl,
+    fmsScoreTotal,
   };
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") {
-    return createOptionsResponse();
-  }
+  if (request.method === "OPTIONS") return createOptionsResponse();
 
   const requestId = getRequestId(request);
 
@@ -159,6 +205,7 @@ Deno.serve(async (request) => {
     const { data: inserted, error: insertError } = await serviceRoleClient
       .from("anamneses")
       .insert({
+        teacher_id: input.teacherId ?? null,
         full_name: input.fullName,
         email: input.email,
         phone: input.phone,
@@ -173,6 +220,15 @@ Deno.serve(async (request) => {
         injury_history: input.injuryHistory,
         has_trained_before: input.hasTrainedBefore,
         stopped_training_duration: input.stoppedTrainingDuration ?? null,
+        foto_frontal_url: input.fotoFrontalUrl,
+        foto_lateral_url: input.fotoLateralUrl,
+        foto_posterior_url: input.fotoPosteriorUrl,
+        deep_squat_score: input.deepSquatScore,
+        deep_squat_obs: input.deepSquatObs,
+        deep_squat_video_frontal_url: input.deepSquatVideoFrontalUrl,
+        deep_squat_video_lateral_url: input.deepSquatVideoLateralUrl,
+        deep_squat_video_posterior_url: input.deepSquatVideoPosteriorUrl,
+        fms_score_total: input.fmsScoreTotal,
         status: "pending_review",
       })
       .select("id")
@@ -205,28 +261,42 @@ Deno.serve(async (request) => {
       injuryHistory: input.injuryHistory,
       hasTrainedBefore: input.hasTrainedBefore,
       stoppedTrainingDuration: input.stoppedTrainingDuration,
+      fotoFrontalUrl: input.fotoFrontalUrl,
+      fotoLateralUrl: input.fotoLateralUrl,
+      fotoPosteriorUrl: input.fotoPosteriorUrl,
+      deepSquatScore: input.deepSquatScore,
+      deepSquatObs: input.deepSquatObs,
+      deepSquatVideoFrontalUrl: input.deepSquatVideoFrontalUrl,
+      deepSquatVideoLateralUrl: input.deepSquatVideoLateralUrl,
+      deepSquatVideoPosteriorUrl: input.deepSquatVideoPosteriorUrl,
+      fmsScoreTotal: input.fmsScoreTotal,
     };
 
     const env = getEdgeRuntimeEnv();
 
+    // Resolve o e-mail do professor: prioriza o do DB (via teacherId), cai no secret como fallback
+    const coachEmail = await resolveTeacherNotificationEmail(
+      serviceRoleClient,
+      input.teacherId,
+      env.coachNotificationEmail,
+    );
+
     const [welcomeDelivery, notificationDelivery] = await Promise.all([
       sendAnamnesisWelcomeEmail({ fullName: input.fullName, email: input.email }),
-      env.coachNotificationEmail
+      coachEmail
         ? sendAnamnesisCoachNotificationEmail({
-            coachEmail: env.coachNotificationEmail,
+            coachEmail,
             data: emailData,
             reviewLink,
           })
-        : Promise.resolve({ status: "skipped" as const, provider: "none" as const, message: "COACH_NOTIFICATION_EMAIL nao configurado." }),
+        : Promise.resolve({ status: "skipped" as const, provider: "none" as const, message: "Nenhum e-mail de professor configurado." }),
     ]);
 
     return createSuccessResponse(requestId, {
       anamnesisId,
       studentEmail: input.email,
-      emailDelivery: {
-        welcome: welcomeDelivery,
-        coachNotification: notificationDelivery,
-      },
+      fmsScoreTotal: input.fmsScoreTotal,
+      emailDelivery: { welcome: welcomeDelivery, coachNotification: notificationDelivery },
     });
   } catch (error) {
     return createErrorResponse(requestId, normalizeEdgeError(error));

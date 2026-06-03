@@ -197,6 +197,17 @@ export type AnamnesisEmailData = {
   injuryHistory: string;
   hasTrainedBefore: boolean;
   stoppedTrainingDuration?: string | null;
+  // Fotos posturais
+  fotoFrontalUrl?: string | null;
+  fotoLateralUrl?: string | null;
+  fotoPosteriorUrl?: string | null;
+  // Deep Squat
+  deepSquatScore?: number | null;
+  deepSquatObs?: string | null;
+  deepSquatVideoFrontalUrl?: string | null;
+  deepSquatVideoLateralUrl?: string | null;
+  deepSquatVideoPosteriorUrl?: string | null;
+  fmsScoreTotal?: number | null;
 };
 
 export async function sendAnamnesisWelcomeEmail(params: {
@@ -211,14 +222,14 @@ export async function sendAnamnesisWelcomeEmail(params: {
       subject: "Anamnese recebida — Sano+",
       text:
         `Ola, ${params.fullName}!\n\n` +
-        `Recebemos sua anamnese com sucesso. Nossa equipe vai analisar seus dados e em ate 24 horas voce recebera seu treino personalizado.\n\n` +
+        `Recebemos sua anamnese com sucesso. Nossa equipe vai analisar seus dados e em ate 48 horas voce recebera seu acesso e treino personalizado.\n\n` +
         `Fique de olho no seu e-mail.\n\n` +
         `Equipe Sano+`,
       html:
         `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;max-width:600px">` +
         `<h2 style="margin-bottom:8px;color:#10b981">Anamnese recebida com sucesso!</h2>` +
         `<p>Ola, <strong>${safeName}</strong>!</p>` +
-        `<p>Recebemos sua anamnese e ja estamos analisando seus dados. Em ate <strong>24 horas</strong> voce recebera seu treino personalizado aqui neste e-mail.</p>` +
+        `<p>Recebemos sua anamnese e ja estamos analisando seus dados. Em ate <strong>48 horas</strong> voce recebera seu acesso e treino personalizado aqui neste e-mail.</p>` +
         `<div style="margin:24px 0;padding:16px;border-left:4px solid #10b981;background:#f0fdf4;border-radius:0 12px 12px 0">` +
         `<p style="margin:0;font-weight:600;color:#065f46">Proximos passos</p>` +
         `<p style="margin:8px 0 0;color:#047857;font-size:14px">1. Analisamos seu perfil e objetivos<br>2. Montamos seu treino personalizado<br>3. Voce recebe tudo por e-mail para comecar</p>` +
@@ -298,7 +309,31 @@ export async function sendAnamnesisCoachNotificationEmail(params: {
         row("Equipamentos", equipmentList) +
         row("Ja treinou antes?", trainedBefore) +
         row("Lesoes/limitacoes", safeInjury) +
+        (d.deepSquatScore !== null && d.deepSquatScore !== undefined
+          ? `<tr style="background:#f8fafc"><td colspan="2" style="padding:8px 12px;font-size:13px;font-weight:700;color:#0f172a;letter-spacing:0.05em">TESTES FUNCIONAIS</td></tr>` +
+            row("Deep Squat (dificuldade)", `${d.deepSquatScore}/3`) +
+            (d.deepSquatObs ? row("Obs. Deep Squat", escapeHtml(d.deepSquatObs)) : "") +
+            row("Score total", d.fmsScoreTotal !== null && d.fmsScoreTotal !== undefined ? String(d.fmsScoreTotal) : "—")
+          : "") +
+        (d.deepSquatVideoFrontalUrl || d.deepSquatVideoLateralUrl || d.deepSquatVideoPosteriorUrl
+          ? `<div style="margin:16px 0">` +
+            `<p style="font-weight:700;font-size:13px;letter-spacing:0.05em;margin:0 0 8px">VÍDEOS DEEP SQUAT</p>` +
+            `<div style="display:flex;gap:10px;flex-wrap:wrap">` +
+            (d.deepSquatVideoFrontalUrl ? `<a href="${escapeHtml(d.deepSquatVideoFrontalUrl)}" target="_blank" style="display:inline-block;padding:8px 14px;border-radius:8px;background:#10b981;color:#fff;text-decoration:none;font-size:13px;font-weight:600">▶ Frontal</a>` : "") +
+            (d.deepSquatVideoLateralUrl ? `<a href="${escapeHtml(d.deepSquatVideoLateralUrl)}" target="_blank" style="display:inline-block;padding:8px 14px;border-radius:8px;background:#10b981;color:#fff;text-decoration:none;font-size:13px;font-weight:600">▶ Lateral</a>` : "") +
+            (d.deepSquatVideoPosteriorUrl ? `<a href="${escapeHtml(d.deepSquatVideoPosteriorUrl)}" target="_blank" style="display:inline-block;padding:8px 14px;border-radius:8px;background:#10b981;color:#fff;text-decoration:none;font-size:13px;font-weight:600">▶ Posterior</a>` : "") +
+            `</div></div>`
+          : "") +
         `</tbody></table>` +
+        (d.fotoFrontalUrl || d.fotoLateralUrl || d.fotoPosteriorUrl
+          ? `<div style="margin:20px 0">` +
+            `<p style="font-weight:700;font-size:13px;letter-spacing:0.05em;margin:0 0 10px">FOTOS POSTURAIS</p>` +
+            `<div style="display:flex;gap:12px;flex-wrap:wrap">` +
+            (d.fotoFrontalUrl ? `<div style="text-align:center"><a href="${escapeHtml(d.fotoFrontalUrl)}" target="_blank"><img src="${escapeHtml(d.fotoFrontalUrl)}" alt="Frontal" style="width:160px;height:200px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0"/></a><p style="font-size:12px;color:#64748b;margin:4px 0 0">Frontal</p></div>` : "") +
+            (d.fotoLateralUrl ? `<div style="text-align:center"><a href="${escapeHtml(d.fotoLateralUrl)}" target="_blank"><img src="${escapeHtml(d.fotoLateralUrl)}" alt="Lateral" style="width:160px;height:200px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0"/></a><p style="font-size:12px;color:#64748b;margin:4px 0 0">Lateral</p></div>` : "") +
+            (d.fotoPosteriorUrl ? `<div style="text-align:center"><a href="${escapeHtml(d.fotoPosteriorUrl)}" target="_blank"><img src="${escapeHtml(d.fotoPosteriorUrl)}" alt="Posterior" style="width:160px;height:200px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0"/></a><p style="font-size:12px;color:#64748b;margin:4px 0 0">Posterior</p></div>` : "") +
+            `</div></div>`
+          : "") +
         `<p style="margin:24px 0 8px">` +
         `<a href="${safeLink}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#10b981;color:#fff;text-decoration:none;font-weight:700;font-size:14px">Ver no painel de anamneses</a>` +
         `</p>` +
