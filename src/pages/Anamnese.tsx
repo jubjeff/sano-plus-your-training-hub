@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Moon, Sun, Upload, Video, X } from "lucide-react";
+import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Moon, Sun, Upload, Video, X } from "lucide-react";
+import imageCompression from "browser-image-compression";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +14,10 @@ import { EDGE_FUNCTION_NAMES, getSupabaseClient, invokeSupabaseEdgeFunction } fr
 const DRAFT_KEY = "sano-anamnese-draft";
 const STEPS = ["Seus dados", "Objetivo e rotina", "Contexto físico", "Avaliação postural", "Testes funcionais"];
 const PHOTO_BUCKET = "anamnesis-photos";
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB (validação do arquivo original)
 const VALID_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const VIDEO_BUCKET = "anamnesis-videos";
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB (limite do plano gratuito Supabase)
+const MAX_VIDEO_BYTES = 15 * 1024 * 1024; // 15 MB após compressão
 const VALID_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-msvideo"];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -395,7 +396,7 @@ function VideoUploadArea({ slot, label, preview, sizeMb, onSelect, onRemove, err
           <Video className={`h-8 w-8 ${error ? "text-destructive/50" : "text-muted-foreground/40"}`} />
           <div className="text-center">
             <p className="text-sm font-medium text-muted-foreground">Vídeo {angleLabel}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground/70">MP4, MOV ou WebM · máx. 50 MB</p>
+            <p className="mt-0.5 text-xs text-muted-foreground/70">MP4, MOV ou WebM · máx. 15 MB</p>
           </div>
         </button>
       )}
@@ -466,8 +467,21 @@ function validatePhoto(file: File): string | null {
 
 function validateVideo(file: File): string | null {
   if (!VALID_VIDEO_TYPES.includes(file.type)) return "Formato inválido. Use MP4, MOV ou WebM.";
-  if (file.size > MAX_VIDEO_BYTES) return "Vídeo muito grande. Máximo 50MB.";
+  if (file.size > MAX_VIDEO_BYTES) return "Vídeo muito grande. Máximo 15 MB. Grave em resolução 720p ou inferior.";
   return null;
+}
+
+async function compressPhoto(file: File, onProgress?: (p: number) => void): Promise<File> {
+  const compressed = await imageCompression(file, {
+    maxSizeMB: 0.8,
+    maxWidthOrHeight: 1200,
+    useWebWorker: true,
+    fileType: "image/webp",
+    initialQuality: 0.8,
+    onProgress,
+  });
+  // Preserva nome original com extensão .webp
+  return new File([compressed], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
 }
 
 async function uploadVideo(file: File, slot: VideoSlot): Promise<string> {
@@ -480,11 +494,11 @@ async function uploadVideo(file: File, slot: VideoSlot): Promise<string> {
   return data.publicUrl;
 }
 
-async function uploadPhoto(file: File, slot: PhotoSlot): Promise<string> {
+async function uploadPhoto(file: File, slot: PhotoSlot, onProgress?: (p: number) => void): Promise<string> {
+  const compressed = await compressPhoto(file, onProgress);
   const supabase = getSupabaseClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${crypto.randomUUID()}-${slot}.${ext}`;
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, { contentType: file.type });
+  const path = `${crypto.randomUUID()}-${slot}.webp`;
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, compressed, { contentType: "image/webp" });
   if (error) throw new Error(`Falha ao enviar foto ${slot}: ${error.message}`);
   const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
   return data.publicUrl;
@@ -561,8 +575,10 @@ export default function Anamnese() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<"idle" | "compressing" | "uploading" | "saving">("idle");
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
   const topRef = useRef<HTMLDivElement>(null);
 
   // Save form (not photos) to localStorage
@@ -672,21 +688,29 @@ export default function Anamnese() {
     if (Object.keys(allErrors).length > 0) { setErrors(allErrors); return; }
 
     setIsSubmitting(true);
+    setSubmitPhase("compressing");
     setSubmitError(null);
 
     try {
-      // 1. Upload photos + videos in parallel
-      const [fotoFrontalUrl, fotoLateralUrl, fotoPosteriorUrl,
-             videoFrontalUrl, videoLateralUrl, videoPosteriorUrl] = await Promise.all([
+      // 1. Comprime e faz upload das fotos (compressão WebP automática)
+      const [fotoFrontalUrl, fotoLateralUrl, fotoPosteriorUrl] = await Promise.all([
         uploadPhoto(photos.frontal.file!, "frontal"),
         uploadPhoto(photos.lateral.file!, "lateral"),
         uploadPhoto(photos.posterior.file!, "posterior"),
+      ]);
+
+      setSubmitPhase("uploading");
+
+      // 2. Upload vídeos em paralelo (sem compressão — tamanho já validado)
+      const [videoFrontalUrl, videoLateralUrl, videoPosteriorUrl] = await Promise.all([
         uploadVideo(deepSquatVideos.frontal.file!, "frontal"),
         uploadVideo(deepSquatVideos.lateral.file!, "lateral"),
         uploadVideo(deepSquatVideos.posterior.file!, "posterior"),
       ]);
 
-      // 2. Submit to edge function
+      setSubmitPhase("saving");
+
+      // 3. Salva no banco via edge function
       await invokeSupabaseEdgeFunction(EDGE_FUNCTION_NAMES.anamnesisSubmit, {
         body: {
           teacherId: teacherId ?? undefined,
@@ -727,6 +751,7 @@ export default function Anamnese() {
       );
     } finally {
       setIsSubmitting(false);
+      setSubmitPhase("idle");
     }
   }
 
@@ -1078,6 +1103,7 @@ export default function Anamnese() {
                 </div>
               )}
 
+
               {/* Navigation */}
               <div className={`mt-6 flex ${step > 1 ? "justify-between" : "justify-end"}`}>
                 {step > 1 && (
@@ -1091,7 +1117,14 @@ export default function Anamnese() {
                   </Button>
                 ) : (
                   <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? "Enviando..." : "Enviar anamnese"}
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {submitPhase === "compressing" && "Comprimindo fotos..."}
+                        {submitPhase === "uploading" && "Enviando vídeos..."}
+                        {submitPhase === "saving" && "Salvando..."}
+                      </span>
+                    ) : "Enviar anamnese"}
                   </Button>
                 )}
               </div>
