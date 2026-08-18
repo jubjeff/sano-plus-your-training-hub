@@ -21,6 +21,7 @@ import { getAttendanceSummary, getFinancialStatusLabel, getFinancialStatusTone, 
 import { getAllowedProgressModes, getEngagementLabel, getEngagementTone, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan, normalizeProgressMode } from "@/lib/training-management";
 import { createExerciseAssignmentFromLibrary, resolveExerciseFromLibrary } from "@/lib/exercise-utils";
 import { teacherAdminActionsService } from "@/services/teacher-admin-actions.service";
+import StudentAnamnesisSection from "@/components/StudentAnamnesisSection";
 import { toast } from "@/components/ui/sonner";
 
 function generateId() {
@@ -455,6 +456,10 @@ export default function StudentProfile() {
           </div>
         </div>
       </section>
+
+      {/* Antes do treino de proposito: o professor consulta a avaliacao
+          enquanto monta a prescricao logo abaixo. */}
+      <StudentAnamnesisSection studentId={student.id} />
 
       <section className="section-shell p-6 lg:p-8">
           <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

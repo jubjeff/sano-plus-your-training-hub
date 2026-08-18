@@ -3,7 +3,7 @@ import { useAuthorization } from "@/auth/use-authorization";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { user, isAuthenticated, isLoading, isProfileLoading, session, requiresCoachProfileAccess, requiresFirstAccess } = useAuthorization();
+  const { user, isAuthenticated, isLoading, isProfileLoading, session, requiresCoachProfileAccess, requiresFirstAccess, requiresAnamnesis } = useAuthorization();
 
   if (isLoading || (Boolean(session) && (isProfileLoading || !user))) {
     return (
@@ -27,6 +27,13 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (requiresFirstAccess && location.pathname !== "/primeiro-acesso") {
     return <Navigate to="/primeiro-acesso" replace />;
+  }
+
+  // O portao precisa valer em qualquer rota autenticada, nao so na propria
+  // /minha-avaliacao: sem isto o aluno digitava /aluno/dashboard e entrava
+  // sem preencher. Mesmo lugar onde requiresFirstAccess e imposto.
+  if (requiresAnamnesis && location.pathname !== "/minha-avaliacao") {
+    return <Navigate to="/minha-avaliacao" replace />;
   }
 
   return <>{children}</>;

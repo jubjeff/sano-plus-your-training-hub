@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/components/ui/sonner";
 import { getSupabaseClient, invokeSupabaseEdgeFunction, EDGE_FUNCTION_NAMES } from "@/integrations/supabase";
 import { useAuth } from "@/auth/use-auth";
+import { EQUIPMENT_LABELS, EXPERIENCE_LABELS, GOAL_LABELS, TIME_LABELS } from "@/lib/anamnesis-labels";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 
 type AnamnesisStatus = "pending_review" | "workout_generated" | "active";
@@ -66,32 +67,6 @@ type Anamnesis = {
   media_deletado_em: string | null;
   media_download_confirmado: boolean;
   media_lembrete_enviado: boolean;
-};
-
-const GOAL_LABELS: Record<string, string> = {
-  hipertrofia: "Hipertrofia",
-  emagrecimento: "Emagrecimento",
-  condicionamento: "Condicionamento",
-  recomposicao: "Recomposição corporal",
-};
-
-const EXPERIENCE_LABELS: Record<string, string> = {
-  iniciante: "Iniciante",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-};
-
-const EQUIPMENT_LABELS: Record<string, string> = {
-  academia_completa: "Academia completa",
-  halteres_casa: "Halteres em casa",
-  elasticos: "Elásticos",
-  sem_equipamento: "Sem equipamento",
-};
-
-const TIME_LABELS: Record<string, string> = {
-  manha: "Manhã",
-  tarde: "Tarde",
-  noite: "Noite",
 };
 
 const STATUS_CONFIG: Record<AnamnesisStatus, { label: string; variant: "default" | "secondary" | "outline" }> = {
