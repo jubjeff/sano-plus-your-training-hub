@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Moon, Sun, Upload, Video, X } from "lucide-react";
+import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Loader2, MessageCircle, Moon, Sun, Upload, X } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,6 @@ const STEPS = ["Seus dados", "Objetivo e rotina", "Contexto físico", "Avaliaç�
 const PHOTO_BUCKET = "anamnesis-photos";
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB (validação do arquivo original)
 const VALID_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-const VIDEO_BUCKET = "anamnesis-videos";
-const MAX_VIDEO_BYTES = 15 * 1024 * 1024; // 15 MB após compressão
-const VALID_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-msvideo"];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,9 +34,6 @@ type AnamneseForm = {
 
 type PhotoSlot = "frontal" | "lateral" | "posterior";
 type PhotoState = { file: File | null; preview: string | null };
-type VideoSlot = "frontal" | "lateral" | "posterior";
-type VideoState = { file: File | null; preview: string | null; sizeMb: string | null };
-
 const INITIAL_FORM: AnamneseForm = {
   fullName: "", email: "", phone: "", age: "", weightKg: "",
   goal: "", experienceLevel: "", availableDaysPerWeek: "",
@@ -340,61 +334,6 @@ function FmsTestBlock({ title, description, steps, attentionPoints, svg, dirValu
   );
 }
 
-function VideoUploadArea({ slot, label, preview, sizeMb, onSelect, onRemove, error, disabled }: {
-  slot: VideoSlot; label: string; preview: string | null; sizeMb: string | null;
-  onSelect: (file: File) => void; onRemove: () => void; error?: string; disabled?: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) onSelect(file);
-    e.target.value = "";
-  }
-
-  const angleLabel = slot === "frontal" ? "de frente" : slot === "lateral" ? "de lado" : "de costas";
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-semibold">{label}</Label>
-        <span className="text-xs font-medium text-destructive">Obrigatório</span>
-      </div>
-
-      {preview ? (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
-          <video src={preview} controls className="max-h-44 w-full object-contain" />
-          <button type="button" onClick={onRemove} disabled={disabled}
-            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-background">
-            <X className="h-4 w-4" />
-          </button>
-          {sizeMb && (
-            <div className="absolute bottom-2 left-2 rounded-lg bg-primary/90 px-2 py-1 text-[11px] font-semibold text-white">
-              ✓ {label} · {sizeMb} MB
-            </div>
-          )}
-        </div>
-      ) : (
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled}
-          className={`flex h-36 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-colors ${
-            error ? "border-destructive bg-destructive/5" : "border-border bg-card/50 hover:border-primary/50 hover:bg-primary/5"
-          } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
-          <Video className={`h-8 w-8 ${error ? "text-destructive/50" : "text-muted-foreground/40"}`} />
-          <div className="text-center">
-            <p className="text-sm font-medium text-muted-foreground">Vídeo {angleLabel}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground/70">MP4, MOV ou WebM · máx. 15 MB</p>
-          </div>
-        </button>
-      )}
-
-      {error && <p className="text-xs text-destructive">{error}</p>}
-
-      <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo"
-        className="hidden" onChange={handleChange} disabled={disabled} />
-    </div>
-  );
-}
-
 // ─── Options data ─────────────────────────────────────────────────────────────
 
 const DIFFICULTY_OPTIONS = [
@@ -451,12 +390,6 @@ function validatePhoto(file: File): string | null {
   return null;
 }
 
-function validateVideo(file: File): string | null {
-  if (!VALID_VIDEO_TYPES.includes(file.type)) return "Formato inválido. Use MP4, MOV ou WebM.";
-  if (file.size > MAX_VIDEO_BYTES) return "Vídeo muito grande. Máximo 15 MB. Grave em resolução 720p ou inferior.";
-  return null;
-}
-
 async function compressPhoto(file: File, onProgress?: (p: number) => void): Promise<File> {
   const compressed = await imageCompression(file, {
     maxSizeMB: 0.8,
@@ -468,16 +401,6 @@ async function compressPhoto(file: File, onProgress?: (p: number) => void): Prom
   });
   // Preserva nome original com extensão .webp
   return new File([compressed], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
-}
-
-async function uploadVideo(file: File, slot: VideoSlot): Promise<string> {
-  const supabase = getSupabaseClient();
-  const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
-  const path = `${crypto.randomUUID()}-deepsquat-${slot}.${ext}`;
-  const { error } = await supabase.storage.from(VIDEO_BUCKET).upload(path, file, { contentType: file.type });
-  if (error) throw new Error(`Falha ao enviar vídeo ${slot}: ${error.message}`);
-  const { data } = supabase.storage.from(VIDEO_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
 }
 
 async function uploadPhoto(file: File, slot: PhotoSlot, onProgress?: (p: number) => void): Promise<string> {
@@ -538,6 +461,28 @@ export default function Anamnese() {
   // Captura o ID do professor do parâmetro ?t= da URL
   const teacherId = new URLSearchParams(window.location.search).get("t") ?? null;
 
+  // Contato do professor para o CTA de envio dos vídeos. `teachers` tem RLS
+  // restrita ao dono, então a leitura passa pela edge function.
+  const [coach, setCoach] = useState<{ coachName: string | null; whatsapp: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!teacherId) return;
+    let active = true;
+
+    invokeSupabaseEdgeFunction<{ ok: boolean; data: { coachName: string | null; whatsapp: string | null } }>(
+      EDGE_FUNCTION_NAMES.anamnesisSubmit,
+      { body: { mode: "teacher_info", teacherId } },
+    )
+      .then((response) => {
+        if (active && response?.data) setCoach(response.data);
+      })
+      .catch(() => {
+        // Sem contato do professor a tela final cai no texto genérico.
+      });
+
+    return () => { active = false; };
+  }, [teacherId]);
+
   const [form, setForm] = useState<AnamneseForm>(() => {
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
@@ -553,15 +498,9 @@ export default function Anamnese() {
     posterior: { file: null, preview: null },
   });
 
-  const [deepSquatVideos, setDeepSquatVideos] = useState<Record<VideoSlot, VideoState>>({
-    frontal: { file: null, preview: null, sizeMb: null },
-    lateral: { file: null, preview: null, sizeMb: null },
-    posterior: { file: null, preview: null, sizeMb: null },
-  });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitPhase, setSubmitPhase] = useState<"idle" | "compressing" | "uploading" | "saving">("idle");
+  const [submitPhase, setSubmitPhase] = useState<"idle" | "compressing" | "saving">("idle");
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -578,9 +517,6 @@ export default function Anamnese() {
   useEffect(() => {
     return () => {
       Object.values(photos).forEach(({ preview }) => {
-        if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
-      });
-      Object.values(deepSquatVideos).forEach(({ preview }) => {
         if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
       });
     };
@@ -610,23 +546,6 @@ export default function Anamnese() {
     const prevPreview = photos[slot].preview;
     if (prevPreview?.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
     setPhotos((p) => ({ ...p, [slot]: { file: null, preview: null } }));
-  }
-
-  function handleVideoSelect(slot: VideoSlot, file: File) {
-    const err = validateVideo(file);
-    const errKey = `video_${slot}`;
-    if (err) { setErrors((p) => ({ ...p, [errKey]: err })); return; }
-    const prevPreview = deepSquatVideos[slot].preview;
-    if (prevPreview?.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
-    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-    setDeepSquatVideos((p) => ({ ...p, [slot]: { file, preview: URL.createObjectURL(file), sizeMb } }));
-    clearError(errKey, setErrors);
-  }
-
-  function handleVideoRemove(slot: VideoSlot) {
-    const prevPreview = deepSquatVideos[slot].preview;
-    if (prevPreview?.startsWith("blob:")) URL.revokeObjectURL(prevPreview);
-    setDeepSquatVideos((p) => ({ ...p, [slot]: { file: null, preview: null, sizeMb: null } }));
   }
 
   function handleNext() {
@@ -666,12 +585,7 @@ export default function Anamnese() {
 
   async function handleSubmit() {
     const fmsErrors = validateFormStep(5, form);
-    const videoErrors: Record<string, string> = {};
-    if (!deepSquatVideos.frontal.file) videoErrors.video_frontal = "Vídeo frontal do Deep Squat obrigatório.";
-    if (!deepSquatVideos.lateral.file) videoErrors.video_lateral = "Vídeo lateral do Deep Squat obrigatório.";
-    if (!deepSquatVideos.posterior.file) videoErrors.video_posterior = "Vídeo posterior do Deep Squat obrigatório.";
-    const allErrors = { ...fmsErrors, ...videoErrors };
-    if (Object.keys(allErrors).length > 0) { setErrors(allErrors); return; }
+    if (Object.keys(fmsErrors).length > 0) { setErrors(fmsErrors); return; }
 
     setIsSubmitting(true);
     setSubmitPhase("compressing");
@@ -685,18 +599,12 @@ export default function Anamnese() {
         uploadPhoto(photos.posterior.file!, "posterior"),
       ]);
 
-      setSubmitPhase("uploading");
-
-      // 2. Upload vídeos em paralelo (sem compressão — tamanho já validado)
-      const [videoFrontalUrl, videoLateralUrl, videoPosteriorUrl] = await Promise.all([
-        uploadVideo(deepSquatVideos.frontal.file!, "frontal"),
-        uploadVideo(deepSquatVideos.lateral.file!, "lateral"),
-        uploadVideo(deepSquatVideos.posterior.file!, "posterior"),
-      ]);
-
       setSubmitPhase("saving");
 
-      // 3. Salva no banco via edge function
+      // 2. Salva no banco via edge function.
+      // Os vídeos do Deep Squat não passam mais por aqui: o aluno os envia pelo
+      // WhatsApp do professor (CTA na tela de conclusão). Três arquivos de até
+      // 15 MB não cabiam em e-mail e respondiam por 98% do consumo de storage.
       await invokeSupabaseEdgeFunction(EDGE_FUNCTION_NAMES.anamnesisSubmit, {
         body: {
           teacherId: teacherId ?? undefined,
@@ -719,9 +627,9 @@ export default function Anamnese() {
           fotoPosteriorUrl,
           deepSquatScore: Number(form.deepSquatScore),
           deepSquatObs: form.deepSquatObs.trim() || null,
-          deepSquatVideoFrontalUrl: videoFrontalUrl,
-          deepSquatVideoLateralUrl: videoLateralUrl,
-          deepSquatVideoPosteriorUrl: videoPosteriorUrl,
+          deepSquatVideoFrontalUrl: null,
+          deepSquatVideoLateralUrl: null,
+          deepSquatVideoPosteriorUrl: null,
         },
       });
 
@@ -787,12 +695,46 @@ export default function Anamnese() {
                 em até <strong>48 horas</strong> você receberá seu acesso e treino personalizado.
               </p>
             </div>
-            <div className="mt-2 w-full rounded-2xl border border-border bg-card/60 p-4 text-left">
+            {/* Envio dos vídeos por WhatsApp — passo que falta para a avaliação ficar completa */}
+            <div className="w-full rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/5 p-5 text-left">
+              <div className="flex items-start gap-3">
+                <MessageCircle className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-full space-y-2">
+                  <p className="text-sm font-bold text-foreground">Falta 1 passo: envie seus vídeos</p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Mande os <strong>3 vídeos do Deep Squat</strong> (frontal, lateral e posterior)
+                    {coach?.coachName ? <> para <strong>{coach.coachName}</strong></> : null} pelo WhatsApp.
+                    Sem eles a análise postural fica incompleta.
+                  </p>
+
+                  {coach?.whatsapp ? (
+                    <a
+                      href={`https://wa.me/${coach.whatsapp}?text=${encodeURIComponent(
+                        `Olá! Acabei de enviar minha ficha de anamnese pelo site. Sou ${form.fullName.trim()} e vou mandar aqui os 3 vídeos do Deep Squat.`,
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 sm:w-auto"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Enviar vídeos no WhatsApp
+                    </a>
+                  ) : (
+                    <p className="rounded-xl border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
+                      Seu personal ainda não cadastrou o WhatsApp. Entre em contato por onde você já fala com ele
+                      e envie os 3 vídeos por lá.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full rounded-2xl border border-border bg-card/60 p-4 text-left">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Próximos passos</p>
               <ol className="mt-3 space-y-2 text-sm text-foreground">
-                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">1</span>Analisamos seu perfil e objetivos.</li>
-                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">2</span>Montamos seu treino personalizado.</li>
-                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">3</span>Você recebe tudo por e-mail para começar.</li>
+                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">1</span>Você envia os vídeos pelo WhatsApp.</li>
+                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">2</span>Analisamos seu perfil e objetivos.</li>
+                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">3</span>Você recebe seu treino por e-mail para começar.</li>
               </ol>
             </div>
           </div>
@@ -1053,23 +995,18 @@ export default function Anamnese() {
                       {errors.deepSquatScore && <p className="text-xs text-destructive">{errors.deepSquatScore}</p>}
                     </div>
 
-                    {/* Video uploads */}
-                    <div className="space-y-3">
-                      <p className="text-sm font-semibold text-foreground">Vídeos do Deep Squat</p>
-                      <p className="text-xs text-muted-foreground">Grave de 3 ângulos diferentes realizando o movimento. Os vídeos ajudam na análise postural completa.</p>
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <VideoUploadArea slot="frontal" label="Vídeo Frontal"
-                          preview={deepSquatVideos.frontal.preview} sizeMb={deepSquatVideos.frontal.sizeMb}
-                          onSelect={(f) => handleVideoSelect("frontal", f)} onRemove={() => handleVideoRemove("frontal")}
-                          error={errors.video_frontal} disabled={isSubmitting} />
-                        <VideoUploadArea slot="lateral" label="Vídeo Lateral"
-                          preview={deepSquatVideos.lateral.preview} sizeMb={deepSquatVideos.lateral.sizeMb}
-                          onSelect={(f) => handleVideoSelect("lateral", f)} onRemove={() => handleVideoRemove("lateral")}
-                          error={errors.video_lateral} disabled={isSubmitting} />
-                        <VideoUploadArea slot="posterior" label="Vídeo Posterior"
-                          preview={deepSquatVideos.posterior.preview} sizeMb={deepSquatVideos.posterior.sizeMb}
-                          onSelect={(f) => handleVideoSelect("posterior", f)} onRemove={() => handleVideoRemove("posterior")}
-                          error={errors.video_posterior} disabled={isSubmitting} />
+                    {/* Vídeos: enviados por WhatsApp, não pelo formulário */}
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-semibold text-foreground">Os vídeos você envia pelo WhatsApp</p>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            Grave o movimento de <strong>3 ângulos</strong> (frontal, lateral e posterior) e guarde os
+                            vídeos no celular. Ao finalizar esta ficha, aparecerá um botão para enviá-los direto ao seu
+                            personal — é mais rápido e não trava com internet lenta.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -1107,7 +1044,6 @@ export default function Anamnese() {
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         {submitPhase === "compressing" && "Comprimindo fotos..."}
-                        {submitPhase === "uploading" && "Enviando vídeos..."}
                         {submitPhase === "saving" && "Salvando..."}
                       </span>
                     ) : "Enviar anamnese"}

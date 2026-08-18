@@ -3,11 +3,24 @@ import { EdgeHttpError } from "./http.ts";
 
 // ─── Core types ───────────────────────────────────────────────────────────────
 
+// Anexo no formato aceito pelo Resend: conteudo em base64 puro (sem data: URI).
+export type EmailAttachment = {
+  filename: string;
+  content: string;
+  contentType?: string;
+};
+
+// Teto conservador para o total de anexos. O Resend aceita mais, mas servidores
+// receptores costumam recusar acima de 25 MB (Gmail). Fotos de anamnese saem
+// comprimidas em ~800 KB, entao 3 fotos ficam bem abaixo disso.
+export const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+
 type SendTransactionalEmailInput = {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 };
 
 export type EmailDeliveryResult = {
@@ -216,7 +229,7 @@ function mediaRetentionWarning(expiresAt: string, downloadLink: string): string 
     `<tr>` +
     `<td style="border-left:4px solid #F59E0B;background-color:#FFF3CD;border-radius:0 8px 8px 0;padding:14px 18px;">` +
     `<p style="margin:0 0 6px;padding:0;font-size:14px;font-weight:700;color:#92400E;">` +
-    `&#9888;&#65039; ATENÇÃO — Faça o download das mídias em até 7 dias` +
+    `&#9888;&#65039; ATENÇÃO — Faça o download das mídias em até 48 horas` +
     `</p>` +
     `<p style="margin:0 0 10px;padding:0;font-size:13px;color:#78350F;line-height:1.6;">` +
     `As fotos e vídeos desta anamnese serão <strong>deletados automaticamente no dia ${dateFormatted}</strong>. ` +
@@ -282,10 +295,29 @@ async function sendWithResend(input: SendTransactionalEmailInput): Promise<Email
   }
 
   const from = env.resendFromName ? `${env.resendFromName} <${env.resendFromEmail}>` : env.resendFromEmail;
+
+  // Anexos que estourem o teto sao descartados em bloco: melhor o professor
+  // receber a ficha sem as fotos do que o envio inteiro falhar com 413.
+  let attachments = input.attachments ?? [];
+  if (attachments.length > 0) {
+    const totalBytes = attachments.reduce((sum, a) => sum + Math.ceil((a.content.length * 3) / 4), 0);
+    if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+      console.warn(`[email] anexos descartados: ${totalBytes} bytes excedem o limite de ${MAX_TOTAL_ATTACHMENT_BYTES}.`);
+      attachments = [];
+    }
+  }
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.resendApiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [input.to], subject: input.subject, html: input.html, text: input.text }),
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      ...(attachments.length > 0 ? { attachments } : {}),
+    }),
   });
 
   if (!response.ok) {
@@ -550,6 +582,9 @@ export async function sendAnamnesisCoachNotificationEmail(params: {
   coachName?: string | null;
   data: AnamnesisEmailData;
   reviewLink: string;
+  // As fotos vao anexadas para o professor ficar com uma copia propria: as URLs
+  // publicas usadas no <img> abaixo morrem quando a midia e purgada do storage.
+  attachments?: EmailAttachment[];
 }): Promise<EmailDeliveryResult> {
   const d = params.data;
   const safeName = escapeHtml(d.fullName);
@@ -618,9 +653,17 @@ export async function sendAnamnesisCoachNotificationEmail(params: {
             (d.deepSquatVideoLateralUrl ? `<td style="padding-right:8px;"><a href="${escapeHtml(d.deepSquatVideoLateralUrl)}" style="display:inline-block;background-color:#1D9E75;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;">&#9654; Lateral</a></td>` : "") +
             (d.deepSquatVideoPosteriorUrl ? `<td><a href="${escapeHtml(d.deepSquatVideoPosteriorUrl)}" style="display:inline-block;background-color:#1D9E75;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;">&#9654; Posterior</a></td>` : "") +
             `</tr></table>`
-          : "") +
+          // Sem videos no registro: o aluno foi orientado a manda-los pelo WhatsApp,
+          // porque 3 arquivos de ate 15 MB nao trafegam por e-mail.
+          : `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;border:1px solid #D1FAE5;border-radius:10px;background-color:#F0FDF4;">` +
+            `<tr><td style="padding:12px 14px;font-size:14px;color:#065F46;line-height:1.6;">` +
+            `<strong>Vídeos do Deep Squat:</strong> o aluno foi orientado a enviá-los pelo seu WhatsApp. ` +
+            `Se ainda não chegaram, chame ${escapeHtml(d.fullName)} no ${escapeHtml(d.phone)}.` +
+            `</td></tr></table>`) +
         (d.fotoFrontalUrl || d.fotoLateralUrl || d.fotoPosteriorUrl
-          ? `<p style="margin:16px 0 8px;padding:0;font-size:12px;font-weight:700;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;">Fotos posturais</p>` +
+          ? `<p style="margin:16px 0 8px;padding:0;font-size:12px;font-weight:700;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;">Fotos posturais${
+              (params.attachments?.length ?? 0) > 0 ? " — em anexo neste e-mail" : ""
+            }</p>` +
             `<table cellpadding="0" cellspacing="0" border="0"><tr>` +
             (d.fotoFrontalUrl ? `<td style="padding-right:10px;text-align:center;vertical-align:top;"><a href="${escapeHtml(d.fotoFrontalUrl)}" target="_blank"><img src="${escapeHtml(d.fotoFrontalUrl)}" alt="Frontal" width="158" height="198" style="width:158px;height:198px;object-fit:cover;border-radius:8px;border:1px solid #E5E7EB;display:block;"></a><p style="margin:5px 0 0;font-size:12px;color:#6B7280;text-align:center;">Frontal</p></td>` : "") +
             (d.fotoLateralUrl ? `<td style="padding-right:10px;text-align:center;vertical-align:top;"><a href="${escapeHtml(d.fotoLateralUrl)}" target="_blank"><img src="${escapeHtml(d.fotoLateralUrl)}" alt="Lateral" width="158" height="198" style="width:158px;height:198px;object-fit:cover;border-radius:8px;border:1px solid #E5E7EB;display:block;"></a><p style="margin:5px 0 0;font-size:12px;color:#6B7280;text-align:center;">Lateral</p></td>` : "") +
@@ -633,6 +676,7 @@ export async function sendAnamnesisCoachNotificationEmail(params: {
         cta("Ver perfil completo", params.reviewLink) +
         signoff()
       ),
+      attachments: params.attachments,
     });
   } catch (error) {
     return catchEmailError(error, "Falha ao enviar notificação de ficha ao professor.");
@@ -1067,7 +1111,7 @@ export async function sendMediaDeletedConfirmationEmail(params: {
         "Mídias removidas automaticamente",
         `Anamnese de ${safeName}`,
         p(`Olá! Este é um aviso informativo sobre a política de retenção de mídia da plataforma.`) +
-        p(`Os arquivos de mídia da anamnese de <strong style="color:#111827;">${safeName}</strong> foram removidos automaticamente em <strong>${dateFormatted}</strong>, conforme a política de 7 dias.`) +
+        p(`Os arquivos de mídia da anamnese de <strong style="color:#111827;">${safeName}</strong> foram removidos automaticamente em <strong>${dateFormatted}</strong>, conforme a política de retenção de 48 horas. As fotos posturais também foram enviadas anexadas no e-mail original desta ficha.`) +
         highlight(
           `<p style="margin:0 0 8px;padding:0;font-size:12px;font-weight:700;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;">Arquivos removidos</p>` +
           `<ul style="margin:0;padding-left:0;list-style:none;">${filesHtml}</ul>`

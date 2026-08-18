@@ -12,11 +12,15 @@ import {
   sendAnamnesisWelcomeEmail,
   sendAnamnesisCoachNotificationEmail,
   type AnamnesisEmailData,
+  type EmailAttachment,
 } from "../_shared/email.ts";
 import { createServiceRoleClient } from "../_shared/supabase.ts";
 import { getEdgeRuntimeEnv } from "../_shared/env.ts";
 
 type AnamnesisSubmitBody = {
+  // "teacher_info" faz leitura publica dos dados de contato do professor.
+  // Ausente (ou qualquer outro valor) = submissao normal da anamnese.
+  mode?: string | null;
   teacherId?: string | null;
   fullName: string;
   email: string;
@@ -43,6 +47,9 @@ type AnamnesisSubmitBody = {
   deepSquatVideoLateralUrl?: string | null;
   deepSquatVideoPosteriorUrl?: string | null;
 };
+
+// Janela de retencao da midia no storage, em horas.
+export const MEDIA_RETENTION_HOURS = 48;
 
 const VALID_GOALS = new Set(["hipertrofia", "emagrecimento", "condicionamento", "recomposicao"]);
 const VALID_LEVELS = new Set(["iniciante", "intermediario", "avancado"]);
@@ -118,6 +125,48 @@ async function resolveTeacherNotificationEmail(
   } catch {
     return fallback;
   }
+}
+
+// Baixa as fotos posturais do storage e devolve em base64 para irem anexadas.
+// Motivo: o e-mail referencia as fotos por URL publica, e a midia e purgada do
+// storage poucas horas depois — sem o anexo, o professor fica com um e-mail de
+// imagens quebradas. Falha em qualquer foto nao derruba o envio.
+async function buildPhotoAttachments(urls: (string | null)[]): Promise<EmailAttachment[]> {
+  const labels = ["frontal", "lateral", "posterior"];
+  const attachments: EmailAttachment[] = [];
+
+  await Promise.all(
+    urls.map(async (url, index) => {
+      if (!url) return;
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.warn(`[anamnesis-submit] foto ${labels[index]} respondeu ${response.status}; anexo ignorado.`);
+          return;
+        }
+
+        const buffer = new Uint8Array(await response.arrayBuffer());
+        let binary = "";
+        for (let i = 0; i < buffer.length; i += 8192) {
+          binary += String.fromCharCode(...buffer.subarray(i, i + 8192));
+        }
+
+        const contentType = response.headers.get("content-type") ?? "image/webp";
+        const extension = contentType.includes("png") ? "png" : contentType.includes("jpeg") ? "jpg" : "webp";
+
+        attachments[index] = {
+          filename: `foto-${labels[index]}.${extension}`,
+          content: btoa(binary),
+          contentType,
+        };
+      } catch (error) {
+        console.warn(`[anamnesis-submit] falha ao anexar foto ${labels[index]}:`, error);
+      }
+    }),
+  );
+
+  return attachments.filter(Boolean);
 }
 
 function validateBody(body: AnamnesisSubmitBody) {
@@ -198,6 +247,36 @@ Deno.serve(async (request) => {
   try {
     ensureMethod(request, ["POST"]);
     const rawBody = await parseJsonBody<AnamnesisSubmitBody>(request);
+
+    // Modo de leitura publica: a tela de anamnese precisa do nome e do WhatsApp
+    // do professor para montar o CTA de envio dos videos. `teachers` tem RLS
+    // `teachers_select_own`, entao o anon key nao consegue ler direto — por isso
+    // passa por aqui, com service role, devolvendo apenas campos publicos.
+    if (rawBody.mode === "teacher_info") {
+      const teacherId = normalizeString(rawBody.teacherId);
+      if (!teacherId) throw new EdgeHttpError("missing_params", "teacherId e obrigatorio.", 400);
+
+      const db = createServiceRoleClient();
+      const { data: teacher } = await db
+        .from("teachers")
+        .select("id, user_id, whatsapp")
+        .or(`id.eq.${teacherId},user_id.eq.${teacherId}`)
+        .maybeSingle();
+
+      if (!teacher) throw new EdgeHttpError("teacher_not_found", "Professor nao encontrado.", 404);
+
+      let coachName: string | null = null;
+      if (teacher.user_id) {
+        const { data: profile } = await db.from("profiles").select("full_name").eq("id", teacher.user_id).maybeSingle();
+        coachName = (profile?.full_name as string | null) ?? null;
+      }
+
+      return createSuccessResponse(requestId, {
+        coachName,
+        whatsapp: (teacher.whatsapp as string | null) ?? null,
+      });
+    }
+
     const input = validateBody(rawBody);
 
     const serviceRoleClient = createServiceRoleClient();
@@ -226,7 +305,10 @@ Deno.serve(async (request) => {
     }
 
     const now = new Date();
-    const mediaExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    // 48h em vez de 7 dias: as fotos agora vao anexadas no e-mail do professor,
+    // entao o storage e so um buffer para a visualizacao no painel. Prazo curto
+    // porque o plano Free tem 1 GB e ja estourou uma vez por acumulo de midia.
+    const mediaExpiresAt = new Date(now.getTime() + MEDIA_RETENTION_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data: inserted, error: insertError } = await serviceRoleClient
       .from("anamneses")
@@ -309,6 +391,10 @@ Deno.serve(async (request) => {
       env.coachNotificationEmail,
     );
 
+    const photoAttachments = coachEmail
+      ? await buildPhotoAttachments([input.fotoFrontalUrl, input.fotoLateralUrl, input.fotoPosteriorUrl])
+      : [];
+
     const [welcomeDelivery, notificationDelivery] = await Promise.all([
       sendAnamnesisWelcomeEmail({ fullName: input.fullName, email: input.email }),
       coachEmail
@@ -316,6 +402,7 @@ Deno.serve(async (request) => {
             coachEmail,
             data: emailData,
             reviewLink,
+            attachments: photoAttachments,
           })
         : Promise.resolve({ status: "skipped" as const, provider: "none" as const, message: "Nenhum e-mail de professor configurado." }),
     ]);

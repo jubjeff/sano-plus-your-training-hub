@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, DollarSign, KeyRound, Pencil, Save, X } from "lucide-react";
+import { Check, DollarSign, KeyRound, MessageCircle, Pencil, Save, X } from "lucide-react";
 import MyProfileCard from "@/components/MyProfileCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,13 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [savedType, setSavedType] = useState<PixKeyType | null>(null);
   const [savedFee, setSavedFee] = useState<number | null>(null);
+  const [savedWhatsapp, setSavedWhatsapp] = useState<string | null>(null);
 
   // Estado de edição
   const [pixKey, setPixKey] = useState("");
   const [pixKeyType, setPixKeyType] = useState<PixKeyType>("random");
   const [monthlyFee, setMonthlyFee] = useState(""); // sempre em centavos como string "15000" → exibe "150,00"
+  const [whatsapp, setWhatsapp] = useState(""); // só dígitos, com DDI+DDD (ex: 5511987654321)
 
   // Converte centavos (string de dígitos) → "150,00"
   function centsToDisplay(cents: string): string {
@@ -61,7 +63,7 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
     const supabase = getSupabaseClient();
     supabase
       .from("teachers")
-      .select("pix_key, pix_key_type, monthly_fee")
+      .select("pix_key, pix_key_type, monthly_fee, whatsapp")
       .eq("user_id", authUserId)
       .maybeSingle()
       .then(({ data }) => {
@@ -69,12 +71,15 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
         const key = data.pix_key as string | null;
         const type = (data.pix_key_type as PixKeyType | null) ?? "random";
         const fee = data.monthly_fee != null ? Number(data.monthly_fee) : null;
+        const zap = (data.whatsapp as string | null) ?? null;
         setSavedKey(key);
         setSavedType(type);
         setSavedFee(fee);
+        setSavedWhatsapp(zap);
         setPixKey(key ?? "");
         setPixKeyType(type);
         setMonthlyFee(fee != null ? valueToCents(fee) : "");
+        setWhatsapp(zap ?? "");
       });
   }, [authUserId]);
 
@@ -82,6 +87,7 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
     setPixKey(savedKey ?? "");
     setPixKeyType(savedType ?? "random");
     setMonthlyFee(savedFee != null ? valueToCents(savedFee) : "");
+    setWhatsapp(savedWhatsapp ?? "");
     setEditing(true);
   }
 
@@ -97,6 +103,14 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
       ? parseFloat((parseInt(monthlyFee || "0", 10) / 100).toFixed(2))
       : null;
 
+    // Guardado só com dígitos (DDI+DDD+número) porque é o formato que o
+    // link wa.me exige na tela pública de anamnese.
+    const whatsappDigits = whatsapp.replace(/\D/g, "");
+    if (whatsappDigits && (whatsappDigits.length < 12 || whatsappDigits.length > 13)) {
+      toast.error("WhatsApp inválido. Use DDI + DDD + número (ex: 5511987654321).");
+      return;
+    }
+
     setSaving(true);
     try {
       const supabase = getSupabaseClient();
@@ -106,6 +120,7 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
           pix_key: pixKey.trim(),
           pix_key_type: pixKeyType,
           monthly_fee: feeNum,
+          whatsapp: whatsappDigits || null,
         })
         .eq("user_id", authUserId)
         .select("id");
@@ -120,6 +135,7 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
       setSavedKey(pixKey.trim());
       setSavedType(pixKeyType);
       setSavedFee(feeNum);
+      setSavedWhatsapp(whatsappDigits || null);
       setEditing(false);
       toast.success("Configurações de recebimento salvas.");
     } catch (err) {
@@ -188,9 +204,28 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
               {savedFee != null && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
             </div>
 
+            {/* WhatsApp dos vídeos de avaliação */}
+            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${savedWhatsapp ? "border-primary/20 bg-primary/5" : "border-border bg-muted/30"}`}>
+              <MessageCircle className={`h-4 w-4 shrink-0 ${savedWhatsapp ? "text-primary" : "text-muted-foreground"}`} />
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">WhatsApp dos vídeos</p>
+                {savedWhatsapp ? (
+                  <p className="mt-0.5 truncate text-sm font-medium text-foreground">+{savedWhatsapp}</p>
+                ) : (
+                  <p className="mt-0.5 text-sm text-muted-foreground">Não configurado</p>
+                )}
+              </div>
+              {savedWhatsapp && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />}
+            </div>
+
             {!isConfigured && (
               <p className="sm:col-span-2 text-xs text-muted-foreground">
                 Configure a chave PIX para que seus alunos possam pagar pelo app.
+              </p>
+            )}
+            {!savedWhatsapp && (
+              <p className="sm:col-span-2 text-xs text-muted-foreground">
+                Configure o WhatsApp para receber os vídeos de avaliação dos seus alunos.
               </p>
             )}
           </div>
@@ -214,6 +249,23 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
                 />
               </div>
               <p className="text-xs text-muted-foreground">Este valor será exibido no QR code e na tela de pagamento do aluno.</p>
+            </div>
+
+            {/* WhatsApp para recebimento dos vídeos de avaliação */}
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp-input">WhatsApp para os vídeos de avaliação</Label>
+              <input
+                id="whatsapp-input"
+                inputMode="numeric"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 13))}
+                placeholder="5511987654321"
+                className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+              <p className="text-xs text-muted-foreground">
+                DDI + DDD + número, só dígitos. Ao concluir a anamnese, o aluno recebe um botão para te enviar
+                os vídeos do Deep Squat neste número. Sem isso, ele verá apenas a orientação de entrar em contato.
+              </p>
             </div>
 
             <div className="border-t border-border/60 pt-5 space-y-4">

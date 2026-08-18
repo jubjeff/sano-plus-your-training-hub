@@ -934,6 +934,7 @@ export type Database = {
           pix_key_type: string | null
           updated_at: string
           user_id: string
+          whatsapp: string | null
         }
         Insert: {
           created_at?: string
@@ -945,6 +946,7 @@ export type Database = {
           pix_key_type?: string | null
           updated_at?: string
           user_id: string
+          whatsapp?: string | null
         }
         Update: {
           created_at?: string
@@ -956,6 +958,7 @@ export type Database = {
           pix_key_type?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {

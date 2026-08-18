@@ -807,11 +807,13 @@ export default function AnamnesisQueue() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <div>
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              As fotos e vídeos enviados pelos alunos ficam disponíveis por apenas 7 dias
+              As fotos enviadas pelos alunos ficam disponíveis aqui por apenas 48 horas
             </p>
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
               Após esse prazo, os arquivos são excluídos automaticamente dos nossos servidores para liberar espaço.
-              Baixe as mídias de cada anamnese assim que recebê-las. Os dados textuais (nome, objetivo, histórico etc.) são mantidos indefinidamente.
+              As fotos posturais também chegam <strong>anexadas no e-mail</strong> de cada nova ficha, então você já tem uma cópia própria.
+              Os vídeos do Deep Squat não passam por aqui: o aluno é orientado a enviá-los direto no seu WhatsApp.
+              Os dados textuais (nome, objetivo, histórico etc.) são mantidos indefinidamente.
             </p>
           </div>
         </div>
