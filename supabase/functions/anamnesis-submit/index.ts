@@ -221,11 +221,13 @@ function validateBody(body: AnamnesisSubmitBody) {
   if (!fotoLateralUrl) throw new EdgeHttpError("missing_foto_lateral", "Foto lateral obrigatoria.", 400);
   if (!fotoPosteriorUrl) throw new EdgeHttpError("missing_foto_posterior", "Foto posterior obrigatoria.", 400);
 
-  // Deep Squat obrigatório
+  // Deep Squat: o score continua obrigatorio, os videos nao.
+  // Os videos deixaram de ser enviados pelo formulario e vao pelo WhatsApp do
+  // professor (3 arquivos de ate 15 MB nao trafegam por e-mail e eram 98% do
+  // consumo de storage). Os campos deep_squat_video_*_url seguem existindo na
+  // tabela e no corpo da requisicao para nao quebrar registros antigos, mas
+  // chegam nulos e nao podem mais bloquear o envio.
   if (deepSquatScore === null) throw new EdgeHttpError("invalid_deep_squat_score", "Avaliacao de dificuldade do Deep Squat invalida.", 400);
-  if (!deepSquatVideoFrontalUrl) throw new EdgeHttpError("missing_deep_squat_video_frontal", "Video frontal do Deep Squat obrigatorio.", 400);
-  if (!deepSquatVideoLateralUrl) throw new EdgeHttpError("missing_deep_squat_video_lateral", "Video lateral do Deep Squat obrigatorio.", 400);
-  if (!deepSquatVideoPosteriorUrl) throw new EdgeHttpError("missing_deep_squat_video_posterior", "Video posterior do Deep Squat obrigatorio.", 400);
 
   return {
     teacherId,
