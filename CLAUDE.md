@@ -155,7 +155,7 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 | `anamnesis-submit` | Público | Recebe a anamnese pública, vincula ao professor e grava em `anamneses` | Ativa |
 | `pix-payment-submit` | Público / autenticado | Modos `info`, `info_by_teacher`, `get_upload_url`, `submit`, `submit_renewal` — devolve a chave PIX do professor e registra a intenção de pagamento | Ativa |
 | `pix-approve-payment` | Autenticado (professor) | Aprova o PIX e **provisiona** professor/aluno/assinatura a partir da anamnese | Ativa |
-| `automation-dispatch` | Interno (secret) | Automações agendadas: varredura de pagamentos, geração de alertas, expiração | Sem chamador conhecido |
+| `automation-dispatch` | Interno (secret) | Automações agendadas: varredura de pagamentos, alertas, expiração, `purge_expired_media` | `purge_expired_media` agendada via `pg_cron` (diária, 03:00 UTC). As demais jobs seguem sem chamador |
 | `secure-ops` | Interno (secret) | `provision_teacher_account`, `rotate_student_access`, `reconcile_subscription_state` | Sem chamador conhecido |
 | `integration-webhook` | Público (webhook) | Grava em `integration_events` e roteia por `provider` | Sem chamador conhecido |
 | `mp-create-preference` | Público | Cria preferência de checkout no Mercado Pago | **Pausada** |
@@ -381,10 +381,36 @@ regra de provisionamento? **Atualize os dois.** Só o caminho PIX é exercitado.
 
 ### Funções internas sem chamador conhecido
 
-`automation-dispatch`, `secure-ops` e `integration-webhook` não são chamadas por
-nenhum código deste repositório. São protegidas por segredo compartilhado e
-poderiam ser acionadas de fora (cron externo, ops manual, gateway terceiro) —
-não há `pg_cron` nas migrações. **Status não confirmado: verificar antes de remover.**
+`secure-ops` e `integration-webhook` não são chamadas por nenhum código deste
+repositório. São protegidas por segredo compartilhado e poderiam ser acionadas
+de fora (ops manual, gateway terceiro). **Status não confirmado: verificar antes
+de remover.**
+
+`automation-dispatch` passou a ter um chamador: a migration
+`20260818000003_schedule_purge_expired_media.sql` agenda `purge_expired_media`
+via `pg_cron` + `pg_net`, diariamente às 03:00 UTC. As outras jobs
+(`scan_overdue_students`, `expire_trial_access`, `send_renewal_warnings`,
+`send_media_deletion_reminder`, etc.) continuam sem nenhum agendamento.
+
+⚠️ **Pré-requisito:** o cron lê o segredo do Supabase Vault, não do arquivo de
+migration. Sem `internal_automation_secret` cadastrado no Vault, a chamada sai
+com header nulo e o `automation-dispatch` responde 401 — a job roda mas não
+apaga nada.
+
+### Mídia da anamnese — e-mail + WhatsApp
+
+Os vídeos do Deep Squat **não são mais enviados pelo formulário**. Três arquivos
+de até 15 MB somam ~45 MB e não trafegam por e-mail (Resend ~40 MB, Gmail recusa
+acima de 25 MB), além de terem sido 98% do consumo que estourou a cota de 1 GB.
+O aluno envia os vídeos pelo WhatsApp do professor (`teachers.whatsapp`), via CTA
+na tela de conclusão da anamnese.
+
+As fotos posturais vão **anexadas** no e-mail do professor, porque o corpo do
+e-mail as referencia por URL pública e essa URL morre quando a mídia é purgada.
+Retenção no storage: **48h** (`MEDIA_RETENTION_HOURS` em `anamnesis-submit`).
+
+O bucket `anamnesis-videos` não recebe mais uploads e pode ser removido quando a
+mídia das anamneses antigas expirar.
 
 ### Store LocalStorage — inerte em produção
 
