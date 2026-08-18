@@ -17,6 +17,28 @@ const PIX_KEY_TYPES: { value: PixKeyType; label: string }[] = [
   { value: "random", label: "Chave aleatória" },
 ];
 
+// Formata o WhatsApp para exibicao: 5581996393807 -> +55 (81) 99639-3807.
+// O estado guarda apenas digitos; a mascara existe so na tela.
+function formatWhatsapp(digits: string | null): string {
+  const d = (digits ?? "").replace(/[^0-9]/g, "").slice(0, 13);
+  if (!d) return "";
+
+  const ddi = d.slice(0, 2);
+  const ddd = d.slice(2, 4);
+  const rest = d.slice(4);
+
+  let out = `+${ddi}`;
+  if (ddd) out += ` (${ddd}`;
+  if (ddd.length === 2) out += ")";
+  if (rest) {
+    // celular (9 digitos) quebra em 5+4; fixo (8) em 4+4
+    const head = rest.length > 8 ? 5 : 4;
+    out += ` ${rest.slice(0, head)}`;
+    if (rest.length > head) out += `-${rest.slice(head)}`;
+  }
+  return out;
+}
+
 function formatBRL(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
@@ -210,7 +232,7 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">WhatsApp dos vídeos</p>
                 {savedWhatsapp ? (
-                  <p className="mt-0.5 truncate text-sm font-medium text-foreground">+{savedWhatsapp}</p>
+                  <p className="mt-0.5 truncate text-sm font-medium text-foreground">{formatWhatsapp(savedWhatsapp)}</p>
                 ) : (
                   <p className="mt-0.5 text-sm text-muted-foreground">Não configurado</p>
                 )}
@@ -257,9 +279,9 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
               <input
                 id="whatsapp-input"
                 inputMode="numeric"
-                value={whatsapp}
+                value={formatWhatsapp(whatsapp)}
                 onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 13))}
-                placeholder="5511987654321"
+                placeholder="+55 (11) 98765-4321"
                 className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
               <p className="text-xs text-muted-foreground">
