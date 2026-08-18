@@ -202,10 +202,36 @@ Deno.serve(async (request) => {
 
     const serviceRoleClient = createServiceRoleClient();
 
+    // Resolve teacher_id: aceita tanto teachers.id quanto auth user_id (user.id)
+    let resolvedTeacherId: string | null = null;
+    if (input.teacherId) {
+      // Tenta por id direto (teachers.id)
+      const { data: byId } = await serviceRoleClient
+        .from("teachers")
+        .select("id")
+        .eq("id", input.teacherId)
+        .maybeSingle();
+
+      if (byId?.id) {
+        resolvedTeacherId = byId.id as string;
+      } else {
+        // Fallback: tenta por user_id (auth UID)
+        const { data: byUserId } = await serviceRoleClient
+          .from("teachers")
+          .select("id")
+          .eq("user_id", input.teacherId)
+          .maybeSingle();
+        resolvedTeacherId = (byUserId?.id as string | null) ?? null;
+      }
+    }
+
+    const now = new Date();
+    const mediaExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
     const { data: inserted, error: insertError } = await serviceRoleClient
       .from("anamneses")
       .insert({
-        teacher_id: input.teacherId ?? null,
+        teacher_id: resolvedTeacherId,
         full_name: input.fullName,
         email: input.email,
         phone: input.phone,
@@ -230,6 +256,7 @@ Deno.serve(async (request) => {
         deep_squat_video_posterior_url: input.deepSquatVideoPosteriorUrl,
         fms_score_total: input.fmsScoreTotal,
         status: "pending_review",
+        media_expires_at: mediaExpiresAt,
       })
       .select("id")
       .maybeSingle();
@@ -270,14 +297,15 @@ Deno.serve(async (request) => {
       deepSquatVideoLateralUrl: input.deepSquatVideoLateralUrl,
       deepSquatVideoPosteriorUrl: input.deepSquatVideoPosteriorUrl,
       fmsScoreTotal: input.fmsScoreTotal,
+      mediaExpiresAt,
     };
 
     const env = getEdgeRuntimeEnv();
 
-    // Resolve o e-mail do professor: prioriza o do DB (via teacherId), cai no secret como fallback
+    // Resolve o e-mail do professor usando o ID já validado
     const coachEmail = await resolveTeacherNotificationEmail(
       serviceRoleClient,
-      input.teacherId,
+      resolvedTeacherId,
       env.coachNotificationEmail,
     );
 

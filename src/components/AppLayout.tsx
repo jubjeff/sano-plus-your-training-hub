@@ -1,21 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ClipboardList, DollarSign, Dumbbell, LayoutDashboard, LogOut, Menu, Moon, Sparkles, Sun, Users } from "lucide-react";
+import { ChevronDown, ClipboardList, DollarSign, Dumbbell, LayoutDashboard, LogOut, Menu, Moon, Sparkles, Sun, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 
-const coachNavItems = [
+type NavItem = { to: string; label: string; icon: React.ElementType };
+type NavGroup = { label: string; icon: React.ElementType; base: string; children: NavItem[] };
+type NavEntry = NavItem | NavGroup;
+
+function isNavGroup(entry: NavEntry): entry is NavGroup {
+  return "children" in entry;
+}
+
+const coachNavItems: NavEntry[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/alunos", label: "Alunos", icon: Users },
-  { to: "/anamneses", label: "Anamneses", icon: ClipboardList },
+  {
+    label: "Alunos",
+    icon: Users,
+    base: "/alunos",
+    children: [
+      { to: "/alunos", label: "Lista de alunos", icon: Users },
+      { to: "/anamneses", label: "Anamneses", icon: ClipboardList },
+      { to: "/assinaturas", label: "Assinaturas", icon: DollarSign },
+    ],
+  },
   { to: "/biblioteca", label: "Biblioteca", icon: Dumbbell },
 ];
 
-const studentNavItems = [{ to: "/aluno/dashboard", label: "Meu painel", icon: Dumbbell }];
-
-const futureItems = [{ label: "Financeiro", icon: DollarSign }];
+const studentNavItems: NavEntry[] = [{ to: "/aluno/dashboard", label: "Meu painel", icon: Dumbbell }];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,6 +37,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, touchSessionActivity } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Grupos expansíveis: inicia aberto se a rota atual pertence ao grupo
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const entry of coachNavItems) {
+      if (isNavGroup(entry)) {
+        const active =
+          location.pathname.startsWith(entry.base) ||
+          entry.children.some((c) => location.pathname.startsWith(c.to));
+        initial[entry.label] = active;
+      }
+    }
+    return initial;
+  });
+
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
 
   const navItems = user?.role === "student" ? studentNavItems : coachNavItems;
   const isCoach = user?.role === "coach";
@@ -42,6 +74,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ? "Biblioteca de treinos"
     : location.pathname.startsWith("/anamneses")
     ? "Fila de anamneses"
+    : location.pathname.startsWith("/assinaturas")
+    ? "Assinaturas"
     : "Painel Sano+";
 
   useEffect(() => {
@@ -114,37 +148,76 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                }`
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
-          ))}
+          {(navItems as NavEntry[]).map((entry) => {
+            if (isNavGroup(entry)) {
+              const isOpen = !!openGroups[entry.label];
+              const groupActive = location.pathname.startsWith(entry.base) ||
+                entry.children.some((c) => location.pathname.startsWith(c.to));
+              return (
+                <div key={entry.label}>
+                  {/* Botão do grupo — clicável para abrir/fechar */}
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(entry.label)}
+                    className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-colors ${
+                      groupActive && !isOpen
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <entry.icon className="h-5 w-5 shrink-0" />
+                    <span className="flex-1 text-left">{entry.label}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-sidebar-foreground/50 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-          {user?.role !== "student" ? (
-            <>
-              <div className="px-3 pb-2 pt-4">
-                <span className="text-xs font-semibold uppercase tracking-wider text-sidebar-muted">Em breve</span>
-              </div>
-              {futureItems.map((item) => (
-                <div key={item.label} className="flex cursor-not-allowed items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium text-sidebar-muted opacity-50">
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
+                  {/* Sub-itens — visíveis só quando aberto */}
+                  {isOpen && (
+                    <div className="ml-3.5 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
+                      {entry.children.map((child) => (
+                        <NavLink
+                          key={child.to}
+                          to={child.to}
+                          end={child.to === "/alunos"}
+                          onClick={() => setSidebarOpen(false)}
+                          className={({ isActive }) =>
+                            `flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                              isActive
+                                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            }`
+                          }
+                        >
+                          <child.icon className="h-4 w-4 shrink-0" />
+                          {child.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </>
-          ) : null}
+              );
+            }
+            return (
+              <NavLink
+                key={entry.to}
+                to={entry.to}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  }`
+                }
+              >
+                <entry.icon className="h-5 w-5" />
+                {entry.label}
+              </NavLink>
+            );
+          })}
 
           <div className="mx-3 mt-4 rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 p-4 sm:mt-5">
             <div className="flex items-center gap-2 text-sidebar-accent-foreground">

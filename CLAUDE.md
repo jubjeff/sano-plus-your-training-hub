@@ -203,11 +203,31 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 
 ### Storage Buckets
 
-| Bucket | Visibilidade | Quem escreve |
-|---|---|---|
-| `student-profile-photos` | Público | Autenticados |
-| `payment-proofs` | Privado | Autenticados |
-| `exercise-media` | Público | Professores |
+| Bucket | Visibilidade | Limite por arquivo | Quem escreve |
+|---|---|---|---|
+| `anamnesis-photos` | Público | 2 MB (comprimido) | Anônimos |
+| `anamnesis-videos` | Público | 15 MB | Anônimos |
+| `student-profile-photos` | Público | Sem limite definido | Autenticados |
+| `payment-proofs` | Privado | 8 MB | Autenticados |
+| `exercise-media` | Público | 12 MB | Professores |
+| `profile-avatars` | Público | 5 MB | Autenticados |
+
+### Estratégia de Armazenamento de Mídia (Opção C — Compressão Frontend)
+
+**Fotos de anamnese (`anamnesis-photos`):**
+- Comprimidas no browser com `browser-image-compression` antes do upload
+- Target: 800 KB, max 1200px, qualidade 80%, formato WebP
+- Custo estimado por anamnese: ~2,4 MB (3 fotos × 800 KB)
+
+**Vídeos de anamnese (`anamnesis-videos`):**
+- Sem compressão no frontend (formato nativo)
+- Limite rígido de 15 MB por vídeo — orientar usuário a gravar em 720p
+- Custo estimado por anamnese: ~30–45 MB (3 vídeos × 10–15 MB)
+- Custo total por anamnese: ~35–50 MB (vs. ~180 MB sem compressão)
+
+**Limite do plano gratuito Supabase (1 GB):** ~20–25 submissões por ciclo de limpeza.
+
+**Atenção:** Não armazenar vídeos longos no Supabase Storage. Se o volume crescer, migrar para Cloudinary free tier (25 GB) ou tornar os vídeos opcionais via link externo (YouTube, Google Drive).
 
 ---
 

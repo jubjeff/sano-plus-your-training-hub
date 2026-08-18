@@ -10,6 +10,9 @@ type EdgeRuntimeEnv = {
   internalAutomationSecret: string | null;
   integrationWebhookSecret: string | null;
   secureOpsSecret: string | null;
+  // Mercado Pago
+  mpAccessToken: string | null;
+  mpWebhookSecret: string | null;
 };
 
 let cachedEnv: EdgeRuntimeEnv | null = null;
@@ -55,6 +58,8 @@ export function getEdgeRuntimeEnv(): EdgeRuntimeEnv {
     internalAutomationSecret: readOptionalEnv("INTERNAL_AUTOMATION_SECRET"),
     integrationWebhookSecret: readOptionalEnv("INTEGRATION_WEBHOOK_SECRET"),
     secureOpsSecret: readOptionalEnv("SECURE_OPS_SECRET"),
+    mpAccessToken: readOptionalEnv("MP_ACCESS_TOKEN"),
+    mpWebhookSecret: readOptionalEnv("MP_WEBHOOK_SECRET"),
   };
 
   return cachedEnv;

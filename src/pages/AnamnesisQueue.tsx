@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import { getSupabaseClient, invokeSupabaseEdgeFunction, EDGE_FUNCTION_NAMES } from "@/integrations/supabase";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 
 type AnamnesisStatus = "pending_review" | "workout_generated" | "active";

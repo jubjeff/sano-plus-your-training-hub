@@ -1,5 +1,9 @@
 export const EDGE_FUNCTION_NAMES = {
   anamnesisSubmit: "anamnesis-submit",
+  mpCreatePreference: "mp-create-preference",
+  mpWebhook: "mp-webhook",
+  pixPaymentSubmit: "pix-payment-submit",
+  pixApprovePayment: "pix-approve-payment",
   teacherAdminActions: "teacher-admin-actions",
   automationDispatch: "automation-dispatch",
   integrationWebhook: "integration-webhook",

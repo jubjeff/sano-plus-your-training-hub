@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, CreditCard, Dumbbell, Lock, ShieldCheck, UploadCloud } from "lucide-react";
+import StudentPixSection from "@/components/StudentPixSection";
 import ExerciseMediaPreview from "@/components/ExerciseMediaPreview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
+import { getSupabaseClient } from "@/integrations/supabase";
 import { formatDate, getDaysUntil } from "@/lib/format";
 import { validatePaymentProofFile } from "@/lib/payment-proof";
 import { getActivityCalendar, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
@@ -80,12 +82,39 @@ function WorkoutBlockDetails({
 
 export default function StudentPortal() {
   const { user } = useAuth();
-  const { getStudentByUserId, getStudentCheckIns, submitProofOfPayment, registerStudentCheckIn, updateStudentExerciseLoad, exerciseLibrary } = useStore();
+  const { getStudentByUserId, getStudentCheckIns, submitProofOfPayment, registerStudentCheckIn, updateStudentExerciseLoad, exerciseLibrary, refresh } = useStore();
   const student = getStudentByUserId(user?.id);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [selectedCardKey, setSelectedCardKey] = useState<string | null>(null);
+
+  // Listener em tempo real: atualiza o store quando o professor aprova o pagamento
+  useEffect(() => {
+    if (!student?.id) return;
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      .channel(`student-payment-${student.id}`)
+      .on(
+        "postgres_changes" as const,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "students",
+          filter: `id=eq.${student.id}`,
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          if (payload.new.proof_of_payment_status === "approved") {
+            refresh?.().then(() => {
+              toast.success("Pagamento aprovado! Seus dados foram atualizados.");
+            });
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [student?.id, refresh]);
 
   const checkIns = useMemo(() => (student ? getStudentCheckIns(student.id) : []), [getStudentCheckIns, student]);
   const plan = useMemo(() => (student ? getStudentWorkoutPlan(student) : null), [student]);
@@ -221,6 +250,13 @@ export default function StudentPortal() {
                 <div className="space-y-4">
                   <div className="rounded-[24px] border border-border/60 bg-background/70 p-5"><div className="flex items-center justify-between gap-3"><p className="text-sm font-medium">Status do pagamento</p><Badge className={statusTone}>{statusLabel}</Badge></div><div className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Vencimento</p><p className="mt-2 font-medium">{student.paymentDueDate ? formatDate(student.paymentDueDate) : "Sem data"}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ultimo pagamento</p><p className="mt-2 font-medium">{student.paymentLastPaidAt ? formatDate(student.paymentLastPaidAt) : "Nao registrado"}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Dias de atraso</p><p className="mt-2 font-medium">{daysOverdue}</p></div><div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Comprovante</p><p className="mt-2 font-medium">{student.proofOfPaymentStatus === "submitted" ? "Enviado para analise" : student.proofOfPaymentStatus === "approved" ? "Aprovado" : "Nao enviado"}</p></div></div>{student.proofOfPaymentSentAt ? <p className="mt-4 text-xs text-muted-foreground">Ultimo comprovante enviado em {formatDate(student.proofOfPaymentSentAt)}.</p> : null}</div>
                   <div className="rounded-[24px] border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">{daysOverdue >= 3 && student.proofOfPaymentStatus !== "submitted" ? "Com 3 dias ou mais de atraso, os treinos e check-ins ficam bloqueados automaticamente." : student.proofOfPaymentStatus === "submitted" ? "Seu comprovante foi enviado e esta aguardando analise do professor." : "Se precisar, envie o comprovante por este painel para agilizar a regularizacao."}</div>
+
+                  {/* PIX do professor */}
+                  <StudentPixSection
+                    studentId={student.id}
+                    teacherId={student.coachId}
+                    onSuccess={() => refresh?.()}
+                  />
                 </div>
               </section>
             </div>
