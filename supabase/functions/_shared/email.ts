@@ -790,15 +790,18 @@ export async function sendPaymentPendingEmail(params: {
     return await sendWithResend({
       to: params.email,
       subject: "Pagamento em análise — Sano+ ⏳",
-      text: `Olá, ${params.studentName}!\n\nRecebemos seu pedido do plano ${params.planName} (${formatted}/mês). Assim que confirmado, liberamos o acesso automaticamente.\n\nEquipe Sano+`,
+      text: `Olá, ${params.studentName}!\n\nRecebemos seu comprovante do plano ${params.planName} (${formatted}/mês). Seu personal vai conferir e liberar seu acesso em até 48 horas.\n\nEquipe Sano+`,
       html: tpl(
         "Pagamento em análise",
-        "Aguardando confirmação do seu banco",
-        p(`Olá, <strong style="color:#111827;">${safeName}</strong>! Pedido recebido.`) +
-        p("Seu pagamento está sendo processado. Assim que confirmado, o acesso é liberado automaticamente e você recebe um e-mail com os dados de entrada.") +
+        "Seu personal vai conferir o comprovante",
+        p(`Olá, <strong style="color:#111827;">${safeName}</strong>! Comprovante recebido.`) +
+        // O PIX aqui e manual: quem confere e aprova e o professor, nao um gateway.
+        // A copia anterior prometia confirmacao automatica "pelo banco" e citava
+        // cartao de credito, que nao existe neste fluxo.
+        p("Seu personal foi notificado e vai conferir o pagamento. Assim que aprovar, você recebe um e-mail com os dados de acesso.") +
         dataLabel("Plano solicitado", safePlan) +
         dataLabel("Valor", `${formatted}/mês`) +
-        p("<span style=\"font-size:13px;color:#6B7280;\">Pix: confirmação em minutos. Cartão de crédito: pode levar até 2 dias úteis.</span>") +
+        p("<span style=\"font-size:13px;color:#6B7280;\">A liberação costuma sair em até 48 horas.</span>") +
         (params.retryLink ? cta("Voltar ao pagamento", params.retryLink) : "") +
         signoff()
       ),

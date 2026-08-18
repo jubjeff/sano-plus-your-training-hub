@@ -225,7 +225,7 @@ export default function Planos() {
 
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Pagamento via <span className="font-semibold text-foreground">PIX</span>
-          {" "}· Aprovação em até 24h · Sem taxa de adesão
+          {" "}· Aprovação em até 48h · Sem taxa de adesão
         </p>
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Já tem acesso?{" "}

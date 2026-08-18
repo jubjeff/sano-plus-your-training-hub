@@ -18,15 +18,17 @@ export default function PagamentoPendente() {
             </p>
           </div>
           <div className="w-full rounded-2xl border border-border bg-card/60 p-4 text-left">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Se pagou com Pix ou boleto</p>
-            <p className="text-sm text-muted-foreground">A confirmação pode levar até <strong className="text-foreground">2 dias úteis</strong>. Você receberá um e-mail assim que o pagamento for processado.</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">O que acontece agora</p>
+            <p className="text-sm text-muted-foreground">Seu personal foi notificado e vai conferir o comprovante. A liberação sai em até <strong className="text-foreground">48 horas</strong>, e você recebe um e-mail com os dados de acesso.</p>
           </div>
           <div className="flex gap-3 w-full">
             <Button asChild variant="outline" className="flex-1">
               <Link to="/planos">Ver planos</Link>
             </Button>
             <Button asChild className="flex-1">
-              <Link to="/">Ir para o login</Link>
+              {/* Neste ponto a conta ainda nao existe: ela e criada quando o
+                  professor aprova. O rotulo evita convidar para uma porta fechada. */}
+              <Link to="/">Já tenho acesso — entrar</Link>
             </Button>
           </div>
         </div>
