@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { CheckCircle2, Crown, Loader2, Moon, Sparkles, Sun, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,9 @@ export default function Planos() {
   // senao a ficha nasce com teacher_id nulo: o aluno perde o botao de WhatsApp
   // e a notificacao cai no e-mail generico em vez de ir para o professor.
   const teacherId = searchParams.get("t");
+  // Plano escolhido antes do desvio para a anamnese. Volta na URL para o aluno
+  // retomar de onde parou em vez de escolher de novo.
+  const pendingPlanoId = searchParams.get("plano");
 
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,11 +72,27 @@ export default function Planos() {
     fetchPlanos();
   }, []);
 
+  // Retomada: o aluno voltou da anamnese com plano e ficha definidos, entao o
+  // pagamento abre sozinho. O ref evita reabrir se ele fechar o modal.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || loading || !anamnesisId || !pendingPlanoId) return;
+    const plano = planos.find((p) => p.id === pendingPlanoId);
+    if (!plano) return;
+    resumedRef.current = true;
+    void handleAssinar(plano);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, planos, anamnesisId, pendingPlanoId]);
+
   async function handleAssinar(plano: Plano) {
     // Sem anamnese ainda: manda preencher a ficha primeiro, carregando o
-    // professor. A anamnese devolve o aluno para ca com ?anamnese=<id>&t=<t>.
+    // professor E o plano escolhido. A anamnese devolve o aluno para ca com
+    // ?anamnese=<id>&t=<t>&plano=<id>, e o pagamento abre direto — sem obrigar
+    // a escolher o mesmo plano duas vezes.
     if (!anamnesisId) {
-      navigate(teacherId ? `/anamnese?t=${encodeURIComponent(teacherId)}` : "/anamnese");
+      const params = new URLSearchParams({ plano: plano.id });
+      if (teacherId) params.set("t", teacherId);
+      navigate(`/anamnese?${params.toString()}`);
       return;
     }
 
@@ -226,6 +245,7 @@ export default function Planos() {
           amount={selectedPlano.preco}
           anamnesisId={anamnesisId}
           planoId={selectedPlano.id}
+          onSubmitted={() => navigate("/pagamento/pendente")}
         />
       )}
     </div>

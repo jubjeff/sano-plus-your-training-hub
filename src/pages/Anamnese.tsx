@@ -460,6 +460,9 @@ export default function Anamnese() {
 
   // Captura o ID do professor do parâmetro ?t= da URL
   const teacherId = new URLSearchParams(window.location.search).get("t") ?? null;
+  // Plano que o aluno escolheu antes de ser desviado para ca. Volta junto na
+  // URL de conclusão para o pagamento retomar sem nova escolha.
+  const pendingPlanoId = new URLSearchParams(window.location.search).get("plano") ?? null;
 
   // Contato do professor para o CTA de envio dos vídeos. `teachers` tem RLS
   // restrita ao dono, então a leitura passa pela edge function.
@@ -739,7 +742,11 @@ export default function Anamnese() {
             {/* Fecha o ciclo: da anamnese para a escolha do plano e o pagamento. */}
             {anamnesisId && (
               <Link
-                to={`/planos?anamnese=${encodeURIComponent(anamnesisId)}${teacherId ? `&t=${encodeURIComponent(teacherId)}` : ""}`}
+                to={`/planos?${new URLSearchParams({
+                  anamnese: anamnesisId,
+                  ...(teacherId ? { t: teacherId } : {}),
+                  ...(pendingPlanoId ? { plano: pendingPlanoId } : {}),
+                }).toString()}`}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
                 Escolher plano e pagar

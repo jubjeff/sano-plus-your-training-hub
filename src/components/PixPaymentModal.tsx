@@ -19,12 +19,14 @@ interface Props {
   amount: number;
   anamnesisId: string;
   planoId: string;
+  /** Chamado apos a confirmacao ser registrada. Quem chama decide o destino. */
+  onSubmitted?: () => void;
 }
 
 export default function PixPaymentModal({
   open, onClose,
   pixKey, coachName, planName, amount,
-  anamnesisId, planoId,
+  anamnesisId, planoId, onSubmitted,
 }: Props) {
   const [step, setStep] = useState<Step>("qr");
   const [payerNote, setPayerNote] = useState("");
@@ -61,7 +63,11 @@ export default function PixPaymentModal({
         body: { mode: "submit", anamnesisId, planoId, payerNote: payerNote.trim() || null },
       });
       if (error) throw error;
-      setStep("done");
+      // Quem chama decide o destino. O Planos manda para /pagamento/pendente,
+      // que e a mensagem verdadeira: com PIX manual a conta so existe depois
+      // que o professor aprova. Sem callback, cai na tela interna de conclusao.
+      if (onSubmitted) onSubmitted();
+      else setStep("done");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao registrar pagamento.";
       toast.error(msg);
