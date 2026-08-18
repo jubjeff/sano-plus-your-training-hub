@@ -10,15 +10,21 @@ Plataforma SaaS de gestão de treinos para personal trainers (professores) e seu
 |---|---|
 | Frontend | React 18 + Vite 5 + TypeScript 5 |
 | UI | shadcn/ui + Radix UI + Tailwind CSS 3 |
-| Forms | React Hook Form + Zod |
+| Validação | Zod (direto, sem React Hook Form) |
 | Roteamento | React Router DOM 6 |
-| Animações | Framer Motion 11 |
-| Gráficos | Recharts 2 |
+| Ícones | lucide-react |
+| Toasts | Sonner + Radix Toast |
+| QR Code | react-qr-code (PIX) |
+| Compressão de imagem | browser-image-compression (anamnese) |
 | Backend/DB | Supabase (PostgreSQL + Auth + Storage + Edge Functions) |
 | Edge Functions | Deno runtime |
 | Email | Resend (via edge function `_shared/email.ts`) |
-| Testes | Vitest + Testing Library + Playwright |
+| Testes | Vitest + jsdom + @testing-library/jest-dom |
 | Deploy | Vercel (frontend) + Supabase (backend) |
+
+> **Não** fazem parte da stack: Framer Motion, Recharts, React Hook Form, date-fns
+> e Playwright. Foram removidos na varredura de código morto — não reintroduza sem
+> necessidade real. Os formulários usam estado controlado + Zod na validação.
 
 ---
 
@@ -27,29 +33,34 @@ Plataforma SaaS de gestão de treinos para personal trainers (professores) e seu
 ```
 Sano+/
 ├── src/
-│   ├── pages/            # 16 páginas React
-│   ├── components/       # 40+ componentes reutilizáveis
-│   │   └── ui/           # Componentes shadcn/ui
-│   ├── contexts/         # AuthContext
-│   ├── hooks/            # useAuth, useTheme, useStore, useToast
-│   ├── services/         # auth.ts, profile.ts, teacher-admin.ts
-│   ├── lib/              # 17 módulos utilitários
+│   ├── pages/            # 22 páginas React
+│   ├── components/       # 16 componentes de negócio
+│   │   └── ui/           # 17 componentes shadcn/ui (só os usados)
+│   ├── auth/             # provider.tsx, use-auth, use-authorization, authorization, types
+│   ├── guards/           # protected, public-only, role, first-access, subscription
+│   ├── hooks/            # use-store, use-theme, use-toast
+│   ├── services/         # auth, profile, session, teacher-admin-actions
+│   ├── lib/              # 17 módulos de regra de negócio
 │   ├── integrations/
-│   │   └── supabase/     # Client Supabase + tipos gerados
+│   │   └── supabase/     # Client, config, contratos de function, mappers, tipos
 │   ├── types/            # Tipos TypeScript globais
-│   ├── guards/           # ProtectedRoute, PublicOnlyRoute, RoleRoute, FirstAccessRoute
-│   └── auth/             # Provider, tipos e lógica de autorização
+│   └── test/             # Setup + testes Vitest
 ├── supabase/
-│   ├── migrations/       # Migrações SQL (8+)
-│   ├── functions/        # Edge Functions (5 funções)
-│   │   ├── _shared/      # auth, cors, http, email, supabase, env
-│   │   ├── teacher-admin-actions/
+│   ├── migrations/       # 22 migrações SQL
+│   ├── functions/        # 10 Edge Functions
+│   │   ├── _shared/      # auth, cors, http, email, supabase, env, mercadopago
+│   │   ├── anamnesis-submit/
+│   │   ├── auth-public-actions/
 │   │   ├── automation-dispatch/
 │   │   ├── integration-webhook/
+│   │   ├── mp-create-preference/     # PAUSADO
+│   │   ├── mp-webhook/               # PAUSADO
+│   │   ├── pix-payment-submit/
+│   │   ├── pix-approve-payment/
 │   │   ├── secure-ops/
-│   │   └── auth-public-actions/
+│   │   └── teacher-admin-actions/
 │   └── config.toml       # Project ID: sano-plus-app
-├── scripts/              # Scripts PowerShell
+├── scripts/              # PowerShell (deploy de functions) + limpeza de storage
 ├── docs/                 # Documentação extra
 ├── vite.config.ts        # Porta 8080, alias @/ → ./src/
 ├── tailwind.config.ts
@@ -57,17 +68,23 @@ Sano+/
 └── .env.example
 ```
 
+**Não existem** `src/contexts/` nem `src/assets/` — foram eliminados ao achatar a
+camada de shims de re-export. O `AuthContext` vive em `src/auth/provider.tsx`.
+
 ---
 
 ## Módulos de `src/lib/`
 
+> A lógica de autenticação **não está mais em `lib/`**: `auth-service.ts` foi movido
+> para `src/services/auth.service.ts`.
+
 | Arquivo | Responsabilidade |
 |---|---|
-| `auth-service.ts` | Lógica completa de autenticação (login, logout, sessão, snapshot) |
 | `auth-validators.ts` | Validação de e-mail, telefone, senha e CPF |
 | `auth-redirects.ts` | Montagem de URLs de redirecionamento do fluxo de auth |
-| `store.ts` | Store Zustand-like (alunos, treinos, check-ins) com LocalStorage |
-| `supabase-store.ts` | Persistência no Supabase com cache local |
+| `pix.ts` | Tipos de chave PIX, rótulos e montagem do payload copia-e-cola |
+| `store.ts` | Store LocalStorage — **fallback inativo em produção**, ver "Estado do Código" |
+| `supabase-store.ts` | Store real: persistência no Supabase com cache local |
 | `training-management.ts` | Cálculos de treino, pontuação de engajamento, progressão |
 | `student-dashboard.ts` | Estatísticas do aluno, calendário de atividades, status de pagamento |
 | `student-access.ts` | Verificações de acesso do aluno |
@@ -92,6 +109,11 @@ Sano+/
 | `/criar-conta` | Registro | `PublicOnlyRoute` |
 | `/verifique-email` | Verificação de e-mail | `PublicOnlyRoute` |
 | `/esqueci-senha` | Esqueci a senha | `PublicOnlyRoute` |
+| `/anamnese` | Formulário público de anamnese (fotos + vídeos FMS) | — |
+| `/planos` | Escolha de plano + pagamento PIX | — |
+| `/pagamento/sucesso` | Retorno de pagamento aprovado | — |
+| `/pagamento/pendente` | Retorno de pagamento pendente | — |
+| `/pagamento/erro` | Retorno de pagamento recusado | — |
 | `/redefinir-senha` | Redefinir senha | — |
 | `/auth/callback` | Callback OAuth | — |
 
@@ -99,7 +121,7 @@ Sano+/
 | Rota | Página | Guard |
 |---|---|---|
 | `/primeiro-acesso` | Troca de senha temporária | `ProtectedRoute` + `FirstAccessRoute` |
-| `/aluno/dashboard` | Portal do aluno (treino, check-in, pagamento) | `ProtectedRoute` + `RoleRoute` |
+| `/aluno/dashboard` | Portal do aluno (treino, check-in, pagamento) | `ProtectedRoute` + `RoleRoute` + `SubscriptionRoute` |
 | `/perfil` | Perfil do usuário | `ProtectedRoute` |
 
 ### Professor/Coach (role="coach")
@@ -110,7 +132,13 @@ Sano+/
 | `/alunos/:id` | Perfil individual do aluno | `ProtectedRoute` + `RoleRoute` |
 | `/biblioteca` | Biblioteca de templates de treino | `ProtectedRoute` + `RoleRoute` |
 | `/biblioteca/:id/editar` | Editor de template | `ProtectedRoute` + `RoleRoute` |
+| `/anamneses` | Fila de anamneses recebidas | `ProtectedRoute` + `RoleRoute` |
+| `/assinaturas` | Assinaturas e aprovação de pagamento PIX | `ProtectedRoute` + `RoleRoute` |
 | `/perfil` | Perfil do usuário | `ProtectedRoute` |
+
+### Redirects legados
+`/forgot-password` → `/esqueci-senha` · `/reset-password` e `/update-password` →
+`/redefinir-senha` · `/area-do-aluno` → `/aluno/dashboard` · `/home` → `/dashboard`
 
 **`*`** → Página 404
 
@@ -120,21 +148,27 @@ Sano+/
 
 Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro das funções).
 
-| Função | Tipo de acesso | Responsabilidade |
-|---|---|---|
-| `teacher-admin-actions` | Autenticado (professor) | Criar aluno com senha temporária, resetar acesso, alterar status, aprovar pagamento, ativar plano Pro |
-| `automation-dispatch` | Interno (secret) | Automações agendadas: varredura de pagamentos, geração de alertas, expiração |
-| `integration-webhook` | Público (webhook) | Recebe eventos de gateways/terceiros, valida assinatura, roteia |
-| `secure-ops` | Interno (secret) | Operações de service role, provisionamento de conta, mutações sensíveis |
-| `auth-public-actions` | Público | Fluxo público de auth (`request_password_reset`) sem autenticação prévia |
+| Função | Tipo de acesso | Responsabilidade | Status |
+|---|---|---|---|
+| `teacher-admin-actions` | Autenticado (professor) | Criar aluno com senha temporária, resetar acesso, alterar status, aprovar pagamento, ativar plano Pro | Ativa |
+| `auth-public-actions` | Público | Fluxo público de auth (`request_password_reset`) sem autenticação prévia | Ativa |
+| `anamnesis-submit` | Público | Recebe a anamnese pública, vincula ao professor e grava em `anamneses` | Ativa |
+| `pix-payment-submit` | Público / autenticado | Modos `info`, `info_by_teacher`, `get_upload_url`, `submit`, `submit_renewal` — devolve a chave PIX do professor e registra a intenção de pagamento | Ativa |
+| `pix-approve-payment` | Autenticado (professor) | Aprova o PIX e **provisiona** professor/aluno/assinatura a partir da anamnese | Ativa |
+| `automation-dispatch` | Interno (secret) | Automações agendadas: varredura de pagamentos, geração de alertas, expiração | Sem chamador conhecido |
+| `secure-ops` | Interno (secret) | `provision_teacher_account`, `rotate_student_access`, `reconcile_subscription_state` | Sem chamador conhecido |
+| `integration-webhook` | Público (webhook) | Grava em `integration_events` e roteia por `provider` | Sem chamador conhecido |
+| `mp-create-preference` | Público | Cria preferência de checkout no Mercado Pago | **Pausada** |
+| `mp-webhook` | Público (webhook) | Notificação de pagamento MP → provisiona conta | **Pausada** |
 
 **Utilitários compartilhados em `_shared/`:**
-- `auth.ts` — Validação de usuário, cheque de papel (coach/student)
+- `auth.ts` — Validação de usuário, cheque de papel (coach/student), segredo compartilhado
 - `cors.ts` — Headers CORS
 - `env.ts` — Carregamento de variáveis e secrets
 - `http.ts` — Envelopes de resposta padronizados
 - `supabase.ts` — Criação de cliente (JWT user e service role)
 - `email.ts` — Envio de e-mail via Resend
+- `mercadopago.ts` — Cliente do Mercado Pago (**pausado**)
 
 ---
 
@@ -156,6 +190,9 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 | `coach_alert_reads` | Estado de leitura de alertas do professor |
 | `cpf_trial_registry` | Controle de trial único por CPF |
 | `integration_events` | Log de eventos de webhooks externos |
+| `anamneses` | Anamnese pública submetida (dados, fotos, vídeos FMS, vínculo com professor) |
+| `planos` | Catálogo de planos vendidos na `/planos` (nome, preço, ativo) |
+| `assinaturas` | Assinatura gerada após pagamento aprovado, ligada a `anamneses` e `planos` |
 
 ### Campos Relevantes por Tabela
 
@@ -238,7 +275,8 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 | **Supabase** | Ativo | DB, Auth, Storage, Edge Functions |
 | **Resend** | Ativo | E-mails transacionais (senha temporária, reset de senha) |
 | **Vercel** | Ativo | Hospedagem do frontend SPA |
-| **Gateway de pagamento** | Mocked | Estrutura pronta, sem gateway real integrado |
+| **PIX manual** | Ativo | Único fluxo de pagamento real: chave PIX do professor + aprovação manual |
+| **Mercado Pago** | Pausado | Implementado por completo, sem nenhum ponto de entrada no frontend |
 
 ---
 
@@ -250,11 +288,17 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_APP_URL=https://sanoplus.online
 VITE_SUPABASE_FUNCTIONS_REGION=
+VITE_MP_PUBLIC_KEY=            # Mercado Pago — pausado
 
 # Secrets (Supabase Edge Functions)
 RESEND_API_KEY=
+RESEND_FROM_EMAIL=noreply@sanoplus.online
+RESEND_FROM_NAME=Sano+
 SUPABASE_SERVICE_ROLE_KEY=
 AUTOMATION_SECRET=
+APP_URL=https://sanoplus.online
+MP_ACCESS_TOKEN=               # Mercado Pago — pausado
+MP_WEBHOOK_SECRET=             # Mercado Pago — pausado
 ```
 
 ---
@@ -313,4 +357,55 @@ A distinção é feita via `platform_role` no perfil e validada nas RLS policies
 - Componentes UI em `src/components/ui/` (shadcn/ui — não editar diretamente)
 - Lógica de negócio em `src/lib/` (pura, sem dependência de UI)
 - Chamadas ao Supabase em `src/services/` e `src/lib/`
-- Validações de schema com Zod nos formulários
+- Validações de schema com Zod (sem React Hook Form)
+- Cada módulo tem **um caminho de import canônico** — não crie arquivos de
+  re-export (`export { default } from ...`). A camada de shims foi removida
+  justamente porque criava dois nomes para a mesma coisa.
+
+---
+
+## Estado do Código
+
+Registro de decisões conscientes, para que uma próxima varredura não remova algo
+de propósito nem trate peso morto como código vivo.
+
+### Mercado Pago — pausado, mantido de propósito
+
+`mp-create-preference`, `mp-webhook` e `_shared/mercadopago.ts` estão completos e
+deployados, mas **nada no frontend os invoca**. O único fluxo de pagamento real é
+o PIX manual (`Planos.tsx` → `pix-payment-submit` → `pix-approve-payment`).
+
+⚠️ **Duplicação ativa:** `mp-webhook` e `pix-approve-payment` provisionam as mesmas
+tabelas (`teachers`, `profiles`, `students`, `assinaturas`, `anamneses`). Mudou a
+regra de provisionamento? **Atualize os dois.** Só o caminho PIX é exercitado.
+
+### Funções internas sem chamador conhecido
+
+`automation-dispatch`, `secure-ops` e `integration-webhook` não são chamadas por
+nenhum código deste repositório. São protegidas por segredo compartilhado e
+poderiam ser acionadas de fora (cron externo, ops manual, gateway terceiro) —
+não há `pg_cron` nas migrações. **Status não confirmado: verificar antes de remover.**
+
+### Store LocalStorage — inerte em produção
+
+`lib/store.ts` (1.162 linhas) + `lib/exercise-library-seed.ts` (1.002 linhas)
+formam um fallback para rodar o app **sem Supabase configurado**.
+`hooks/use-store.ts` escolhe em runtime: `hasSupabaseRuntimeConfig() ? supabaseStore : localStore`.
+Em produção sempre cai no Supabase, então essas 2.164 linhas nunca executam.
+
+As 9 chamadas `store.*` em `services/auth.service.ts` batem no store LocalStorage
+vazio e são **no-ops inertes** — não há divergência de estado, porque o arquivo
+também chama os RPCs direto (`touch_student_last_login`, `mark_student_first_access_complete`).
+
+**Decisão: manter.** Remover implica limpar 24 ramificações `hasSupabaseRuntimeConfig()`
+no `auth.service.ts` (1.485 linhas, arquivo mais crítico do app) com apenas 5 testes
+de cobertura. Risco alto, ganho baixo.
+
+### Dívidas conhecidas
+
+- `src/guards/public-only-route.tsx` — `search.has("code")` referencia variável
+  inexistente no escopo; quebra em runtime quando chega link de recovery com token
+- `src/integrations/supabase/types.ts` desatualizado: não foi regerado após as
+  migrações de PIX/planos/assinaturas. Causa ~59 erros `never` no `tsc --noEmit`
+  (o build passa porque o SWC não faz typecheck). Corrigir com `supabase gen types`
+- Bundle único de ~1.164 kB — falta code-splitting por rota

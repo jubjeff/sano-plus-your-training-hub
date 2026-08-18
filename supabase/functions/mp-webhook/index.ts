@@ -1,3 +1,12 @@
+// STATUS: PAUSADO — implementado e deployado, mas sem trafego: nada no app
+// cria preferencias de pagamento no Mercado Pago (ver `mp-create-preference`),
+// entao este webhook nunca e acionado. O fluxo ativo e o PIX manual.
+//
+// ATENCAO: esta funcao duplica o provisionamento pos-pagamento de
+// `pix-approve-payment` (teachers, profiles, students, assinaturas, anamneses).
+// Mudou a regra de provisionamento? Atualize os dois arquivos.
+// Ver secao "Estado do Codigo" no CLAUDE.md.
+
 import {
   createOptionsResponse,
   getRequestId,

@@ -1,3 +1,13 @@
+// STATUS: PAUSADO — implementado e deployado, mas NAO plugado ao frontend.
+// O unico fluxo de pagamento ativo e o PIX manual: src/pages/Planos.tsx chama
+// `pix-payment-submit`, e a aprovacao do professor passa por `pix-approve-payment`.
+// Nenhum codigo do app invoca esta funcao hoje.
+//
+// ATENCAO: `mp-webhook` e `pix-approve-payment` provisionam as MESMAS tabelas
+// (teachers, profiles, students, assinaturas, anamneses). Qualquer mudanca na
+// regra de provisionamento precisa ser feita nos dois lugares enquanto o
+// Mercado Pago existir. Ver secao "Estado do Codigo" no CLAUDE.md.
+
 import {
   createErrorResponse,
   createOptionsResponse,

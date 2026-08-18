@@ -1,3 +1,7 @@
+// STATUS: PAUSADO — usado apenas por `mp-create-preference` e `mp-webhook`,
+// que nao estao plugados ao frontend. O fluxo de pagamento ativo e o PIX manual.
+// Ver secao "Estado do Codigo" no CLAUDE.md.
+
 import { getEdgeRuntimeEnv } from "./env.ts";
 import { EdgeHttpError } from "./http.ts";
 
