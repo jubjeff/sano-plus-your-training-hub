@@ -3,6 +3,12 @@ project_id = "sano-plus-app"
 [functions.anamnesis-submit]
 verify_jwt = false
 
+[functions.mp-create-preference]
+verify_jwt = false
+
+[functions.mp-webhook]
+verify_jwt = false
+
 [functions.teacher-admin-actions]
 verify_jwt = false
 
@@ -16,4 +22,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.auth-public-actions]
+verify_jwt = false
+
+[functions.pix-payment-submit]
+verify_jwt = false
+
+[functions.pix-approve-payment]
 verify_jwt = false

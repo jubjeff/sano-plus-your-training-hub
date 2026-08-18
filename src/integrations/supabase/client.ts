@@ -1,12 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getRequiredSupabaseRuntimeConfig, hasSupabaseRuntimeConfig } from "@/integrations/supabase/config";
-import type { SupabaseDatabasePlaceholder } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/database.types";
 
-let supabaseClient: SupabaseClient<SupabaseDatabasePlaceholder> | null = null;
+let supabaseClient: SupabaseClient<Database> | null = null;
 
 function createSupabaseBrowserClient() {
   const config = getRequiredSupabaseRuntimeConfig();
-  return createClient<SupabaseDatabasePlaceholder>(config.url, config.anonKey, {
+  return createClient<Database>(config.url, config.anonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

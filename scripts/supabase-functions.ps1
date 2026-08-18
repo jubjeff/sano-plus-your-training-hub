@@ -16,7 +16,12 @@ $knownFunctions = @(
   "automation-dispatch",
   "integration-webhook",
   "secure-ops",
-  "auth-public-actions"
+  "auth-public-actions",
+  "anamnesis-submit",
+  "mp-webhook",
+  "mp-create-preference",
+  "pix-payment-submit",
+  "pix-approve-payment"
 )
 
 function Get-SupabaseCliCommand {

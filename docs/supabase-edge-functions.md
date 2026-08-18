@@ -39,7 +39,7 @@ Use Edge Functions quando a regra:
 - mutacoes que precisam de `service_role`
 - tarefas internas acionadas por segredo e nao pelo browser
 
-## Estrutura criada
+## Estrutura atual
 
 ```text
 supabase/
@@ -50,17 +50,21 @@ supabase/
     _shared/
       auth.ts
       cors.ts
+      email.ts
       env.ts
       http.ts
+      mercadopago.ts      # PAUSADO
       supabase.ts
-    teacher-admin-actions/
-      index.ts
+    anamnesis-submit/
+    auth-public-actions/
     automation-dispatch/
-      index.ts
     integration-webhook/
-      index.ts
+    mp-create-preference/ # PAUSADO
+    mp-webhook/           # PAUSADO
+    pix-approve-payment/
+    pix-payment-submit/
     secure-ops/
-      index.ts
+    teacher-admin-actions/
 src/
   integrations/supabase/
     function-contracts.ts
@@ -76,7 +80,20 @@ scripts/
 - `teacher-admin-actions` e a porta natural para fluxos do professor autenticado via browser.
 - `automation-dispatch` e `secure-ops` devem ser chamados apenas por ambiente confiavel.
 - `integration-webhook` deve concentrar validacao de assinatura e roteamento de eventos externos.
-- As templates atuais retornam `501 not_implemented` de proposito: a base esta pronta, mas sem regra de negocio acoplada cedo demais.
+
+## Estado real das funcoes
+
+As functions **nao** sao mais templates vazias — a nota antiga sobre
+`501 not_implemented` estava desatualizada e foi removida. Situacao atual:
+
+| Funcao | Estado |
+|---|---|
+| `teacher-admin-actions`, `auth-public-actions`, `anamnesis-submit`, `pix-payment-submit`, `pix-approve-payment` | Implementadas e em uso pelo frontend |
+| `automation-dispatch`, `secure-ops`, `integration-webhook` | Implementadas, sem chamador conhecido no repositorio |
+| `mp-create-preference`, `mp-webhook` | Implementadas, **pausadas** — nao plugadas ao frontend |
+
+`mp-webhook` e `pix-approve-payment` duplicam o provisionamento pos-pagamento nas
+mesmas tabelas. Ver a secao "Estado do Codigo" no `CLAUDE.md`.
 
 ## O que foi automatizado localmente
 

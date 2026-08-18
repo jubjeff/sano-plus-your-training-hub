@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { getAuthorizedHomePath, hasAuthorizedRole, isCoachRole, isStudentRole, requiresCoachProfileAccess, requiresFirstAccess, resolveAuthorizedRole } from "@/auth/authorization";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/auth/use-auth";
 import type { AuthRole } from "@/auth/types";
 
 export function useAuthorization() {

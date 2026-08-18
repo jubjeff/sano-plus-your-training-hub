@@ -10,6 +10,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Anamnese from "@/pages/Anamnese";
 import AnamnesisQueue from "@/pages/AnamnesisQueue";
+import Assinaturas from "@/pages/Assinaturas";
+import SubscriptionRoute from "@/guards/subscription-route";
+import Planos from "@/pages/Planos";
+import PagamentoSucesso from "@/pages/PagamentoSucesso";
+import PagamentoPendente from "@/pages/PagamentoPendente";
+import PagamentoErro from "@/pages/PagamentoErro";
 import Dashboard from "@/pages/Dashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import FirstAccessPassword from "@/pages/FirstAccessPassword";
@@ -39,6 +45,10 @@ const App = () => (
           <Route path="/esqueci-senha" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
           <Route path="/forgot-password" element={<Navigate to="/esqueci-senha" replace />} />
           <Route path="/anamnese" element={<Anamnese />} />
+          <Route path="/planos" element={<Planos />} />
+          <Route path="/pagamento/sucesso" element={<PagamentoSucesso />} />
+          <Route path="/pagamento/pendente" element={<PagamentoPendente />} />
+          <Route path="/pagamento/erro" element={<PagamentoErro />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/reset-password" element={<Navigate to="/redefinir-senha" replace />} />
@@ -54,7 +64,7 @@ const App = () => (
           />
           <Route
             path="/aluno/dashboard"
-            element={<ProtectedRoute><RoleRoute role="student"><AppLayout><StudentPortal /></AppLayout></RoleRoute></ProtectedRoute>}
+            element={<ProtectedRoute><RoleRoute role="student"><SubscriptionRoute><AppLayout><StudentPortal /></AppLayout></SubscriptionRoute></RoleRoute></ProtectedRoute>}
           />
           <Route path="/area-do-aluno" element={<Navigate to="/aluno/dashboard" replace />} />
           <Route
@@ -76,6 +86,10 @@ const App = () => (
           <Route
             path="/anamneses"
             element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><AnamnesisQueue /></AppLayout></RoleRoute></ProtectedRoute>}
+          />
+          <Route
+            path="/assinaturas"
+            element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><Assinaturas /></AppLayout></RoleRoute></ProtectedRoute>}
           />
           <Route path="/home" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
