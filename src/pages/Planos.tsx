@@ -42,6 +42,10 @@ export default function Planos() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const anamnesisId = searchParams.get("anamnese");
+  // Professor que originou o link. Precisa atravessar o desvio para a anamnese,
+  // senao a ficha nasce com teacher_id nulo: o aluno perde o botao de WhatsApp
+  // e a notificacao cai no e-mail generico em vez de ir para o professor.
+  const teacherId = searchParams.get("t");
 
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,9 +70,10 @@ export default function Planos() {
   }, []);
 
   async function handleAssinar(plano: Plano) {
+    // Sem anamnese ainda: manda preencher a ficha primeiro, carregando o
+    // professor. A anamnese devolve o aluno para ca com ?anamnese=<id>&t=<t>.
     if (!anamnesisId) {
-      sessionStorage.setItem("sano-plano-pendente", plano.id);
-      navigate(`/anamnese?plano=${plano.id}`);
+      navigate(teacherId ? `/anamnese?t=${encodeURIComponent(teacherId)}` : "/anamnese");
       return;
     }
 

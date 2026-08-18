@@ -503,6 +503,9 @@ export default function Anamnese() {
   const [submitPhase, setSubmitPhase] = useState<"idle" | "compressing" | "saving">("idle");
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Id da ficha recem-criada: leva o aluno de volta a /planos para pagar,
+  // fechando o ciclo anamnese -> pagamento.
+  const [anamnesisId, setAnamnesisId] = useState<string | null>(null);
 
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -605,7 +608,10 @@ export default function Anamnese() {
       // Os vídeos do Deep Squat não passam mais por aqui: o aluno os envia pelo
       // WhatsApp do professor (CTA na tela de conclusão). Três arquivos de até
       // 15 MB não cabiam em e-mail e respondiam por 98% do consumo de storage.
-      await invokeSupabaseEdgeFunction(EDGE_FUNCTION_NAMES.anamnesisSubmit, {
+      const response = await invokeSupabaseEdgeFunction<{
+        ok: boolean;
+        data: { anamnesisId: string };
+      }>(EDGE_FUNCTION_NAMES.anamnesisSubmit, {
         body: {
           teacherId: teacherId ?? undefined,
           fullName: form.fullName.trim(),
@@ -634,6 +640,7 @@ export default function Anamnese() {
       });
 
       localStorage.removeItem(DRAFT_KEY);
+      setAnamnesisId(response?.data?.anamnesisId ?? null);
       setSubmitted(true);
       scrollTop();
     } catch (err) {
@@ -729,12 +736,23 @@ export default function Anamnese() {
               </div>
             </div>
 
+            {/* Fecha o ciclo: da anamnese para a escolha do plano e o pagamento. */}
+            {anamnesisId && (
+              <Link
+                to={`/planos?anamnese=${encodeURIComponent(anamnesisId)}${teacherId ? `&t=${encodeURIComponent(teacherId)}` : ""}`}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Escolher plano e pagar
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+
             <div className="w-full rounded-2xl border border-border bg-card/60 p-4 text-left">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Próximos passos</p>
               <ol className="mt-3 space-y-2 text-sm text-foreground">
                 <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">1</span>Você envia os vídeos pelo WhatsApp.</li>
-                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">2</span>Analisamos seu perfil e objetivos.</li>
-                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">3</span>Você recebe seu treino por e-mail para começar.</li>
+                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">2</span>Escolhe seu plano e conclui o pagamento.</li>
+                <li className="flex items-start gap-2"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">3</span>Analisamos seu perfil e enviamos seu treino por e-mail.</li>
               </ol>
             </div>
           </div>
