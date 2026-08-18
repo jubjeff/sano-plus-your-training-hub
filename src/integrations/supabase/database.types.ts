@@ -42,6 +42,12 @@ export type Database = {
           has_trained_before: boolean
           id: string
           injury_history: string
+          media_deletado: boolean
+          media_deletado_em: string | null
+          media_download_confirmado: boolean
+          media_download_confirmado_em: string | null
+          media_expires_at: string | null
+          media_lembrete_enviado: boolean
           notes: string | null
           phone: string
           preferred_time: string
@@ -82,6 +88,12 @@ export type Database = {
           has_trained_before?: boolean
           id?: string
           injury_history?: string
+          media_deletado?: boolean
+          media_deletado_em?: string | null
+          media_download_confirmado?: boolean
+          media_download_confirmado_em?: string | null
+          media_expires_at?: string | null
+          media_lembrete_enviado?: boolean
           notes?: string | null
           phone: string
           preferred_time: string
@@ -122,6 +134,12 @@ export type Database = {
           has_trained_before?: boolean
           id?: string
           injury_history?: string
+          media_deletado?: boolean
+          media_deletado_em?: string | null
+          media_download_confirmado?: boolean
+          media_download_confirmado_em?: string | null
+          media_expires_at?: string | null
+          media_lembrete_enviado?: boolean
           notes?: string | null
           phone?: string
           preferred_time?: string
