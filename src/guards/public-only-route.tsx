@@ -34,10 +34,11 @@ export default function PublicOnlyRoute({ children }: { children: React.ReactNod
 
   if (isRecoveryNavigation(location)) {
     const params = new URLSearchParams(location.search);
-    params.set("next", "/redefinir-senha");
-
     const hash = location.hash.toLowerCase();
-    const hasRecoveryTokens = hash.includes("access_token=") || hash.includes("refresh_token=") || search.has("code");
+    // Lido antes do params.set abaixo, para nao depender da ordem de mutacao.
+    const hasRecoveryTokens = hash.includes("access_token=") || hash.includes("refresh_token=") || params.has("code");
+
+    params.set("next", "/redefinir-senha");
 
     if (hasRecoveryTokens) {
       return <Navigate to={`/auth/callback?${params.toString()}${location.hash}`} replace />;

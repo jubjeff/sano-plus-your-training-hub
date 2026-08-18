@@ -31,20 +31,6 @@ type AnamneseForm = {
   preferredTime: "" | "manha" | "tarde" | "noite";
   availableEquipment: string[]; injuryHistory: string;
   hasTrainedBefore: boolean; stoppedTrainingDuration: string;
-  // FMS (saved to localStorage)
-  fmsHurdleDir: string; fmsHurdleEsq: string; fmsHurdleObs: string;
-  fmsLungeDir: string; fmsLungeEsq: string; fmsLungeObs: string;
-};
-
-type AnamneseForm = {
-  fullName: string; email: string; phone: string; age: string; weightKg: string;
-  goal: "" | "hipertrofia" | "emagrecimento" | "condicionamento" | "recomposicao";
-  experienceLevel: "" | "iniciante" | "intermediario" | "avancado";
-  availableDaysPerWeek: string;
-  sessionDuration: "" | "30min" | "45min" | "60min" | "90min";
-  preferredTime: "" | "manha" | "tarde" | "noite";
-  availableEquipment: string[]; injuryHistory: string;
-  hasTrainedBefore: boolean; stoppedTrainingDuration: string;
   // Deep Squat (saved to localStorage)
   deepSquatScore: string; deepSquatObs: string;
 };

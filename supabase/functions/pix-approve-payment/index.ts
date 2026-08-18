@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
 
   try {
     ensureMethod(request, ["POST"]);
-    await requireCoachUser(request);
+    const actor = await requireCoachUser(request);
 
     const { assinaturaId } = await parseJsonBody<{ assinaturaId: string }>(request);
     if (!assinaturaId?.trim()) {
@@ -80,6 +80,25 @@ Deno.serve(async (request) => {
 
     if (!assinatura) throw new EdgeHttpError("not_found", "Assinatura nao encontrada.", 404);
     if (assinatura.status === "ativo") throw new EdgeHttpError("already_active", "Assinatura ja esta ativa.", 409);
+
+    // Checagem de posse. `createServiceRoleClient()` ignora as policies de RLS, entao
+    // a restricao que `coach_can_update_assinaturas` aplicaria (teacher_id in (select id
+    // from teachers where user_id = auth.uid())) precisa ser refeita aqui na mao.
+    // Sem isto, qualquer professor autenticado poderia aprovar a assinatura de outro
+    // professor mandando um assinaturaId arbitrario no corpo da requisicao.
+    const { data: callerTeacher } = await db
+      .from("teachers")
+      .select("id")
+      .eq("user_id", actor.user.id)
+      .maybeSingle();
+
+    if (!callerTeacher?.id) {
+      throw new EdgeHttpError("teacher_not_found", "Professor autenticado nao encontrado.", 404);
+    }
+
+    if (!assinatura.teacher_id || assinatura.teacher_id !== callerTeacher.id) {
+      throw new EdgeHttpError("forbidden", "Esta assinatura nao pertence ao professor autenticado.", 403);
+    }
 
     const { data: plano } = await db
       .from("planos")
