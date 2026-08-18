@@ -237,6 +237,8 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 | `submit_student_payment_proof()` | Armazena comprovante de pagamento |
 | `update_student_exercise_load()` | Atualiza carga do aluno por exercício |
 | `normalize_cpf()` / `is_valid_cpf()` | Formatação e validação de CPF |
+| `seed_default_workout_templates()` | Cria os 4 templates padrão para um professor (idempotente) |
+| `build_default_block()` / `build_default_block_exercises()` | Montam blocos a partir do catálogo por slug |
 
 ### Storage Buckets
 
