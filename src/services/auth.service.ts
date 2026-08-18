@@ -391,11 +391,19 @@ function resolveSupabaseProfileRole(value: unknown) {
   return normalized === "student" || normalized === "aluno" ? "aluno" : "professor";
 }
 
+// `id` e `email` sao sempre preenchidos abaixo, mas SupabaseProfileRow os declara
+// opcionais — o que fazia o upsert nao casar com o Insert gerado do schema.
+type SupabaseProfileUpsertPayload = Omit<SupabaseProfileRow, "id" | "email" | "platform_role"> & {
+  id: string;
+  email: string;
+  platform_role: "default" | "dev_admin";
+};
+
 function buildSupabaseProfilePayload(
   user: User,
   currentProfile: SupabaseProfileRow | null,
   overrides: Partial<SupabaseProfileRow> = {},
-): SupabaseProfileRow {
+): SupabaseProfileUpsertPayload {
   const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
 
   return {

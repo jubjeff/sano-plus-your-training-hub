@@ -53,7 +53,7 @@ export function buildPixPayload(params: {
   const merchantAccount = emvField("26", pixSub);
   const additionalData = emvField("62", emvField("05", txId));
 
-  let payload =
+  const payload =
     emvField("00", "01") +
     merchantAccount +
     emvField("52", "0000") +

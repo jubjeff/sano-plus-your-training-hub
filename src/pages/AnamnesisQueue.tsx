@@ -211,9 +211,22 @@ function MediaSection({ anamnesis, onDownloadConfirmed }: { anamnesis: Anamnesis
 
   const hasMedia = mediaFiles.length > 0;
 
-  async function markDownloadConfirmed() {
-    await supabase.from("anamneses").update({ media_download_confirmado: true, media_download_confirmado_em: new Date().toISOString() }).eq("id", anamnesis.id);
+  // Retorna false quando a confirmacao nao foi persistida. O erro do update era
+  // ignorado e onDownloadConfirmed() rodava sempre, entao a UI marcava como
+  // confirmado algo que nunca chegou ao banco — e a marca sumia no proximo load.
+  async function markDownloadConfirmed(): Promise<boolean> {
+    const { error } = await supabase
+      .from("anamneses")
+      .update({ media_download_confirmado: true, media_download_confirmado_em: new Date().toISOString() })
+      .eq("id", anamnesis.id);
+
+    if (error) {
+      console.error("Falha ao registrar confirmacao de download da midia:", error.message);
+      return false;
+    }
+
     onDownloadConfirmed();
+    return true;
   }
 
   async function handleDownloadAll() {
@@ -225,8 +238,11 @@ function MediaSection({ anamnesis, onDownloadConfirmed }: { anamnesis: Anamnesis
         await downloadFileAsBlob(file.url, `${slug}.${ext}`);
         await new Promise((r) => setTimeout(r, 300));
       }
-      await markDownloadConfirmed();
-      toast.success("Download concluído! Mídias salvas localmente.");
+      if (await markDownloadConfirmed()) {
+        toast.success("Download concluído! Mídias salvas localmente.");
+      } else {
+        toast.error("Mídias baixadas, mas não foi possível registrar a confirmação. Tente novamente.");
+      }
     } catch {
       toast.error("Erro ao baixar algumas mídias. Tente baixar individualmente.");
     } finally {
@@ -239,7 +255,9 @@ function MediaSection({ anamnesis, onDownloadConfirmed }: { anamnesis: Anamnesis
       const ext = url.split(".").pop()?.split("?")[0] ?? "webp";
       const slug = label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       await downloadFileAsBlob(url, `${slug}.${ext}`);
-      await markDownloadConfirmed();
+      if (!(await markDownloadConfirmed())) {
+        toast.error("Mídia baixada, mas não foi possível registrar a confirmação.");
+      }
     } catch {
       toast.error(`Erro ao baixar ${label}.`);
     }
