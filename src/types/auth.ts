@@ -10,6 +10,8 @@ export interface AuthUser {
   linkedStudentId?: string | null;
   accountStatus: AuthAccountStatus;
   mustChangePassword: boolean;
+  /** Aluno criado pelo professor que ainda nao preencheu a avaliacao. */
+  requiresAnamnesis?: boolean;
   temporaryPasswordGeneratedAt?: string | null;
   firstAccessCompletedAt?: string | null;
   fullName: string;

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getAuthorizedHomePath, hasAuthorizedRole, isCoachRole, isStudentRole, requiresCoachProfileAccess, requiresFirstAccess, resolveAuthorizedRole } from "@/auth/authorization";
+import { getAuthorizedHomePath, hasAuthorizedRole, isCoachRole, isStudentRole, requiresAnamnesis, requiresCoachProfileAccess, requiresFirstAccess, resolveAuthorizedRole } from "@/auth/authorization";
 import { useAuth } from "@/auth/use-auth";
 import type { AuthRole } from "@/auth/types";
 
@@ -20,6 +20,7 @@ export function useAuthorization() {
       isCoach: isCoachRole(subject),
       isStudent: isStudentRole(subject),
       requiresFirstAccess: requiresFirstAccess(subject),
+      requiresAnamnesis: requiresAnamnesis(subject),
       requiresCoachProfileAccess: requiresCoachProfileAccess(subject),
       canAccessRole: (role: AuthRole) => hasAuthorizedRole(subject, role),
       getAuthorizedHomePath: () => getAuthorizedHomePath(subject),

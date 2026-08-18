@@ -739,6 +739,7 @@ export type Database = {
       students: {
         Row: {
           access_status: string
+          anamnesis_completed_at: string | null
           auth_user_id: string | null
           birth_date: string | null
           created_at: string
@@ -773,6 +774,7 @@ export type Database = {
         }
         Insert: {
           access_status?: string
+          anamnesis_completed_at?: string | null
           auth_user_id?: string | null
           birth_date?: string | null
           created_at?: string
@@ -807,6 +809,7 @@ export type Database = {
         }
         Update: {
           access_status?: string
+          anamnesis_completed_at?: string | null
           auth_user_id?: string | null
           birth_date?: string | null
           created_at?: string
@@ -1028,6 +1031,17 @@ export type Database = {
         Args: { p_teacher_id: string }
         Returns: undefined
       }
+      build_default_block: {
+        Args: {
+          p_duration: number
+          p_items: Json
+          p_letter: string
+          p_name: string
+          p_order: number
+        }
+        Returns: Json
+      }
+      build_default_block_exercises: { Args: { p_items: Json }; Returns: Json }
       confirm_mock_pro_payment: {
         Args: { p_current_period_ends_at?: string; p_teacher_id?: string }
         Returns: {
@@ -1185,6 +1199,7 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: {
           access_status: string
+          anamnesis_completed_at: string | null
           auth_user_id: string | null
           birth_date: string | null
           created_at: string
@@ -1246,6 +1261,10 @@ export type Database = {
           trial_ends_at: string
         }[]
       }
+      seed_default_workout_templates: {
+        Args: { p_teacher_id: string }
+        Returns: number
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       student_workout_access_blocked: {
@@ -1263,6 +1282,7 @@ export type Database = {
         }
         Returns: {
           access_status: string
+          anamnesis_completed_at: string | null
           auth_user_id: string | null
           birth_date: string | null
           created_at: string

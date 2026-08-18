@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/auth/provider";
 import AppLayout from "@/components/AppLayout";
 import FirstAccessRoute from "@/guards/first-access-route";
+import AnamnesisRoute from "@/guards/anamnesis-route";
 import ProtectedRoute from "@/guards/protected-route";
 import PublicOnlyRoute from "@/guards/public-only-route";
 import RoleRoute from "@/guards/role-route";
@@ -54,6 +55,9 @@ const App = () => (
           <Route path="/reset-password" element={<Navigate to="/redefinir-senha" replace />} />
           <Route path="/update-password" element={<Navigate to="/redefinir-senha" replace />} />
           <Route path="/primeiro-acesso" element={<ProtectedRoute><FirstAccessRoute><FirstAccessPassword /></FirstAccessRoute></ProtectedRoute>} />
+          {/* Avaliação obrigatória do aluno criado pelo professor. Reusa a tela
+              pública de anamnese em modo autenticado. */}
+          <Route path="/minha-avaliacao" element={<ProtectedRoute><AnamnesisRoute><Anamnese authenticated /></AnamnesisRoute></ProtectedRoute>} />
           <Route
             path="/dashboard"
             element={<ProtectedRoute><RoleRoute role="coach"><AppLayout><Dashboard /></AppLayout></RoleRoute></ProtectedRoute>}

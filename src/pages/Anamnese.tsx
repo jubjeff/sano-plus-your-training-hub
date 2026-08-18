@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/auth/use-auth";
 import { EDGE_FUNCTION_NAMES, getSupabaseClient, invokeSupabaseEdgeFunction } from "@/integrations/supabase";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -454,8 +455,9 @@ function validateFormStep(step: number, form: AnamneseForm): Record<string, stri
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function Anamnese() {
+export default function Anamnese({ authenticated = false }: { authenticated?: boolean } = {}) {
   const { theme, toggleTheme } = useTheme();
+  const { user, refreshUser } = useAuth();
   const [step, setStep] = useState(1);
 
   // Captura o ID do professor do parâmetro ?t= da URL
@@ -487,11 +489,21 @@ export default function Anamnese() {
   }, [teacherId]);
 
   const [form, setForm] = useState<AnamneseForm>(() => {
+    // No modo autenticado nome/e-mail/telefone ja estao no cadastro: pre-preenche
+    // para o aluno nao redigitar o que o professor ja informou.
+    const fromAccount = authenticated && user
+      ? {
+          fullName: user.fullName ?? "",
+          email: user.email ?? "",
+          phone: user.phone ?? "",
+        }
+      : {};
+
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
-      return saved ? { ...INITIAL_FORM, ...JSON.parse(saved) } : INITIAL_FORM;
+      return saved ? { ...INITIAL_FORM, ...JSON.parse(saved), ...fromAccount } : { ...INITIAL_FORM, ...fromAccount };
     } catch {
-      return INITIAL_FORM;
+      return { ...INITIAL_FORM, ...fromAccount };
     }
   });
 
@@ -616,6 +628,9 @@ export default function Anamnese() {
         data: { anamnesisId: string };
       }>(EDGE_FUNCTION_NAMES.anamnesisSubmit, {
         body: {
+          // No modo autenticado a function deriva student_id e teacher_id da
+          // sessao e ignora o que vier aqui.
+          mode: authenticated ? "authenticated" : undefined,
           teacherId: teacherId ?? undefined,
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
@@ -646,6 +661,12 @@ export default function Anamnese() {
       setAnamnesisId(response?.data?.anamnesisId ?? null);
       setSubmitted(true);
       scrollTop();
+
+      // Recarrega a sessao para requiresAnamnesis virar false; sem isto o guard
+      // devolveria o aluno a avaliacao ao tentar entrar no portal.
+      if (authenticated) {
+        await refreshUser().catch(() => { /* a proxima navegacao resolve */ });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao enviar. Tente novamente.";
       setSubmitError(
@@ -739,8 +760,19 @@ export default function Anamnese() {
               </div>
             </div>
 
-            {/* Fecha o ciclo: da anamnese para a escolha do plano e o pagamento. */}
-            {anamnesisId && (
+            {/* Aluno logado ja tem conta e plano: volta direto ao portal. */}
+            {authenticated && (
+              <Link
+                to="/aluno/dashboard"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Ir para meu treino
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+
+            {/* Captacao: da anamnese para a escolha do plano e o pagamento. */}
+            {!authenticated && anamnesisId && (
               <Link
                 to={`/planos?${new URLSearchParams({
                   anamnese: anamnesisId,

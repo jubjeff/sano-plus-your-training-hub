@@ -82,6 +82,7 @@ type SupabaseStudentAccessRow = {
   access_status: "temporary_password_pending" | "active" | "inactive";
   temporary_password_generated_at: string | null;
   first_access_completed_at: string | null;
+  anamnesis_completed_at: string | null;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -616,7 +617,7 @@ async function fetchSupabaseStudentAccess(userId: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("students")
-    .select("id,teacher_id,auth_user_id,must_change_password,full_name,email,phone,birth_date,notes,status,access_status,temporary_password_generated_at,first_access_completed_at,last_login_at,created_at,updated_at")
+    .select("id,teacher_id,auth_user_id,must_change_password,full_name,email,phone,birth_date,notes,status,access_status,temporary_password_generated_at,first_access_completed_at,anamnesis_completed_at,last_login_at,created_at,updated_at")
     .eq("auth_user_id", userId)
     .maybeSingle();
 
@@ -722,6 +723,9 @@ async function mapSupabaseUserToAuthUser(user: User, profileOverride?: SupabaseP
       linkedStudentId: student.id,
       accountStatus: student.status === "active" ? "active" : "inactive",
       mustChangePassword: student.must_change_password,
+      // Nulo = aluno ainda deve preencher a avaliacao antes de usar o portal.
+      // Alunos anteriores a 20260818000007 foram dispensados no backfill.
+      requiresAnamnesis: student.anamnesis_completed_at === null,
       temporaryPasswordGeneratedAt: student.temporary_password_generated_at,
       firstAccessCompletedAt: student.first_access_completed_at,
       fullName: student.full_name,

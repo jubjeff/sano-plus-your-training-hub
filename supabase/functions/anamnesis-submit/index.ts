@@ -16,6 +16,7 @@ import {
 } from "../_shared/email.ts";
 import { createServiceRoleClient } from "../_shared/supabase.ts";
 import { getEdgeRuntimeEnv } from "../_shared/env.ts";
+import { requireAuthenticatedUser } from "../_shared/auth.ts";
 
 type AnamnesisSubmitBody = {
   // "teacher_info" faz leitura publica dos dados de contato do professor.
@@ -279,9 +280,36 @@ Deno.serve(async (request) => {
       });
     }
 
-    const input = validateBody(rawBody);
-
     const serviceRoleClient = createServiceRoleClient();
+
+    // Modo autenticado: aluno criado pelo professor preenchendo a avaliacao no
+    // primeiro acesso. Autenticado ANTES de validar o corpo, para chamada sem
+    // token falhar com 401 em vez de vazar erro de validacao.
+    //
+    // Os ids vem da SESSAO, nunca do corpo: confiar no corpo deixaria um aluno
+    // vincular a propria ficha a outro aluno — a mesma classe de falha do IDOR
+    // corrigido em pix-approve-payment.
+    let authenticatedStudentId: string | null = null;
+    let authenticatedTeacherId: string | null = null;
+
+    if (rawBody.mode === "authenticated") {
+      const actor = await requireAuthenticatedUser(request);
+
+      const { data: student } = await serviceRoleClient
+        .from("students")
+        .select("id, teacher_id")
+        .eq("auth_user_id", actor.user.id)
+        .maybeSingle();
+
+      if (!student?.id) {
+        throw new EdgeHttpError("student_not_found", "Aluno autenticado nao encontrado.", 404);
+      }
+
+      authenticatedStudentId = student.id as string;
+      authenticatedTeacherId = (student.teacher_id as string | null) ?? null;
+    }
+
+    const input = validateBody(rawBody);
 
     // Resolve teacher_id: aceita tanto teachers.id quanto auth user_id (user.id)
     let resolvedTeacherId: string | null = null;
@@ -306,6 +334,11 @@ Deno.serve(async (request) => {
       }
     }
 
+    // No modo autenticado o professor sai do vinculo do aluno, nao do corpo.
+    if (authenticatedTeacherId) {
+      resolvedTeacherId = authenticatedTeacherId;
+    }
+
     const now = new Date();
     // 48h em vez de 7 dias: as fotos agora vao anexadas no e-mail do professor,
     // entao o storage e so um buffer para a visualizacao no painel. Prazo curto
@@ -316,6 +349,7 @@ Deno.serve(async (request) => {
       .from("anamneses")
       .insert({
         teacher_id: resolvedTeacherId,
+        student_id: authenticatedStudentId,
         full_name: input.fullName,
         email: input.email,
         phone: input.phone,
@@ -354,6 +388,20 @@ Deno.serve(async (request) => {
     }
 
     const anamnesisId = inserted.id as string;
+
+    // Fecha o portao: sem isto o guard do frontend devolveria o aluno a
+    // avaliacao para sempre, mesmo depois de preenchida.
+    if (authenticatedStudentId) {
+      const { error: gateError } = await serviceRoleClient
+        .from("students")
+        .update({ anamnesis_completed_at: now.toISOString() })
+        .eq("id", authenticatedStudentId);
+
+      if (gateError) {
+        console.error("[anamnesis-submit] falha ao marcar anamnese concluida:", gateError.message);
+      }
+    }
+
     const appOrigin = resolveAppOrigin(request);
     const reviewLink = `${appOrigin}/anamneses`;
 

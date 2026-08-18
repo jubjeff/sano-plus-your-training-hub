@@ -28,6 +28,13 @@ export function requiresFirstAccess(subject: AuthorizationSubject) {
   return isStudentRole(subject) && Boolean(subject.user?.mustChangePassword);
 }
 
+// Segundo portao do aluno, depois da troca de senha. Aluno cadastrado direto
+// pelo professor entra sem peso, nivel, equipamentos, lesoes nem avaliacao
+// postural — dados que os proprios templates de treino pressupoem.
+export function requiresAnamnesis(subject: AuthorizationSubject) {
+  return isStudentRole(subject) && Boolean(subject.user?.requiresAnamnesis);
+}
+
 export function requiresCoachProfileAccess(subject: AuthorizationSubject) {
   return isCoachRole(subject) && subject.user?.teacherHasActiveAccess === false;
 }
@@ -35,6 +42,12 @@ export function requiresCoachProfileAccess(subject: AuthorizationSubject) {
 export function getAuthorizedHomePath(subject: AuthorizationSubject) {
   if (requiresFirstAccess(subject)) {
     return "/primeiro-acesso";
+  }
+
+  // Depois da senha: a avaliacao. A ordem importa — trocar a senha primeiro
+  // evita o aluno preencher a ficha inteira ainda com credencial temporaria.
+  if (requiresAnamnesis(subject)) {
+    return "/minha-avaliacao";
   }
 
   if (isStudentRole(subject)) {
