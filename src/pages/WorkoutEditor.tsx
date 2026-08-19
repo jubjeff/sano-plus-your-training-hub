@@ -149,7 +149,7 @@ export default function WorkoutEditor() {
               <article key={block.id} className="rounded-[24px] border border-border/60 bg-background/70 p-4 shadow-sm sm:p-5">
                 <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">{blockIndex + 1}</div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-sm font-semibold text-primary">{blockIndex + 1}</div>
                     <Input value={block.name} onChange={(event) => setBlocks((current) => current.map((item) => (item.id === block.id ? { ...item, name: event.target.value } : item)))} className="h-10 min-w-0 sm:w-72" />
                   </div>
                   <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeBlock(block.id)}>

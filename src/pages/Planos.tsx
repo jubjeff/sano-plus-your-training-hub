@@ -180,10 +180,10 @@ export default function Planos() {
                   )}
 
                   <div className={`mb-4 flex items-center gap-3 ${isDestaqueCard ? "text-primary" : "text-foreground"}`}>
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${isDestaqueCard ? "bg-primary/15" : "bg-muted"}`}>
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isDestaqueCard ? "bg-primary/15" : "bg-muted"}`}>
                       {PLANO_ICONS[plano.slug] ?? <Sparkles className="h-5 w-5" />}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-display text-lg font-semibold">{plano.nome}</p>
                       <p className="text-xs text-muted-foreground">{plano.descricao}</p>
                     </div>

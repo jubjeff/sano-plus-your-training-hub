@@ -175,11 +175,11 @@ function PaymentSettingsSection({ authUserId }: { authUserId: string }) {
 
         {/* Cabeçalho */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
               <KeyRound className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="font-display text-base font-semibold text-foreground">Configurações de recebimento</h3>
               <p className="text-xs text-muted-foreground">Chave PIX e valor da mensalidade exibidos aos alunos.</p>
             </div>

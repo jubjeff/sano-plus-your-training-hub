@@ -237,28 +237,28 @@ export default function Assinaturas() {
       {/* Totalizadores */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="section-shell p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
             <TrendingUp className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground">MRR</p>
             <p className="text-xl font-bold text-foreground">{formatBRL(mrr)}</p>
           </div>
         </div>
         <div className="section-shell p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
             <Users className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Assinantes ativos</p>
             <p className="text-xl font-bold text-foreground">{ativos.length}</p>
           </div>
         </div>
         <div className="section-shell p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/15">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-destructive/15">
             <XCircle className="h-5 w-5 text-destructive" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Cancelamentos no mês</p>
             <p className="text-xl font-bold text-foreground">{canceladosMes}</p>
           </div>

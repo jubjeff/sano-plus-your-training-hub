@@ -463,7 +463,7 @@ function CreateStudentDialog({
               <Input value={form.fullName} onChange={(e) => setForm(p => ({ ...p, fullName: e.target.value }))} disabled={submitting} />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">E-mail</Label>
                 <Input type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} disabled={submitting} />
@@ -474,7 +474,7 @@ function CreateStudentDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Nascimento <span className="text-muted-foreground">(opc.)</span></Label>
                 <Input type="date" value={form.birthDate} onChange={(e) => setForm(p => ({ ...p, birthDate: e.target.value }))} disabled={submitting} />
