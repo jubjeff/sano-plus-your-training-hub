@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MailCheck, Plus, Search, UserCheck, UserMinus, Users } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
 import { Button } from "@/components/ui/button";
+import StudentInviteLink from "@/components/StudentInviteLink";
 import { Input } from "@/components/ui/input";
 import StudentFormDialog from "@/components/StudentFormDialog";
 import { formatDate, getInitials } from "@/lib/format";
@@ -41,7 +42,8 @@ export default function Students() {
             </span>
             <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight">Cadastro controlado com senha provisória</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Crie contas de aluno com Supabase Auth, envie o acesso inicial por e-mail e acompanhe quem ainda precisa concluir o primeiro login.
+              Convide o aluno pelo seu link e ele já entrega a avaliação completa, ou crie a conta manualmente e ele
+              preenche a ficha no primeiro acesso.
             </p>
           </div>
           <Button className="w-full sm:w-auto sm:min-w-40" onClick={() => setFormOpen(true)}>
@@ -50,6 +52,12 @@ export default function Students() {
           </Button>
         </div>
       </section>
+
+      {/* O link mora aqui porque e aqui que a decisao acontece: quem quer captar
+          aluno abre esta pagina e clica em "Novo aluno". Antes o convite so
+          existia em /anamneses, dois cliques adentro do menu, entao o caminho
+          melhor ficava escondido atras do manual. */}
+      <StudentInviteLink variant="compact" />
 
       <div>
         <h2 className="font-display text-2xl font-bold tracking-tight">Base de alunos</h2>

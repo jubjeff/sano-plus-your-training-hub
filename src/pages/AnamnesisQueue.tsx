@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/components/ui/sonner";
 import { getSupabaseClient, invokeSupabaseEdgeFunction, EDGE_FUNCTION_NAMES } from "@/integrations/supabase";
 import { useAuth } from "@/auth/use-auth";
+import StudentInviteLink from "@/components/StudentInviteLink";
 import { EQUIPMENT_LABELS, EXPERIENCE_LABELS, GOAL_LABELS, TIME_LABELS } from "@/lib/anamnesis-labels";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
 
@@ -713,19 +714,6 @@ export default function AnamnesisQueue() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | AnamnesisStatus>("all");
 
-  const anamnesisLink = user?.teacherId
-    ? `${window.location.origin}/anamnese?t=${user.teacherId}`
-    : null;
-
-  function handleCopyLink() {
-    if (!anamnesisLink) return;
-    navigator.clipboard.writeText(anamnesisLink).then(() => {
-      toast.success("Link copiado! Compartilhe com seus alunos.");
-    }).catch(() => {
-      toast.error("Não foi possível copiar. Copie manualmente.");
-    });
-  }
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -795,30 +783,7 @@ export default function AnamnesisQueue() {
       </div>
 
       {/* Link personalizado do professor */}
-      {anamnesisLink && (
-        <div className="section-shell p-4 sm:p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Link2 className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold text-foreground">Seu link de anamnese</p>
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Compartilhe este link com seus alunos. Cada submissão ficará vinculada a você automaticamente.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 min-w-0 truncate rounded-xl border border-border bg-muted px-3 py-2 text-xs font-mono text-foreground">
-              {anamnesisLink}
-            </code>
-            <Button size="sm" onClick={handleCopyLink} className="shrink-0 gap-1.5">
-              <Copy className="h-3.5 w-3.5" />
-              Copiar
-            </Button>
-            <Button size="sm" variant="outline" className="shrink-0"
-              onClick={() => window.open(anamnesisLink, "_blank")}>
-              Abrir
-            </Button>
-          </div>
-        </div>
-      )}
+      <StudentInviteLink />
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
