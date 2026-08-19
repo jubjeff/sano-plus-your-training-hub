@@ -34,19 +34,19 @@ Plataforma SaaS de gestão de treinos para personal trainers (professores) e seu
 Sano+/
 ├── src/
 │   ├── pages/            # 22 páginas React
-│   ├── components/       # 16 componentes de negócio
+│   ├── components/       # 18 componentes de negócio
 │   │   └── ui/           # 17 componentes shadcn/ui (só os usados)
 │   ├── auth/             # provider.tsx, use-auth, use-authorization, authorization, types
-│   ├── guards/           # protected, public-only, role, first-access, subscription
+│   ├── guards/           # protected, public-only, role, first-access, subscription, anamnesis
 │   ├── hooks/            # use-store, use-theme, use-toast
 │   ├── services/         # auth, profile, session, teacher-admin-actions
-│   ├── lib/              # 17 módulos de regra de negócio
+│   ├── lib/              # 18 módulos de regra de negócio
 │   ├── integrations/
 │   │   └── supabase/     # Client, config, contratos de function, mappers, tipos
 │   ├── types/            # Tipos TypeScript globais
 │   └── test/             # Setup + testes Vitest
 ├── supabase/
-│   ├── migrations/       # 22 migrações SQL
+│   ├── migrations/       # 29 migrações SQL
 │   ├── functions/        # 10 Edge Functions
 │   │   ├── _shared/      # auth, cors, http, email, supabase, env, mercadopago
 │   │   ├── anamnesis-submit/
@@ -83,6 +83,7 @@ camada de shims de re-export. O `AuthContext` vive em `src/auth/provider.tsx`.
 | `auth-validators.ts` | Validação de e-mail, telefone, senha e CPF |
 | `auth-redirects.ts` | Montagem de URLs de redirecionamento do fluxo de auth |
 | `pix.ts` | Tipos de chave PIX, rótulos e montagem do payload copia-e-cola |
+| `anamnesis-labels.ts` | Rótulos dos campos de anamnese (objetivo, nível, equipamento, horário) |
 | `store.ts` | Store LocalStorage — **fallback inativo em produção**, ver "Estado do Código" |
 | `supabase-store.ts` | Store real: persistência no Supabase com cache local |
 | `training-management.ts` | Cálculos de treino, pontuação de engajamento, progressão |
@@ -121,6 +122,7 @@ camada de shims de re-export. O `AuthContext` vive em `src/auth/provider.tsx`.
 | Rota | Página | Guard |
 |---|---|---|
 | `/primeiro-acesso` | Troca de senha temporária | `ProtectedRoute` + `FirstAccessRoute` |
+| `/minha-avaliacao` | Anamnese obrigatória do aluno novo | `ProtectedRoute` + `AnamnesisRoute` |
 | `/aluno/dashboard` | Portal do aluno (treino, check-in, pagamento) | `ProtectedRoute` + `RoleRoute` + `SubscriptionRoute` |
 | `/perfil` | Perfil do usuário | `ProtectedRoute` |
 
@@ -202,6 +204,7 @@ Todas com `verify_jwt=false` no `config.toml` (auth validada manualmente dentro 
 - `proof_of_payment`: objeto com status do comprovante e URL do arquivo
 - `payment_due_date`, `payment_last_paid_at`
 - `first_access_completed_at`, `last_login_at`, `last_check_in_at`
+- `anamnesis_completed_at`: nulo = aluno ainda deve preencher a avaliação (portão)
 
 **`student_workout_plans`**
 - `training_structure_type`: weekly | abcde
@@ -399,6 +402,56 @@ migration. Sem `internal_automation_secret` cadastrado no Vault, a chamada sai
 com header nulo e o `automation-dispatch` responde 401 — a job roda mas não
 apaga nada.
 
+### Dois caminhos para virar aluno — e o portão da avaliação
+
+**1. Convite (captação):** o professor compartilha `/anamnese?t=<teacherId>`.
+O componente `StudentInviteLink` gera esse link em `/alunos` e `/anamneses`.
+O aluno preenche → `/planos?anamnese=<id>&t=<t>&plano=<id>` → PIX →
+`pix-approve-payment` provisiona a conta.
+
+**2. Cadastro direto:** o professor cria o aluno em `/alunos`. Nesse caminho a
+avaliação **não** vem junto, então `students.anamnesis_completed_at` nasce nulo
+e o aluno é obrigado a preencher no primeiro acesso.
+
+⚠️ **A imposição do portão fica no `ProtectedRoute`**, não no `AnamnesisRoute`.
+O guard da rota só protege `/minha-avaliacao` em si; sem a checagem global no
+`ProtectedRoute` o aluno digita `/aluno/dashboard` e entra sem preencher.
+Mesmo lugar onde `requiresFirstAccess` é imposto. **A ordem é: senha → avaliação
+→ portal.**
+
+O backfill de `20260818000007` dispensou todos os alunos que já existiam: a
+regra vale só para quem for criado a partir dali.
+
+### Ciclo anamnese → pagamento
+
+O plano escolhido viaja na URL para o aluno não escolher duas vezes:
+
+```
+/planos?t=X → /anamnese?t=X&plano=P → conclusão → /planos?anamnese=A&t=X&plano=P
+```
+
+Ao voltar com `anamnese` e `plano`, o modal de pagamento abre sozinho (um `ref`
+impede reabrir se o aluno fechar). Confirmar o pagamento leva a
+`/pagamento/pendente` — **não** ao login: com PIX manual a conta só é criada
+quando o professor aprova, e `/pagamento/sucesso` ("Pagamento aprovado!") seria
+falso nesse momento.
+
+**Prazo de liberação é 48h** em toda a comunicação (tela, e-mail, `/planos`).
+Já houve três prazos divergentes convivendo; se mudar, mude nos três.
+
+### `anamnesis-submit` tem três modos
+
+| Modo | Acesso | Uso |
+|---|---|---|
+| ausente | Público | Submissão do formulário de captação |
+| `teacher_info` | Público | Devolve nome e WhatsApp do professor para o CTA |
+| `authenticated` | **JWT obrigatório** | Aluno preenchendo no primeiro acesso |
+
+⚠️ No modo `authenticated` os ids vêm da **sessão**, nunca do corpo, e a
+autenticação roda **antes** do `validateBody`. Confiar no corpo deixaria um
+aluno vincular a ficha a outro — mesma classe do IDOR corrigido em
+`pix-approve-payment`.
+
 ### Mídia da anamnese — e-mail + WhatsApp
 
 Os vídeos do Deep Squat **não são mais enviados pelo formulário**. Três arquivos
@@ -437,3 +490,8 @@ de cobertura. Risco alto, ganho baixo.
   migrações de PIX/planos/assinaturas. Causa ~59 erros `never` no `tsc --noEmit`
   (o build passa porque o SWC não faz typecheck). Corrigir com `supabase gen types`
 - Bundle único de ~1.164 kB — falta code-splitting por rota
+- **Cobertura de teste: 5 testes**, nenhum cobrindo anamnese, guards ou o
+  contrato das edge functions. Dois bugs caros da varredura teriam sido pegos
+  por qualquer um deles: a validação de vídeo que sobrou no backend depois de
+  sair do frontend, e o portão de anamnese que não bloqueava porque a checagem
+  estava só na rota, não no `ProtectedRoute`
