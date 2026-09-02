@@ -1,7 +1,9 @@
-import { Download } from "lucide-react";
+import { useState } from "react";
+import { Download, Loader2 } from "lucide-react";
 import { useStore } from "@/hooks/use-store";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/sonner";
 
 interface Props {
   open: boolean;
@@ -11,10 +13,25 @@ interface Props {
 
 export default function ImportWorkoutDialog({ open, onOpenChange, studentId }: Props) {
   const { workouts, importWorkoutToStudent } = useStore();
+  const [importingId, setImportingId] = useState<string | null>(null);
 
-  const handleImport = (workoutId: string) => {
-    importWorkoutToStudent(studentId, workoutId);
-    onOpenChange(false);
+  /**
+   * A importação é assíncrona e vai ao Supabase. Antes a chamada não era
+   * aguardada nem tratada: o diálogo fechava na hora e, se a gravação
+   * falhasse, a rejeição sumia sem nenhum aviso — parecia que tinha importado.
+   */
+  const handleImport = async (workoutId: string) => {
+    setImportingId(workoutId);
+    try {
+      await importWorkoutToStudent(studentId, workoutId);
+      toast.success("Treino importado para o aluno.");
+      onOpenChange(false);
+    } catch (error) {
+      const detalhe = error instanceof Error ? error.message : String(error);
+      toast.error(detalhe || "Não foi possível importar o treino. Tente novamente.");
+    } finally {
+      setImportingId(null);
+    }
   };
 
   return (
@@ -40,9 +57,24 @@ export default function ImportWorkoutDialog({ open, onOpenChange, studentId }: P
                       {workout.objective} • {workout.blocks.length} bloco(s)
                     </p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => handleImport(workout.id)} className="w-full sm:w-auto">
-                    <Download className="mr-1 h-3.5 w-3.5" />
-                    Importar
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleImport(workout.id)}
+                    disabled={importingId !== null}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    {importingId === workout.id ? (
+                      <>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        Importando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-1 h-3.5 w-3.5" />
+                        Importar
+                      </>
+                    )}
                   </Button>
                 </div>
               ))}

@@ -79,6 +79,24 @@ export default function StudentProfile() {
     );
   }
 
+  /**
+   * Executa a acao mostrando o que aconteceu. Sem isto toda falha aqui era
+   * silenciosa: o await rejeitava, o handler morria no meio e a tela ficava
+   * igual — o professor clicava em "Salvar treino" e nada acontecia, sem erro
+   * nenhum para explicar o porque.
+   */
+  const run = async (acao: () => Promise<unknown>, sucesso: string) => {
+    try {
+      await acao();
+      toast.success(sucesso);
+      return true;
+    } catch (error) {
+      const detalhe = error instanceof Error ? error.message : String(error);
+      toast.error(detalhe || "Não foi possível concluir a ação. Tente novamente.");
+      return false;
+    }
+  };
+
   const startEditWorkout = () => {
     const plan = getStudentWorkoutPlan(student);
     setWorkoutDraft(JSON.parse(JSON.stringify(plan.blocks)));
@@ -93,27 +111,36 @@ export default function StudentProfile() {
     const timestamp = new Date().toISOString().split("T")[0];
     const normalizedProgress = normalizeProgressMode(trainingStructureDraft, trainingProgressDraft);
     const currentPlan = getStudentWorkoutPlan(student);
-    await updateStudent(student.id, {
-      workout: workoutDraft,
-      workoutUpdatedAt: timestamp,
-      workoutPlan: {
-        ...currentPlan,
-        trainingStructureType: trainingStructureDraft,
-        trainingProgressMode: normalizedProgress,
-        weeklyGoal: weeklyGoalDraft,
-        currentSuggestedBlockId: normalizedProgress === "sequential_progression" ? currentSuggestedBlockIdDraft : null,
-        blocks: workoutDraft.map((block, index) => ({
-          ...block,
-          orderIndex: index,
-          dayOfWeek: trainingStructureDraft === "weekly" ? index : null,
-          letterLabel: trainingStructureDraft === "abcde" ? String.fromCharCode(65 + index) : null,
-          blockLabel: trainingStructureDraft === "weekly" ? ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado", "Domingo"][index] ?? block.name : String.fromCharCode(65 + index),
-        })),
-        nextWorkoutChangeDate: student.nextWorkoutChange ?? currentPlan.nextWorkoutChangeDate ?? null,
-        updatedAt: timestamp,
-      },
-    });
-    setEditingWorkout(false);
+    const ok = await run(
+      () =>
+        updateStudent(student.id, {
+          workout: workoutDraft,
+          workoutUpdatedAt: timestamp,
+          workoutPlan: {
+            ...currentPlan,
+            trainingStructureType: trainingStructureDraft,
+            trainingProgressMode: normalizedProgress,
+            weeklyGoal: weeklyGoalDraft,
+            currentSuggestedBlockId: normalizedProgress === "sequential_progression" ? currentSuggestedBlockIdDraft : null,
+            blocks: workoutDraft.map((block, index) => ({
+              ...block,
+              orderIndex: index,
+              dayOfWeek: trainingStructureDraft === "weekly" ? index : null,
+              letterLabel: trainingStructureDraft === "abcde" ? String.fromCharCode(65 + index) : null,
+              blockLabel: trainingStructureDraft === "weekly" ? ["Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado", "Domingo"][index] ?? block.name : String.fromCharCode(65 + index),
+            })),
+            nextWorkoutChangeDate: student.nextWorkoutChange ?? currentPlan.nextWorkoutChangeDate ?? null,
+            updatedAt: timestamp,
+          },
+        }),
+      "Treino salvo.",
+    );
+
+    // Só fecha o editor se gravou. Fechar mesmo com erro descartava o rascunho
+    // do professor e ainda dava a impressão de que tinha salvado.
+    if (ok) {
+      setEditingWorkout(false);
+    }
   };
 
   const addBlock = () => {
@@ -169,20 +196,20 @@ export default function StudentProfile() {
 
   const handleLifecycleToggle = async () => {
     const nextActive = student.studentStatus !== "active";
-    await setStudentLifecycle(student.id, nextActive);
+    await run(() => setStudentLifecycle(student.id, nextActive), nextActive ? "Aluno reativado." : "Aluno desativado.");
   };
 
   const handleUpdateDueDate = async () => {
     if (!paymentDueDateDraft) return;
-    await updatePaymentDueDate(student.id, paymentDueDateDraft);
+    await run(() => updatePaymentDueDate(student.id, paymentDueDateDraft), "Vencimento atualizado.");
   };
 
   const handleManualPayment = async () => {
-    await markPaymentReceived(student.id);
+    await run(() => markPaymentReceived(student.id), "Pagamento registrado.");
   };
 
   const handleApproveProof = async () => {
-    await approveProofOfPayment(student.id);
+    await run(() => approveProofOfPayment(student.id), "Comprovante aprovado.");
   };
 
   const workout = editingWorkout ? workoutDraft : student.workout;
