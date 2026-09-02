@@ -10,6 +10,15 @@ interface Props {
 
 export default function ExerciseMediaPreview({ exercise, className = "" }: Props) {
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  // A imagem vem de CDN externa (jsDelivr). Se cair, volta para o estado vazio
+  // em vez de deixar um ícone de imagem quebrada na tela do aluno.
+  const [imageFailed, setImageFailed] = useState(false);
+
+  // Trocou de exercício, zera a falha: senão o componente reaproveitado esconde
+  // a imagem do exercício seguinte por causa do erro do anterior.
+  useEffect(() => {
+    setImageFailed(false);
+  }, [exercise.thumbnailUrl]);
 
   useEffect(() => {
     let active = true;
@@ -49,10 +58,29 @@ export default function ExerciseMediaPreview({ exercise, className = "" }: Props
     };
   }, [exercise.videoUrl, exercise.videoStoragePath]);
 
+  // Sem vídeo, cai para a imagem de demonstração do catálogo global. O vídeo do
+  // professor sempre ganha: a imagem é o piso, não a preferência.
+  if (!resolvedVideoUrl && exercise.thumbnailUrl && !imageFailed) {
+    return (
+      <div className={`overflow-hidden rounded-[20px] border border-border/60 bg-background/70 ${className}`.trim()}>
+        <div className="border-b border-border/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          Demonstração
+        </div>
+        <img
+          src={exercise.thumbnailUrl}
+          alt={`Demonstração do exercício ${exercise.name}`}
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+          className="h-64 w-full bg-white object-contain"
+        />
+      </div>
+    );
+  }
+
   if (!resolvedVideoUrl) {
     return (
       <div className={`flex items-center gap-3 rounded-[20px] border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground ${className}`.trim()}>
-        <PlayCircle className="h-5 w-5 text-primary" />
+        <PlayCircle className="h-5 w-5 shrink-0 text-primary" />
         Nenhuma mídia adicionada ainda. O exercício continua pronto para uso mesmo sem vídeo.
       </div>
     );
