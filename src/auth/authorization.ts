@@ -39,6 +39,37 @@ export function requiresCoachProfileAccess(subject: AuthorizationSubject) {
   return isCoachRole(subject) && subject.user?.teacherHasActiveAccess === false;
 }
 
+/**
+ * Para onde o guard deve mandar o usuario, ou null quando ele pode ficar onde
+ * esta.
+ *
+ * Existe para a ordem dos portoes viver num lugar so. O ProtectedRoute tinha a
+ * propria copia da regra e ela divergiu daqui: em /primeiro-acesso ele pulava a
+ * checagem de senha (o caminho batia) mas ainda avaliava a de anamnese, e
+ * mandava o aluno para /minha-avaliacao — que devolvia para /primeiro-acesso.
+ * Aluno recem-criado pelo professor tem os DOIS pendentes, entao ficava preso
+ * em loop, com tela em branco e sem conseguir entrar de jeito nenhum.
+ *
+ * A ordem e senha -> avaliacao -> portal. Cada portao retorna cedo, entao o
+ * seguinte so e avaliado depois que o anterior foi satisfeito — a prioridade
+ * fica estrutural, nao depende de lembrar de combinar as condicoes.
+ */
+export function resolveGateRedirect(subject: AuthorizationSubject, pathname: string): string | null {
+  if (requiresCoachProfileAccess(subject)) {
+    return pathname === "/perfil" ? null : "/perfil";
+  }
+
+  if (requiresFirstAccess(subject)) {
+    return pathname === "/primeiro-acesso" ? null : "/primeiro-acesso";
+  }
+
+  if (requiresAnamnesis(subject)) {
+    return pathname === "/minha-avaliacao" ? null : "/minha-avaliacao";
+  }
+
+  return null;
+}
+
 export function getAuthorizedHomePath(subject: AuthorizationSubject) {
   if (requiresFirstAccess(subject)) {
     return "/primeiro-acesso";

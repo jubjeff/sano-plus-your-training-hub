@@ -3,7 +3,7 @@ import { useAuthorization } from "@/auth/use-authorization";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { user, isAuthenticated, isLoading, isProfileLoading, session, requiresCoachProfileAccess, requiresFirstAccess, requiresAnamnesis } = useAuthorization();
+  const { user, isAuthenticated, isLoading, isProfileLoading, session, resolveGateRedirect } = useAuthorization();
 
   if (isLoading || (Boolean(session) && (isProfileLoading || !user))) {
     return (
@@ -21,19 +21,16 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return <Navigate to={`/?redirect=${encodeURIComponent(redirectTo)}`} replace />;
   }
 
-  if (requiresCoachProfileAccess && location.pathname !== "/perfil") {
-    return <Navigate to="/perfil" replace />;
-  }
-
-  if (requiresFirstAccess && location.pathname !== "/primeiro-acesso") {
-    return <Navigate to="/primeiro-acesso" replace />;
-  }
-
-  // O portao precisa valer em qualquer rota autenticada, nao so na propria
-  // /minha-avaliacao: sem isto o aluno digitava /aluno/dashboard e entrava
-  // sem preencher. Mesmo lugar onde requiresFirstAccess e imposto.
-  if (requiresAnamnesis && location.pathname !== "/minha-avaliacao") {
-    return <Navigate to="/minha-avaliacao" replace />;
+  // Os portoes precisam valer em qualquer rota autenticada, nao so nas proprias
+  // /primeiro-acesso e /minha-avaliacao: sem isto o aluno digitava
+  // /aluno/dashboard e entrava sem trocar a senha nem preencher a avaliacao.
+  //
+  // A ordem mora em resolveGateRedirect, nao aqui. Quando esta regra era
+  // duplicada neste arquivo ela divergiu da original e criou um loop entre os
+  // dois portoes para quem tinha ambos pendentes.
+  const gateRedirect = resolveGateRedirect(location.pathname);
+  if (gateRedirect) {
+    return <Navigate to={gateRedirect} replace />;
   }
 
   return <>{children}</>;
