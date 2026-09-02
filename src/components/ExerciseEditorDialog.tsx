@@ -22,6 +22,7 @@ import {
   MUSCLE_GROUP_OPTIONS,
 } from "@/lib/exercise-options";
 import { MAX_EXERCISE_VIDEO_DURATION_SECONDS, MAX_EXERCISE_VIDEO_SIZE_MB, createVideoPreviewUrl, validateExerciseVideoFile } from "@/lib/exercise-media";
+import { validateExerciseVideoUrl } from "@/lib/video-url";
 import { createEmptyExerciseLibraryItem, stampExerciseLibraryUpdate } from "@/lib/exercise-utils";
 
 interface SavePayload {
@@ -41,6 +42,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
   const [form, setForm] = useState<ExerciseLibraryItem>(createEmptyExerciseLibraryItem());
   const [errors, setErrors] = useState<string[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [videoLinkError, setVideoLinkError] = useState<string | null>(null);
   const [generatedPreviewUrl, setGeneratedPreviewUrl] = useState<string | null>(null);
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [removeVideo, setRemoveVideo] = useState(false);
@@ -50,6 +52,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
     if (!open) return;
     setErrors([]);
     setVideoError(null);
+    setVideoLinkError(null);
     setSelectedVideoFile(null);
     setRemoveVideo(false);
     setSubmitting(false);
@@ -94,7 +97,27 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
     setSelectedVideoFile(file);
     setRemoveVideo(false);
     setVideoError(null);
+    // Arquivo e link são excludentes: quem escolhe arquivo abandona o link.
+    setVideoLinkError(null);
     updateForm({ videoUrl: previewUrl });
+  };
+
+  const handleVideoLinkChange = (valor: string) => {
+    const erro = validateExerciseVideoUrl(valor);
+    setVideoLinkError(erro);
+
+    // Colar um link descarta o arquivo que estivesse selecionado, e vice-versa.
+    if (generatedPreviewUrl) {
+      URL.revokeObjectURL(generatedPreviewUrl);
+      setGeneratedPreviewUrl(null);
+    }
+    setSelectedVideoFile(null);
+    setVideoError(null);
+
+    const limpo = valor.trim();
+    // Sem link e sem arquivo, o vídeo antigo precisa sair do storage no save.
+    setRemoveVideo(!limpo && Boolean(exercise?.videoStoragePath));
+    updateForm({ videoUrl: limpo || null, videoStoragePath: null });
   };
 
   const handleRemoveVideo = () => {
@@ -123,6 +146,7 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
     if (!form.category) nextErrors.push("Selecione a categoria.");
     if (form.category !== "Cardio" && !form.muscleGroupPrimary) nextErrors.push("Selecione o grupo muscular principal.");
     if (videoError) nextErrors.push("Corrija o vídeo antes de salvar.");
+    if (videoLinkError) nextErrors.push("Corrija o link do vídeo antes de salvar.");
 
     if (nextErrors.length > 0) {
       setErrors(nextErrors);
@@ -155,6 +179,14 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
       setSubmitting(false);
     }
   };
+
+  // O campo de link só mostra URL que veio de link mesmo. Preview local (blob:)
+  // e URL pública de upload (que anda junto com videoStoragePath) ficam de fora,
+  // senão o professor veria a URL do bucket num campo pedindo YouTube.
+  const linkExternoAtual =
+    selectedVideoFile || !form.videoUrl || form.videoUrl.startsWith("blob:") || form.videoStoragePath
+      ? ""
+      : form.videoUrl;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -343,15 +375,42 @@ export default function ExerciseEditorDialog({ open, onOpenChange, onSave, exerc
             <div>
               <h3 className="font-display text-lg font-semibold">Vídeo demonstrativo</h3>
               <p className="text-sm text-muted-foreground">
-                Aceita apenas `.mp4`, com até {MAX_EXERCISE_VIDEO_DURATION_SECONDS} segundos e {MAX_EXERCISE_VIDEO_SIZE_MB} MB.
+                Cole um link do YouTube ou envie um MP4. O exercício continua utilizável mesmo sem mídia.
               </p>
             </div>
 
             <div className="rounded-[20px] border border-border/60 bg-card/60 p-4">
+              <label htmlFor="exercise-video-link" className="text-sm font-medium">
+                Link do YouTube
+              </label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Sem limite de duração e não ocupa espaço no seu armazenamento.
+              </p>
+              <Input
+                id="exercise-video-link"
+                type="url"
+                inputMode="url"
+                placeholder="https://youtu.be/..."
+                value={linkExternoAtual}
+                onChange={(event) => handleVideoLinkChange(event.target.value)}
+                className={`mt-3 ${videoLinkError ? "border-destructive" : ""}`}
+              />
+              {videoLinkError && <p className="mt-2 text-sm text-destructive">{videoLinkError}</p>}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-border/60" />
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">ou</span>
+              <span className="h-px flex-1 bg-border/60" />
+            </div>
+
+            <div className="rounded-[20px] border border-border/60 bg-card/60 p-4">
               <div className="flex items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium">Upload de vídeo MP4</p>
-                  <p className="text-xs text-muted-foreground">O exercício continua utilizável mesmo sem mídia.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Máximo {MAX_EXERCISE_VIDEO_DURATION_SECONDS} segundos e {MAX_EXERCISE_VIDEO_SIZE_MB} MB.
+                  </p>
                 </div>
                 {(form.videoUrl || form.videoStoragePath) && (
                   <Button type="button" variant="ghost" size="sm" onClick={handleRemoveVideo} className="text-destructive hover:text-destructive">

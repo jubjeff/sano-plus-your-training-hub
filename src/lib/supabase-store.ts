@@ -253,6 +253,16 @@ async function uploadExerciseVideo(exerciseId: string, file: File) {
   };
 }
 
+/**
+ * Link de vídeo que deve ser gravado como veio (YouTube ou MP4 hospedado fora).
+ * Descarta `blob:`, que é preview local de um arquivo ainda por subir.
+ */
+function externalVideoLink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("blob:")) return null;
+  return url;
+}
+
 async function removeExerciseVideo(storagePath: string | null) {
   if (!storagePath) return;
   const supabase = getSupabaseClient();
@@ -951,6 +961,9 @@ export class SupabaseStore {
         contraindications: base.contraindications,
         common_mistakes: base.commonMistakes,
         duration_limit_seconds: base.durationLimitSeconds ?? MAX_EXERCISE_VIDEO_DURATION_SECONDS,
+        // Link colado no cadastro (YouTube). Upload de arquivo vem depois do
+        // insert, porque o storagePath precisa do id gerado aqui.
+        video_url: externalVideoLink(base.videoUrl),
         is_active: true,
         is_global: true,
         created_by: teacherId,
@@ -1002,6 +1015,13 @@ export class SupabaseStore {
     let nextVideoUrl = current.videoUrl ?? null;
     let nextVideoStoragePath = current.videoStoragePath ?? null;
 
+    // Ordem importa: remover > enviar arquivo > trocar link. O link só entra
+    // quando mudou de verdade, senão editar o nome do exercício apagaria o
+    // vídeo que já estava lá.
+    const linkInformado = externalVideoLink(data.videoUrl);
+    const trocouLink =
+      "videoUrl" in data && !data.videoUrl?.startsWith("blob:") && linkInformado !== (current.videoUrl ?? null);
+
     if (data.removeVideo) {
       await removeExerciseVideo(nextVideoStoragePath);
       nextVideoUrl = null;
@@ -1010,6 +1030,12 @@ export class SupabaseStore {
       const uploaded = await uploadExerciseVideo(id, data.videoFile);
       nextVideoUrl = uploaded.url;
       nextVideoStoragePath = uploaded.storagePath;
+    } else if (trocouLink) {
+      // Passou a usar link: o MP4 antigo não serve mais e sai do bucket, senão
+      // fica ocupando cota sem nada apontando para ele.
+      await removeExerciseVideo(nextVideoStoragePath);
+      nextVideoUrl = linkInformado;
+      nextVideoStoragePath = null;
     }
 
     const base = stampExerciseLibraryUpdate({

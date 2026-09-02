@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { PlayCircle } from "lucide-react";
 import { Exercise } from "@/types";
 import { loadPersistedExerciseVideo } from "@/lib/exercise-media";
+import { buildYoutubeEmbedUrl, isDirectVideoUrl, parseYoutubeVideoId } from "@/lib/video-url";
 
 interface Props {
   exercise: Pick<Exercise, "name" | "videoUrl" | "videoStoragePath" | "thumbnailUrl">;
   className?: string;
 }
+
+const MOLDURA = "overflow-hidden rounded-[20px] border border-border/60 bg-background/70";
+const ROTULO =
+  "border-b border-border/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground";
 
 export default function ExerciseMediaPreview({ exercise, className = "" }: Props) {
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
@@ -20,12 +25,26 @@ export default function ExerciseMediaPreview({ exercise, className = "" }: Props
     setImageFailed(false);
   }, [exercise.thumbnailUrl]);
 
+  const youtubeId = parseYoutubeVideoId(exercise.videoUrl);
+
   useEffect(() => {
     let active = true;
     let objectUrlToRevoke: string | null = null;
-    const canUseDirectUrl = Boolean(exercise.videoUrl && !exercise.videoUrl.startsWith("blob:"));
 
-    if (!exercise.videoStoragePath && canUseDirectUrl) {
+    // Link do YouTube não passa por aqui: vira iframe, não <video>.
+    if (parseYoutubeVideoId(exercise.videoUrl)) {
+      setResolvedVideoUrl(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    // A URL direta tem prioridade sobre o IndexedDB. Em produção o upload grava
+    // video_url (URL pública do bucket) E video_storage_path — e o IndexedDB
+    // fica sempre vazio, porque persistExerciseVideoFile só é usado pelo store
+    // LocalStorage. Checar o storage_path primeiro fazia o vídeo do professor
+    // nunca aparecer, nem para ele mesmo.
+    if (isDirectVideoUrl(exercise.videoUrl)) {
       setResolvedVideoUrl(exercise.videoUrl ?? null);
       return () => {
         active = false;
@@ -58,14 +77,48 @@ export default function ExerciseMediaPreview({ exercise, className = "" }: Props
     };
   }, [exercise.videoUrl, exercise.videoStoragePath]);
 
+  if (youtubeId) {
+    return (
+      <div className={`${MOLDURA} ${className}`.trim()}>
+        <div className={ROTULO}>Vídeo do YouTube</div>
+        <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+          <iframe
+            src={buildYoutubeEmbedUrl(youtubeId)}
+            title={`Demonstração do exercício ${exercise.name}`}
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (resolvedVideoUrl) {
+    return (
+      <div className={`${MOLDURA} ${className}`.trim()}>
+        <div className={ROTULO}>Vídeo MP4</div>
+        <video
+          controls
+          preload="metadata"
+          poster={exercise.thumbnailUrl ?? undefined}
+          className="h-64 w-full bg-black object-cover"
+        >
+          <source src={resolvedVideoUrl} type="video/mp4" />
+          Seu navegador não suporta vídeo MP4.
+        </video>
+      </div>
+    );
+  }
+
   // Sem vídeo, cai para a imagem de demonstração do catálogo global. O vídeo do
   // professor sempre ganha: a imagem é o piso, não a preferência.
-  if (!resolvedVideoUrl && exercise.thumbnailUrl && !imageFailed) {
+  if (exercise.thumbnailUrl && !imageFailed) {
     return (
-      <div className={`overflow-hidden rounded-[20px] border border-border/60 bg-background/70 ${className}`.trim()}>
-        <div className="border-b border-border/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-          Demonstração
-        </div>
+      <div className={`${MOLDURA} ${className}`.trim()}>
+        <div className={ROTULO}>Demonstração</div>
         <img
           src={exercise.thumbnailUrl}
           alt={`Demonstração do exercício ${exercise.name}`}
@@ -77,24 +130,12 @@ export default function ExerciseMediaPreview({ exercise, className = "" }: Props
     );
   }
 
-  if (!resolvedVideoUrl) {
-    return (
-      <div className={`flex items-center gap-3 rounded-[20px] border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground ${className}`.trim()}>
-        <PlayCircle className="h-5 w-5 shrink-0 text-primary" />
-        Nenhuma mídia adicionada ainda. O exercício continua pronto para uso mesmo sem vídeo.
-      </div>
-    );
-  }
-
   return (
-    <div className={`overflow-hidden rounded-[20px] border border-border/60 bg-background/70 ${className}`.trim()}>
-      <div className="border-b border-border/60 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        Vídeo MP4
-      </div>
-      <video controls preload="metadata" poster={exercise.thumbnailUrl ?? undefined} className="h-64 w-full bg-black object-cover">
-        <source src={resolvedVideoUrl} type="video/mp4" />
-        Seu navegador não suporta vídeo MP4.
-      </video>
+    <div
+      className={`flex items-center gap-3 rounded-[20px] border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground ${className}`.trim()}
+    >
+      <PlayCircle className="h-5 w-5 shrink-0 text-primary" />
+      Nenhuma mídia adicionada ainda. O exercício continua pronto para uso mesmo sem vídeo.
     </div>
   );
 }
