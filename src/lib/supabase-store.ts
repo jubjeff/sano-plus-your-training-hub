@@ -128,6 +128,23 @@ type CoachAlertReadRow = {
   is_read: boolean;
 };
 
+/**
+ * Devolve null para texto vazio ou so espaco.
+ *
+ * O mapper converte coluna nula em "" para os inputs do formulario terem uma
+ * string. Na volta esse "" precisa virar null de novo: students.phone exige
+ * `phone is null or 10-11 digitos`, entao gravar "" viola a constraint e
+ * derruba QUALQUER update do aluno — salvar treino, importar, mudar vencimento.
+ * Aluno sem telefone ficava impossivel de editar.
+ *
+ * O mesmo vale para email: o indice unico e parcial (`where email is not null`),
+ * entao dois alunos com "" entrariam no indice e colidiriam entre si.
+ */
+function nullIfBlank(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -706,11 +723,14 @@ export class SupabaseStore {
       .from("students")
       .update({
         full_name: data.fullName ?? currentStudent.fullName,
-        email: data.email ? normalizeEmail(data.email) : currentStudent.email,
-        phone: data.phone ?? currentStudent.phone,
+        // nullIfBlank aqui nao e cosmetico: sem ele o "" que o mapper criou
+        // volta para o banco e a constraint de telefone rejeita o update
+        // inteiro, mesmo quando o professor so queria salvar o treino.
+        email: nullIfBlank(data.email ? normalizeEmail(data.email) : currentStudent.email),
+        phone: nullIfBlank(data.phone ?? currentStudent.phone),
         birth_date: data.birthDate ?? currentStudent.birthDate,
-        goal: data.goal ?? currentStudent.goal,
-        notes: data.notes ?? currentStudent.notes,
+        goal: nullIfBlank(data.goal ?? currentStudent.goal),
+        notes: nullIfBlank(data.notes ?? currentStudent.notes),
         profile_photo_storage_key: profilePhotoStorageKey,
         profile_photo_url: profilePhotoUrl,
         status: data.studentStatus ?? currentStudent.studentStatus,
