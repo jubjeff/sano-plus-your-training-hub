@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
+import { Activity, ArrowLeft, CalendarDays, CheckCircle2, ClipboardPaste, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
@@ -13,6 +13,7 @@ import ExerciseMediaPreview from "@/components/ExerciseMediaPreview";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ImportWorkoutDialog from "@/components/ImportWorkoutDialog";
+import PasteWorkoutDialog from "@/components/PasteWorkoutDialog";
 import StudentFormDialog from "@/components/StudentFormDialog";
 import StudentTemporaryPasswordDialog from "@/components/StudentTemporaryPasswordDialog";
 import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
@@ -36,6 +37,7 @@ export default function StudentProfile() {
   const student = students.find((item) => item.id === id);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const [temporaryAccess, setTemporaryAccess] = useState<StudentTemporaryAccessResult | null>(null);
   const [editingWorkout, setEditingWorkout] = useState(false);
   const workoutSectionRef = useRef<HTMLElement>(null);
@@ -517,6 +519,7 @@ export default function StudentProfile() {
             </div>
           </div>
           <div className="page-actions">
+            <Button variant="outline" onClick={() => setPasteOpen(true)}><ClipboardPaste className="mr-2 h-4 w-4" />Colar treino</Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}><Download className="mr-2 h-4 w-4" />Importar treino</Button>
             {editingWorkout ? (
               <>
@@ -671,6 +674,33 @@ export default function StudentProfile() {
 
       <StudentFormDialog open={editOpen} onOpenChange={setEditOpen} student={student} />
       <ImportWorkoutDialog open={importOpen} onOpenChange={setImportOpen} studentId={student.id} />
+
+      <PasteWorkoutDialog
+        open={pasteOpen}
+        onOpenChange={setPasteOpen}
+        studentId={student.id}
+        onApply={async ({ blocos, estrutura, metaSemanal }) => {
+          const currentPlan = getStudentWorkoutPlan(student);
+          const estruturaFinal = estrutura ?? currentPlan.trainingStructureType;
+          const timestamp = new Date().toISOString().split("T")[0];
+
+          await updateStudent(student.id, {
+            workout: blocos,
+            workoutUpdatedAt: timestamp,
+            workoutPlan: {
+              ...currentPlan,
+              trainingStructureType: estruturaFinal,
+              trainingProgressMode: normalizeProgressMode(estruturaFinal, currentPlan.trainingProgressMode),
+              weeklyGoal: metaSemanal ?? currentPlan.weeklyGoal ?? 4,
+              blocks: blocos,
+              // Recomeça a sugestão pelo primeiro bloco: o plano anterior pode
+              // nem ter mais o bloco que estava marcado como atual.
+              currentSuggestedBlockId: blocos[0]?.id ?? null,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+        }}
+      />
       <StudentTemporaryPasswordDialog
         open={temporaryAccess !== null}
         onOpenChange={(open) => {
