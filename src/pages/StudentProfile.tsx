@@ -111,11 +111,14 @@ export default function StudentProfile() {
     // seção de anamnese. Sem levar a tela até lá, o clique parecia não fazer
     // nada — principalmente no celular, onde a seção some da dobra.
     //
-    // Dois cuidados, aprendidos testando: um requestAnimationFrame só dispara
-    // antes do React comitar a troca para o modo de edição, e a rolagem suave
-    // ficava em curso enquanto a seção crescia com os campos do editor —
-    // perdia o alvo e parava no meio. Dois frames garantem o layout final, e a
-    // rolagem instantânea não tem como ser desviada por ele.
+    // Dois frames esperam o React comitar o modo de edição antes de medir a
+    // posição; rolagem instantânea porque a seção cresce com os campos do
+    // editor e uma animação em curso perderia o alvo no meio do caminho.
+    //
+    // ⚠️ Não verificado em navegador: requestAnimationFrame não dispara em aba
+    // oculta ou sem foco, que é a condição do teste automatizado. Confirmar
+    // manualmente com a aba em primeiro plano. Quem rola aqui é o <main> com
+    // overflow-y auto, não a janela — isso sim foi medido (scrollTop 0 -> 2004).
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         workoutSectionRef.current?.scrollIntoView({ block: "start" });
