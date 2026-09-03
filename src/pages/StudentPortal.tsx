@@ -164,8 +164,12 @@ export default function StudentPortal() {
     if (!primaryWorkout.block) return;
     setIsCheckingIn(true);
     try {
-      registerStudentCheckIn(student.id, primaryWorkout.block.id, "student");
-      toast.success("Check-in registrado. Bom treino.");
+      // Sem o await o try/catch nao servia para nada: a rejeicao acontecia
+      // depois que o bloco ja tinha terminado, entao o toast de sucesso saia
+      // mesmo quando a gravacao falhava — e a tela nao mudava, porque o
+      // check-in nunca entrou. Era o "cliquei e nao aconteceu nada".
+      await registerStudentCheckIn(student.id, primaryWorkout.block.id, "student");
+      toast.success("Treino finalizado! Check-in registrado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível registrar o check-in.");
     } finally {
@@ -173,9 +177,15 @@ export default function StudentPortal() {
     }
   };
 
-  const handleSaveLoad = (studentId: string, blockId: string, exerciseId: string, value: string) => {
-    updateStudentExerciseLoad(studentId, blockId, exerciseId, value);
-    toast.success("Carga pessoal atualizada.");
+  const handleSaveLoad = async (studentId: string, blockId: string, exerciseId: string, value: string) => {
+    // Mesmo defeito do check-in: sem await, a carga podia nao gravar e o aluno
+    // via "atualizada" do mesmo jeito.
+    try {
+      await updateStudentExerciseLoad(studentId, blockId, exerciseId, value);
+      toast.success("Carga pessoal atualizada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a carga.");
+    }
   };
 
   return (
