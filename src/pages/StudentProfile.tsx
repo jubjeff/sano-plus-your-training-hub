@@ -110,8 +110,16 @@ export default function StudentProfile() {
     // O botão do resumo fica no topo, mas o editor abre lá embaixo, depois da
     // seção de anamnese. Sem levar a tela até lá, o clique parecia não fazer
     // nada — principalmente no celular, onde a seção some da dobra.
+    //
+    // Dois cuidados, aprendidos testando: um requestAnimationFrame só dispara
+    // antes do React comitar a troca para o modo de edição, e a rolagem suave
+    // ficava em curso enquanto a seção crescia com os campos do editor —
+    // perdia o alvo e parava no meio. Dois frames garantem o layout final, e a
+    // rolagem instantânea não tem como ser desviada por ele.
     requestAnimationFrame(() => {
-      workoutSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => {
+        workoutSectionRef.current?.scrollIntoView({ block: "start" });
+      });
     });
   };
 
