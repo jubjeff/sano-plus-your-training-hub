@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Activity, ArrowLeft, CalendarDays, CheckCircle2, ClipboardPaste, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
+import { Activity, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ClipboardPaste, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
 import type { StudentTemporaryAccessResult } from "@/integrations/supabase/function-contracts";
@@ -12,6 +12,7 @@ import ExerciseLibraryPickerDialog from "@/components/ExerciseLibraryPickerDialo
 import ExerciseMediaPreview from "@/components/ExerciseMediaPreview";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImportWorkoutDialog from "@/components/ImportWorkoutDialog";
 import PasteWorkoutDialog from "@/components/PasteWorkoutDialog";
 import StudentFormDialog from "@/components/StudentFormDialog";
@@ -49,6 +50,9 @@ export default function StudentProfile() {
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
   const [paymentDueDateDraft, setPaymentDueDateDraft] = useState("");
+  const [activeBlockId, setActiveBlockId] = useState<string>("");
+  // Exercício abre fechado: a mídia de demonstração era o que esticava a lista.
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(() => new Set());
   const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
   const exerciseLibraryMap = useMemo(() => new Map(exerciseLibrary.map((exercise) => [exercise.id, exercise])), [exerciseLibrary]);
 
@@ -81,6 +85,15 @@ export default function StudentProfile() {
       </div>
     );
   }
+
+  const toggleExercise = (exerciseId: string) => {
+    setExpandedExercises((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(exerciseId)) proximo.delete(exerciseId);
+      else proximo.add(exerciseId);
+      return proximo;
+    });
+  };
 
   /**
    * Executa a acao mostrando o que aconteceu. Sem isto toda falha aqui era
@@ -234,6 +247,9 @@ export default function StudentProfile() {
   };
 
   const workout = editingWorkout ? workoutDraft : student.workout;
+  // Deriva em vez de guardar: se o bloco selecionado sumir (troca de plano,
+  // remoção durante a edição), a aba cai no primeiro em vez de ficar vazia.
+  const activeBlock = workout.find((block) => block.id === activeBlockId) ?? workout[0];
 
   return (
     <div className="page-shell">
@@ -604,17 +620,36 @@ export default function StudentProfile() {
             {editingWorkout && <Button variant="outline" className="mt-4" onClick={addBlock}><Plus className="mr-2 h-4 w-4" />Adicionar bloco</Button>}
           </div>
         ) : (
-          <div className="space-y-4">
+          <Tabs value={activeBlock?.id ?? ""} onValueChange={setActiveBlockId} className="space-y-4">
+            {/* Um bloco por aba: antes era tudo empilhado e chegar no Treino B
+                exigia rolar a lista inteira do A, com a mídia de cada exercício. */}
+            <div className="flex justify-start overflow-x-auto pb-1">
+              <TabsList className="h-auto flex-nowrap rounded-[18px] border border-border/60 bg-background/70 p-1">
+                {workout.map((block) => (
+                  <TabsTrigger key={block.id} value={block.id} className="shrink-0 rounded-[14px] px-4 py-2">
+                    {block.name || "Sem nome"}
+                    <span className="ml-2 rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">
+                      {block.exercises.length}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+
             {workout.map((block) => (
-              <article key={block.id} className="overflow-hidden rounded-[24px] border border-border/60 bg-background/60">
+              <TabsContent key={block.id} value={block.id}>
+              <article className="overflow-hidden rounded-[24px] border border-border/60 bg-background/60">
                 <div className="flex flex-col gap-3 border-b border-border/60 bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                   {editingWorkout ? <Input value={block.name} onChange={(event) => updateBlock(block.id, event.target.value)} className="h-10 w-full bg-card sm:max-w-xs" /> : <h3 className="font-semibold">{block.name}</h3>}
                   {editingWorkout && <Button variant="ghost" className="w-full text-destructive hover:text-destructive sm:w-auto" onClick={() => removeBlock(block.id)}><Trash2 className="mr-2 h-4 w-4" />Remover bloco</Button>}
                 </div>
 
-                <div className="divide-y divide-border/60">
+                {/* Em edição continua lista de largura inteira: os cinco campos
+                    (séries, reps, carga, descanso, obs) não cabem em 1/3 de tela.
+                    Só a visualização vira grade colapsável. */}
+                <div className={editingWorkout ? "divide-y divide-border/60" : "grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3"}>
                   {block.exercises.map((exercise, index) => (
-                    <div key={exercise.id} className="px-4 py-4">
+                    <div key={exercise.id} className={editingWorkout ? "px-4 py-4" : ""}>
                       {(() => {
                         const resolvedExercise = resolveExerciseFromLibrary(exercise, exerciseLibraryMap);
                         return editingWorkout ? (
@@ -637,21 +672,36 @@ export default function StudentProfile() {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-4">
-                          <div className="flex items-start gap-3">
-                            <span className="mt-0.5 w-5 text-xs text-muted-foreground">{index + 1}.</span>
+                        // Fechado por padrão: a mídia é o que fazia a lista
+                        // esticar. Aberto, mostra descrição, observação e vídeo.
+                        <div className="h-full overflow-hidden rounded-[20px] border border-border/60 bg-card/50">
+                          <button
+                            type="button"
+                            onClick={() => toggleExercise(exercise.id)}
+                            aria-expanded={expandedExercises.has(exercise.id)}
+                            className="flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-muted/40"
+                          >
+                            <span className="mt-0.5 w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium">{resolvedExercise.name}</p>
-                              <div className="mt-2 flex flex-wrap gap-2">
+                              <div className="mt-2 flex flex-wrap gap-1.5">
                                 <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{exercise.sets}x{exercise.reps}</span>
                                 {exercise.load && exercise.load !== "-" && <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{exercise.load}</span>}
-                                <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Descanso: {exercise.rest}</span>
+                                <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{exercise.rest}</span>
                               </div>
-                              {resolvedExercise.description && <p className="mt-3 text-sm leading-6 text-muted-foreground">{resolvedExercise.description}</p>}
-                              {exercise.notes && <p className="mt-3 text-xs italic text-muted-foreground">Observações do professor: {exercise.notes}</p>}
                             </div>
-                          </div>
-                          <ExerciseMediaPreview exercise={resolvedExercise} />
+                            <ChevronDown
+                              className={`mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expandedExercises.has(exercise.id) ? "rotate-180" : ""}`}
+                            />
+                          </button>
+
+                          {expandedExercises.has(exercise.id) ? (
+                            <div className="space-y-3 border-t border-border/60 p-3">
+                              {resolvedExercise.description && <p className="text-sm leading-6 text-muted-foreground">{resolvedExercise.description}</p>}
+                              {exercise.notes && <p className="text-xs italic text-muted-foreground">Observações do professor: {exercise.notes}</p>}
+                              <ExerciseMediaPreview exercise={resolvedExercise} />
+                            </div>
+                          ) : null}
                         </div>
                       );
                       })()}
@@ -666,9 +716,10 @@ export default function StudentProfile() {
                   )}
                 </div>
               </article>
+              </TabsContent>
             ))}
             {editingWorkout && <Button variant="outline" onClick={addBlock}><Plus className="mr-2 h-4 w-4" />Adicionar bloco</Button>}
-          </div>
+          </Tabs>
         )}
       </section>
 
