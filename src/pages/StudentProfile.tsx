@@ -647,7 +647,9 @@ export default function StudentProfile() {
                 {/* Em edição continua lista de largura inteira: os cinco campos
                     (séries, reps, carga, descanso, obs) não cabem em 1/3 de tela.
                     Só a visualização vira grade colapsável. */}
-                <div className={editingWorkout ? "divide-y divide-border/60" : "grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3"}>
+                {/* 3 colunas a partir de lg (1024px), nao de xl: com xl uma tela
+                    de 1278px caia para 2 colunas por dois pixels de diferenca. */}
+                <div className={editingWorkout ? "divide-y divide-border/60" : "grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3"}>
                   {block.exercises.map((exercise, index) => (
                     <div key={exercise.id} className={editingWorkout ? "px-4 py-4" : ""}>
                       {(() => {
