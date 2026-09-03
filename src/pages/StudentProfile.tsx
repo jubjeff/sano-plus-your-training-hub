@@ -17,7 +17,7 @@ import ImportWorkoutDialog from "@/components/ImportWorkoutDialog";
 import PasteWorkoutDialog from "@/components/PasteWorkoutDialog";
 import StudentFormDialog from "@/components/StudentFormDialog";
 import StudentTemporaryPasswordDialog from "@/components/StudentTemporaryPasswordDialog";
-import { formatDate, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
+import { formatDate, getBlockTabLabel, getInitials, getRelativeWorkoutLabel } from "@/lib/format";
 import { getStudentAccessStatusLabel, getStudentAccessTone } from "@/lib/student-access";
 import { getAttendanceSummary, getFinancialStatusLabel, getFinancialStatusTone, getPaymentDaysOverdue, getProofStatusLabel, getStudentFinancialStatus, isWorkoutBlockedByPayment } from "@/lib/student-dashboard";
 import { getAllowedProgressModes, getEngagementLabel, getEngagementTone, getPrimaryWorkoutForStudent, getStudentEngagementStats, getStudentWorkoutPlan, normalizeProgressMode } from "@/lib/training-management";
@@ -627,7 +627,8 @@ export default function StudentProfile() {
               <TabsList className="h-auto flex-nowrap rounded-[18px] border border-border/60 bg-background/70 p-1">
                 {workout.map((block) => (
                   <TabsTrigger key={block.id} value={block.id} className="shrink-0 rounded-[14px] px-4 py-2">
-                    {block.name || "Sem nome"}
+                    {/* Só "Treino A" na aba; o nome completo fica no título abaixo. */}
+                    {block.name ? getBlockTabLabel(block.name) : "Sem nome"}
                     <span className="ml-2 rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground">
                       {block.exercises.length}
                     </span>
