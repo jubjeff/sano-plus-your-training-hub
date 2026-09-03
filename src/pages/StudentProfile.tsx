@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Activity, ArrowLeft, CalendarDays, CheckCircle2, CreditCard, Download, Dumbbell, Edit, KeyRound, Mail, Phone, Plus, ReceiptText, ShieldCheck, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { useAuth } from "@/auth/use-auth";
@@ -38,6 +38,7 @@ export default function StudentProfile() {
   const [importOpen, setImportOpen] = useState(false);
   const [temporaryAccess, setTemporaryAccess] = useState<StudentTemporaryAccessResult | null>(null);
   const [editingWorkout, setEditingWorkout] = useState(false);
+  const workoutSectionRef = useRef<HTMLElement>(null);
   const [workoutDraft, setWorkoutDraft] = useState<WorkoutBlock[]>([]);
   const [trainingStructureDraft, setTrainingStructureDraft] = useState<"weekly" | "abcde">("weekly");
   const [trainingProgressDraft, setTrainingProgressDraft] = useState<"fixed_schedule" | "sequential_progression">("fixed_schedule");
@@ -105,6 +106,13 @@ export default function StudentProfile() {
     setWeeklyGoalDraft(plan.weeklyGoal ?? 4);
     setCurrentSuggestedBlockIdDraft(plan.currentSuggestedBlockId ?? null);
     setEditingWorkout(true);
+
+    // O botão do resumo fica no topo, mas o editor abre lá embaixo, depois da
+    // seção de anamnese. Sem levar a tela até lá, o clique parecia não fazer
+    // nada — principalmente no celular, onde a seção some da dobra.
+    requestAnimationFrame(() => {
+      workoutSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const saveWorkout = async () => {
@@ -488,7 +496,7 @@ export default function StudentProfile() {
           enquanto monta a prescricao logo abaixo. */}
       <StudentAnamnesisSection studentId={student.id} />
 
-      <section className="section-shell p-6 lg:p-8">
+      <section ref={workoutSectionRef} className="section-shell scroll-mt-24 p-6 lg:p-8">
           <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell className="h-5 w-5 text-primary" />

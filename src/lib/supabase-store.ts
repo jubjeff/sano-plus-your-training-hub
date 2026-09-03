@@ -1101,11 +1101,17 @@ export class SupabaseStore {
   }
 
   async importWorkoutToStudent(studentId: string, workoutId: string) {
+    // Sair calado aqui fazia a tela dizer "importado" para algo que nao
+    // aconteceu: quem chama nao tinha como distinguir sucesso de desistencia.
     const workout = this.workouts.find((item) => item.id === workoutId);
-    if (!workout) return;
+    if (!workout) {
+      throw new Error("Treino nao encontrado na biblioteca. Recarregue a pagina e tente de novo.");
+    }
 
     const student = this.getStudent(studentId);
-    if (!student) return;
+    if (!student) {
+      throw new Error("Aluno nao encontrado. Recarregue a pagina e tente de novo.");
+    }
     const currentPlan = getStudentWorkoutPlan(student);
     const newBlocks = cloneTemplateBlocksForStudent(workout.blocks, currentPlan.blocks);
     const normalizedBlocks = normalizeWorkoutBlocks(newBlocks, currentPlan.trainingStructureType);
