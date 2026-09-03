@@ -463,15 +463,17 @@ function CreateStudentDialog({
               <Input value={form.fullName} onChange={(e) => setForm(p => ({ ...p, fullName: e.target.value }))} disabled={submitting} />
             </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">E-mail</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} disabled={submitting} />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Telefone</Label>
-                <Input value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))} disabled={submitting} />
-              </div>
+            {/* E-mail sozinho na linha: o diálogo é limitado a max-w-md (448px),
+                entao duas colunas dao ~199px cada — estreito demais para um
+                endereco real, que ficava cortado mesmo no desktop. */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">E-mail</Label>
+              <Input type="email" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} disabled={submitting} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Telefone</Label>
+              <Input value={form.phone} onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))} disabled={submitting} />
             </div>
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
