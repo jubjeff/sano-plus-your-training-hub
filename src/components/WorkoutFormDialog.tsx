@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/auth/use-auth";
 import { useStore } from "@/hooks/use-store";
+import { toast } from "@/components/ui/sonner";
 import { ExerciseLibraryItem, Workout, WorkoutBlock } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
   const [objective, setObjective] = useState("");
   const [notes, setNotes] = useState("");
   const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
   const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
@@ -89,16 +91,26 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
     );
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (isEditing && workout) {
-      updateWorkout(workout.id, { name, objective, notes, blocks });
-    } else {
-      addWorkout({ name, objective, notes, blocks });
+    // Sem await o dialogo fechava antes da gravacao terminar; se ela falhasse,
+    // o professor perdia o que digitou sem ver erro nenhum.
+    setIsSaving(true);
+    try {
+      if (isEditing && workout) {
+        await updateWorkout(workout.id, { name, objective, notes, blocks });
+        toast.success("Treino atualizado.");
+      } else {
+        await addWorkout({ name, objective, notes, blocks });
+        toast.success("Treino criado.");
+      }
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o treino.");
+    } finally {
+      setIsSaving(false);
     }
-
-    onOpenChange(false);
   };
 
   return (
@@ -234,7 +246,7 @@ export default function WorkoutFormDialog({ open, onOpenChange, workout }: Props
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit">{isEditing ? "Salvar" : "Criar treino"}</Button>
+            <Button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : isEditing ? "Salvar" : "Criar treino"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

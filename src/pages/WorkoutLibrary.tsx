@@ -19,6 +19,7 @@ import {
 } from "@/lib/exercise-options";
 import { matchesExerciseQuery } from "@/lib/exercise-utils";
 import { formatDate } from "@/lib/format";
+import { toast } from "@/components/ui/sonner";
 
 const ALL = "all";
 
@@ -70,6 +71,44 @@ export default function WorkoutLibrary() {
       }),
     [exerciseCategory, exerciseDifficulty, exerciseEquipment, exerciseLibrary, exerciseMovement, exercisePrimary, exerciseSearch],
   );
+
+  /**
+   * As tres acoes abaixo chamavam o store sem await e sem catch. A promessa
+   * rejeitava fora do handler, entao falha nenhuma chegava a tela — e no caso
+   * do excluir isso e pior: o treino continuava existindo e o professor
+   * acreditava ter apagado.
+   */
+  const handleDuplicate = async (workoutId: string) => {
+    try {
+      await duplicateWorkout(workoutId);
+      toast.success("Treino duplicado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível duplicar o treino.");
+    }
+  };
+
+  const handleDelete = async (workout: Workout) => {
+    // Acao destrutiva e irreversivel: confirma antes de apagar.
+    if (!window.confirm(`Excluir o treino "${workout.name}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+    try {
+      await deleteWorkout(workout.id);
+      toast.success("Treino excluído.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o treino.");
+    }
+  };
+
+  const handleToggleExercise = async (exercise: ExerciseLibraryItem) => {
+    const proximo = !exercise.isActive;
+    try {
+      await setExerciseLibraryItemActive(exercise.id, proximo);
+      toast.success(proximo ? "Exercício ativado." : "Exercício inativado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o exercício.");
+    }
+  };
 
   const openEdit = (workout: Workout) => {
     setEditingWorkout(workout);
@@ -169,14 +208,14 @@ export default function WorkoutLibrary() {
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(workout)}>
                     <Edit className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateWorkout(workout.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDuplicate(workout.id)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => deleteWorkout(workout.id)}
+                    onClick={() => handleDelete(workout)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -320,7 +359,7 @@ export default function WorkoutLibrary() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditExercise(exercise)}>
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setExerciseLibraryItemActive(exercise.id, !exercise.isActive)}>
+                      <Button variant="ghost" size="sm" onClick={() => handleToggleExercise(exercise)}>
                         {exercise.isActive ? "Inativar" : "Ativar"}
                       </Button>
                     </div>

@@ -7,6 +7,7 @@ import { buildCoachRanking, getEngagementLabel, getEngagementTone } from "@/lib/
 import { getFinancialStatusLabel, getStudentFinancialStatus } from "@/lib/student-dashboard";
 import { AlertTriangle, ArrowRight, BellRing, Clock, Dumbbell, RefreshCw, UserCheck, UserX, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/sonner";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -50,6 +51,16 @@ export default function Dashboard() {
   }, [user]);
 
   const shouldShowProEndingAlert = typeof proDaysRemaining === "number" && proDaysRemaining > 0 && proDaysRemaining <= 30;
+
+  // Chamava markCoachAlertRead sem await: se a gravacao falhava, o alerta
+  // voltava a aparecer no proximo refresh sem nenhuma explicacao.
+  const handleMarkAlertRead = async (alertId: string) => {
+    try {
+      await markCoachAlertRead(alertId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível marcar o alerta como lido.");
+    }
+  };
 
   const stats = [
     { label: "Total de alunos", value: totalStudents, icon: Users, tone: "text-primary" },
@@ -261,7 +272,7 @@ export default function Dashboard() {
                         {student ? <button onClick={() => navigate(`/alunos/${student.id}`)} className="mt-3 text-xs font-semibold text-primary">Abrir perfil do aluno</button> : null}
                       </div>
                       {!alert.isRead ? (
-                        <button onClick={() => markCoachAlertRead(alert.id)} className="shrink-0 text-xs font-semibold text-primary">
+                        <button onClick={() => handleMarkAlertRead(alert.id)} className="shrink-0 text-xs font-semibold text-primary">
                           Marcar como lido
                         </button>
                       ) : null}

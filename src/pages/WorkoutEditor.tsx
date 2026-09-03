@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/hooks/use-store";
 import { createExerciseAssignmentFromLibrary, resolveExerciseFromLibrary } from "@/lib/exercise-utils";
+import { toast } from "@/components/ui/sonner";
 
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
@@ -29,6 +30,7 @@ export default function WorkoutEditor() {
   const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
   const [pickerBlockId, setPickerBlockId] = useState<string | null>(null);
   const [createLibraryBlockId, setCreateLibraryBlockId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const canManageExerciseLibrary = user?.role === "coach" && user.platformRole === "dev_admin";
 
   const exerciseLibraryMap = useMemo(
@@ -88,9 +90,20 @@ export default function WorkoutEditor() {
     );
   };
 
-  const handleSave = () => {
-    updateWorkout(workout.id, { name, objective, notes, blocks });
-    navigate("/biblioteca");
+  const handleSave = async () => {
+    // Antes navegava para a biblioteca sem esperar a gravacao. Se ela falhasse,
+    // o professor saía da tela achando que tinha salvo e perdia o treino
+    // inteiro, sem nenhuma mensagem. Agora só sai daqui depois de gravar.
+    setIsSaving(true);
+    try {
+      await updateWorkout(workout.id, { name, objective, notes, blocks });
+      toast.success("Treino salvo.");
+      navigate("/biblioteca");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o treino.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -110,7 +123,7 @@ export default function WorkoutEditor() {
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Use o catalogo oficial do Sano+ para manter a prescricao padronizada, clara e facil de atualizar.</p>
               </div>
             </div>
-            <Button className="min-w-40" onClick={handleSave}>
+            <Button className="min-w-40" onClick={handleSave} disabled={isSaving}>
               <Save className="mr-2 h-4 w-4" />
               Salvar treino
             </Button>
