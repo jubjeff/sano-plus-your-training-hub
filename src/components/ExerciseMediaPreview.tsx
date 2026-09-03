@@ -119,12 +119,16 @@ export default function ExerciseMediaPreview({ exercise, className = "" }: Props
     return (
       <div className={`${MOLDURA} ${className}`.trim()}>
         <div className={ROTULO}>Demonstração</div>
+        {/* As fotos do catalogo sao 3:2 deitadas (850x567). Numa caixa de altura
+            fixa e largura total, object-contain deixava ~62% de branco nas
+            laterais. Aqui a imagem define a propria altura e fica centrada, com
+            um teto de largura para nao gigantear no desktop. */}
         <img
           src={exercise.thumbnailUrl}
           alt={`Demonstração do exercício ${exercise.name}`}
           loading="lazy"
           onError={() => setImageFailed(true)}
-          className="h-64 w-full bg-white object-contain"
+          className="mx-auto block h-auto w-full max-w-md bg-white"
         />
       </div>
     );
