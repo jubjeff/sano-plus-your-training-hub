@@ -46,7 +46,7 @@ Sano+/
 │   ├── types/            # Tipos TypeScript globais
 │   └── test/             # Setup + testes Vitest
 ├── supabase/
-│   ├── migrations/       # 29 migrações SQL
+│   ├── migrations/       # 31 migrações SQL
 │   ├── functions/        # 10 Edge Functions
 │   │   ├── _shared/      # auth, cors, http, email, supabase, env, mercadopago
 │   │   ├── anamnesis-submit/
@@ -60,8 +60,8 @@ Sano+/
 │   │   ├── secure-ops/
 │   │   └── teacher-admin-actions/
 │   └── config.toml       # Project ID: sano-plus-app
-├── scripts/              # PowerShell (deploy de functions) + limpeza de storage
-├── docs/                 # Documentação extra
+├── scripts/              # Deploy de functions, limpeza de storage, scanner de promessas, gerador de imagens
+├── docs/                 # Manuais de uso (professor e aluno) + edge functions
 ├── vite.config.ts        # Porta 8080, alias @/ → ./src/
 ├── tailwind.config.ts
 ├── vercel.json           # Rewrite SPA para /index.html
@@ -94,9 +94,11 @@ camada de shims de re-export. O `AuthContext` vive em `src/auth/provider.tsx`.
 | `exercise-options.ts` | Opções dos campos (categorias, músculos, equipamentos...) |
 | `exercise-library-seed.ts` | Seed de 50+ exercícios globais |
 | `exercise-media.ts` | Upload e preview de mídia de exercícios |
+| `video-url.ts` | Reconhecimento de link do YouTube e URL direta de vídeo |
+| `workout-import.ts` | Leitura de treino colado em texto + conferência contra a biblioteca |
 | `profile-media.ts` | Upload e download de avatar |
 | `payment-proof.ts` | Validação de arquivo de comprovante de pagamento |
-| `format.ts` | Formatação de datas, textos e valores |
+| `format.ts` | Formatação de datas, textos e valores (inclui `getBlockTabLabel`) |
 | `utils.ts` | Utilitários gerais |
 
 ---
@@ -416,8 +418,14 @@ e o aluno é obrigado a preencher no primeiro acesso.
 ⚠️ **A imposição do portão fica no `ProtectedRoute`**, não no `AnamnesisRoute`.
 O guard da rota só protege `/minha-avaliacao` em si; sem a checagem global no
 `ProtectedRoute` o aluno digita `/aluno/dashboard` e entra sem preencher.
-Mesmo lugar onde `requiresFirstAccess` é imposto. **A ordem é: senha → avaliação
-→ portal.**
+**A ordem é: senha → avaliação → portal.**
+
+⚠️ **A ordem dos portões mora só em `resolveGateRedirect`** (`auth/authorization.ts`),
+com retorno antecipado por portão. Ela já esteve duplicada à mão dentro do
+`ProtectedRoute` e as duas cópias divergiram: aluno com senha **e** avaliação
+pendentes — que é todo aluno recém-cadastrado — ficava em loop infinito entre
+`/primeiro-acesso` e `/minha-avaliacao`, com tela em branco. **Não recrie a
+regra em outro lugar;** `auth-gate-redirect.test.ts` cobre o caso.
 
 O backfill de `20260818000007` dispensou todos os alunos que já existiam: a
 regra vale só para quem for criado a partir dali.
@@ -482,6 +490,84 @@ também chama os RPCs direto (`touch_student_last_login`, `mark_student_first_ac
 no `auth.service.ts` (1.485 linhas, arquivo mais crítico do app) com apenas 5 testes
 de cobertura. Risco alto, ganho baixo.
 
+### Promessa não aguardada — a classe de defeito que mais custou
+
+Seis fluxos quebraram pelo mesmo motivo: método `async` do store chamado **sem
+`await` e sem `catch`**. A promessa rejeita depois que o handler já terminou,
+então o `try/catch` síncrono não pega nada, o toast de sucesso sai assim mesmo
+e o usuário vê "cliquei e não aconteceu nada".
+
+Atingiu: check-in do aluno, salvar carga, importar treino, salvar no editor de
+treino, excluir treino e marcar alerta como lido. Em dois casos o dano foi
+maior que o silêncio — o editor **navegava para /biblioteca sem esperar**,
+perdendo o treino inteiro, e o excluir deixava o treino existindo enquanto o
+professor achava que tinha apagado.
+
+`scripts/scan-promessas-nao-aguardadas.mjs` varre o projeto atrás disso. Lê a
+lista de métodos `async` **direto do `supabase-store`**, então não envelhece
+quando alguém adicionar um método novo, e sai com código 1 quando acha algo —
+dá para plugar em CI. **Rode antes de dar merge em algo que chame o store.**
+
+> ⚠️ Esse padrão escondia bugs reais atrás de mensagem de sucesso. Dois bugs de
+> banco (o do telefone e o do check-in) só apareceram depois que o erro passou
+> a ser exibido. Se um handler novo chamar o store, ele precisa de `await`,
+> `try/catch` e toast — os três.
+
+### Duas armadilhas de banco, ambas não óbvias
+
+**`""` não é `null`.** O mapper converte coluna nula em string vazia para os
+inputs do formulário terem valor. Na volta esse `""` precisa virar `null` de
+novo: `students.phone` exige `phone is null or 10-11 dígitos`, então gravar
+`""` viola a constraint e **derruba qualquer update do aluno** — salvar treino,
+importar, mudar vencimento. Aluno sem telefone ficava impossível de editar.
+`nullIfBlank()` em `supabase-store.ts` cobre phone, email, goal e notes. Email
+tem o mesmo risco por outro caminho: o índice único é parcial
+(`where email is not null`), então dois `""` colidiriam entre si.
+
+**O guard de campos protegidos precisa de contexto nomeado.** O insert em
+`student_check_ins` dispara `sync_student_last_check_in`, que faz UPDATE em
+`students.last_check_in_at`. Essa função **não é `security definer`**, roda com
+privilégio do aluno, e `guard_student_self_update` trata esse campo como
+protegido — sem contexto, a exceção 42501 derrubava a transação inteira e
+**nenhum aluno conseguia registrar treino**. A correção
+(`20260902220000`) segue o padrão dos outros fluxos: a trigger declara
+`app.student_update_context = 'check_in'` e o guard libera exatamente
+`last_check_in_at` e `updated_at`. Contextos válidos hoje: `check_in`,
+`first_access_complete`, `touch_last_login`, `submit_payment_proof`.
+
+### Mídia de exercício — imagem do catálogo e link do YouTube
+
+`exercises.thumbnail_url` traz imagem de demonstração para 105 dos 176
+exercícios, vinda do **free-exercise-db** (licença Unlicense, domínio público).
+A escolha foi por **licença, não por acervo**: os acervos de GIF mais populares
+(ExerciseDB e mirrors) são mídia da Gym Visual re-hospedada sem direito de
+repasse, inviável num SaaS pago.
+
+As imagens são **hotlinkadas do jsDelivr**, nunca baixadas para o Storage — são
+5,4 MB que ficam fora da cota de 1 GB. `scripts/generate-exercise-images-migration.mjs`
+regenera a migration; o mapeamento português→inglês é **curado à mão** e todo
+id é validado contra o dataset antes de virar SQL.
+
+`video_url` aceita **URL do bucket ou link do YouTube**. Quem decide entre
+`<video>` e `<iframe>` é o formato da URL (`lib/video-url.ts`), então não houve
+coluna nova nem migration. Embed sai em `youtube-nocookie.com`.
+
+> ⚠️ Prioridade em `ExerciseMediaPreview`: **vídeo do professor > imagem do
+> catálogo > vazio**. A URL direta é checada ANTES do `videoStoragePath` — a
+> ordem inversa fazia o vídeo do professor nunca aparecer, porque o IndexedDB
+> que ela consultava está sempre vazio em produção.
+
+### Colar treino
+
+`PasteWorkoutDialog` + `lib/workout-import.ts` permitem prescrever fora do app
+e trazer pronto. O texto carrega **só prescrição** (nome, séries, reps, carga,
+descanso, observação); ficha técnica e mídia continuam vindo da biblioteca.
+
+O casamento por nome é **normalizado e exato**. Nome parecido vira sugestão na
+tela, nunca substituição automática, e o botão de aplicar fica desabilitado
+enquanto houver um não encontrado. **Não relaxe isso:** exercício trocado no
+treino do aluno é pior do que faltar um.
+
 ### Dívidas conhecidas
 
 - `src/guards/public-only-route.tsx` — `search.has("code")` referencia variável
@@ -489,9 +575,10 @@ de cobertura. Risco alto, ganho baixo.
 - `src/integrations/supabase/types.ts` desatualizado: não foi regerado após as
   migrações de PIX/planos/assinaturas. Causa ~59 erros `never` no `tsc --noEmit`
   (o build passa porque o SWC não faz typecheck). Corrigir com `supabase gen types`
-- Bundle único de ~1.164 kB — falta code-splitting por rota
-- **Cobertura de teste: 5 testes**, nenhum cobrindo anamnese, guards ou o
-  contrato das edge functions. Dois bugs caros da varredura teriam sido pegos
-  por qualquer um deles: a validação de vídeo que sobrou no backend depois de
-  sair do frontend, e o portão de anamnese que não bloqueava porque a checagem
-  estava só na rota, não no `ProtectedRoute`
+- Bundle único de ~1.17 MB — falta code-splitting por rota
+- `window.confirm()` nativo em `WorkoutLibrary` (excluir treino) e `Assinaturas`
+  (aprovar pagamento). Destoa do design system; se migrar para um diálogo
+  próprio, migre **os dois** para não ficarem inconsistentes
+- **Cobertura de teste: 40 testes** (era 5). Cobrem: ordem dos portões de auth,
+  parsing de URL de vídeo, leitura de treino colado e rótulo de aba. Continuam
+  **sem cobertura**: anamnese, contrato das edge functions e o store
